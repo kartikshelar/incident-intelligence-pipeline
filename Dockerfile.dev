@@ -10,6 +10,7 @@ COPY pyproject.toml ./
 COPY app ./app
 COPY migrations ./migrations
 COPY tests ./tests
+COPY spike ./spike
 COPY alembic.ini ./
 
 RUN pip install --no-cache-dir -e ".[dev]"

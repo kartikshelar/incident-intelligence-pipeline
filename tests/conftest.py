@@ -29,4 +29,4 @@ def engine() -> Engine:
 def clean_tables(engine: Engine) -> Iterator[None]:
     yield
     with engine.begin() as conn:
-        conn.execute(text("TRUNCATE TABLE jobs, sources"))
+        conn.execute(text("TRUNCATE TABLE documents, jobs, sources"))
