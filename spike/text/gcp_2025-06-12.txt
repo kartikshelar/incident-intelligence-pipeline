@@ -1,0 +1,619 @@
+Google Cloud Service Health
+
+Incidents
+
+Multiple GCP products are experiencing Service issues.
+
+Service Health
+
+ This page provides status information on the services that are part of Google Cloud. Check back here to view the current status of the services listed below. If you are experiencing an issue not listed here, please 
+contact Support
+. Learn more about what's posted on the dashboard in 
+this FAQ
+. For additional information on these services, please visit 
+https://cloud.google.com/
+. 
+
+For incidents related to Google Security Products, visit 
+https://status.cloud.google.com/security
+. For incidents related to Looker (original), visit 
+https://status.cloud.google.com/looker
+.
+
+Available
+
+Service disruption
+
+Service outage
+
+ Incident affecting API Gateway, Agent Assist, Agent Platform Online Inference, Agent Search on Agent Platform, AlloyDB for PostgreSQL, Apigee, Apigee Edge Public Cloud, Apigee Hybrid, Cloud Data Fusion, Cloud Firestore, Cloud Logging, Cloud Memorystore, Cloud Monitoring, Cloud Run, Cloud Security Command Center, Cloud Shell, Cloud Spanner, Cloud Workstations, Contact Center AI Platform, Contact Center Insights, Data Catalog, Database Migration Service, Dataform, Dataplex, Dataproc Metastore, Datastream, Dialogflow CX, Dialogflow ES, Gemini on Agent Platform, Google App Engine, Google BigQuery, Google Cloud Bigtable, Google Cloud Console, Google Cloud DNS, Google Cloud Dataflow, Google Cloud Dataproc, Google Cloud Pub/Sub, Google Cloud SQL, Google Cloud Storage, Google Compute Engine, Identity Platform, Identity and Access Management, Imagen on Agent Platform, Looker Studio, Managed Airflow, Managed Service for Apache Kafka, Memorystore for Memcached, Memorystore for Redis, Memorystore for Redis Cluster, Persistent Disk, Personalized Service Health, Pub/Sub Lite, Speech-to-Text, Text-to-Speech, reCAPTCHA Enterprise 
+
+Multiple GCP products are experiencing Service issues.
+
+ Incident began at 
+2025-06-12 10:51
+ and ended at 
+2025-06-12 18:18
+
+(all times are 
+US/Pacific
+).
+
+ Previously affected location(s) 
+
+Johannesburg (africa-south1)
+Multi-region: asia
+Taiwan (asia-east1)
+Hong Kong (asia-east2)
+Tokyo (asia-northeast1)
+Osaka (asia-northeast2)
+Seoul (asia-northeast3)
+Mumbai (asia-south1)
+Delhi (asia-south2)
+Singapore (asia-southeast1)
+Jakarta (asia-southeast2)
+Multi-region: asia1
+Sydney (australia-southeast1)
+Melbourne (australia-southeast2)
+Multi-region: eu
+Multi-region: eur3
+Multi-region: eur4
+Multi-region: eur5
+Warsaw (europe-central2)
+Finland (europe-north1)
+Stockholm (europe-north2)
+Madrid (europe-southwest1)
+Belgium (europe-west1)
+Berlin (europe-west10)
+Turin (europe-west12)
+London (europe-west2)
+Frankfurt (europe-west3)
+Netherlands (europe-west4)
+Zurich (europe-west6)
+Milan (europe-west8)
+Paris (europe-west9)
+Global
+Doha (me-central1)
+Dammam (me-central2)
+Tel Aviv (me-west1)
+Multi-region: nam-eur-asia1
+Multi-region: nam10
+Multi-region: nam11
+Multi-region: nam12
+Multi-region: nam13
+Multi-region: nam3
+Multi-region: nam5
+Multi-region: nam6
+Multi-region: nam7
+Multi-region: nam8
+Multi-region: nam9
+Montréal (northamerica-northeast1)
+Toronto (northamerica-northeast2)
+Mexico (northamerica-south1)
+São Paulo (southamerica-east1)
+Santiago (southamerica-west1)
+Multi-region: us
+Iowa (us-central1)
+South Carolina (us-east1)
+Northern Virginia (us-east4)
+Columbus (us-east5)
+Dallas (us-south1)
+Oregon (us-west1)
+Los Angeles (us-west2)
+Salt Lake City (us-west3)
+Las Vegas (us-west4)
+
+Date
+
+Time
+
+Description
+
+13 Jun 2025
+
+16:45 PDT
+
+Incident Report
+
+Summary
+
+Google Cloud, Google Workspace and Google Security Operations products experienced increased 503 errors in external API requests, impacting customers.
+
+We deeply apologize for the impact this outage has had. Google Cloud customers and their users trust their businesses to Google, and we will do better. We apologize for the impact this has had not only on our customers’ businesses and their users but also on the trust of our systems. We are committed to making improvements to help avoid outages like this moving forward.
+
+What happened?
+
+Google and Google Cloud APIs are served through our Google API management and control planes. Distributed regionally, these management and control planes are responsible for ensuring each API request that comes in is authorized, has the policy and appropriate checks (like quota) to meet their endpoints. The core binary that is part of this policy check system is known as Service Control. Service Control is a regional service that has a regional datastore that it reads quota and policy information from. This datastore metadata gets replicated almost instantly globally to manage quota policies for Google Cloud and our customers.
+
+On May 29, 2025, a new feature was added to Service Control for additional quota policy checks. This code change and binary release went through our region by region rollout, but the code path that failed was never exercised during this rollout due to needing a policy change that would trigger the code. As a safety precaution, this code change came with a red-button to turn off that particular policy serving path. The issue with this change was that it did not have appropriate error handling nor was it feature flag protected. Without the appropriate error handling, the null pointer caused the binary to crash. Feature flags are used to gradually enable the feature region by region per project, starting with internal projects, to enable us to catch issues. If this had been flag protected, the issue would have been caught in staging.
+
+On June 12, 2025 at ~10:45am PDT, a policy change was inserted into the regional Spanner tables that Service Control uses for policies. Given the global nature of quota management, this metadata was replicated globally within seconds. This policy data contained unintended blank fields. Service Control, then regionally exercised quota checks on policies in each regional datastore. This pulled in blank fields for this respective policy change and exercised the code path that hit the null pointer causing the binaries to go into a crash loop. This occurred globally given each regional deployment.
+
+Within 2 minutes, our Site Reliability Engineering team was triaging the incident. Within 10 minutes, the root cause was identified and the red-button (to disable the serving path) was being put in place. The red-button was ready to roll out ~25 minutes from the start of the incident. Within 40 minutes of the incident, the red-button rollout was completed, and we started seeing recovery across regions, starting with the smaller ones first.
+
+Within some of our larger regions, such as us-central-1, as Service Control tasks restarted, it created a herd effect on the underlying infrastructure it depends on (i.e. that Spanner table), overloading the infrastructure. Service Control did not have the appropriate randomized exponential backoff implemented to avoid this. It took up to ~2h 40 mins to fully resolve in us-central-1 as we throttled task creation to minimize the impact on the underlying infrastructure and routed traffic to multi-regional databases to reduce the load. At that point, Service Control and API serving was fully recovered across all regions. Corresponding Google and Google Cloud products started recovering with some taking longer depending upon their architecture.
+
+What is our immediate path forward?
+
+Immediately upon recovery, we froze all changes to the Service Control stack and manual policy pushes until we can completely remediate the system.
+
+How did we communicate?
+
+We posted our first incident report to Cloud Service Health about ~1h after the start of the crashes, due to the Cloud Service Health infrastructure being down due to this outage. For some customers, the monitoring infrastructure they had running on Google Cloud was also failing, leaving them without a signal of the incident or an understanding of the impact to their business and/or infrastructure. We will address this going forward.
+
+What’s our approach moving forward?
+
+Beyond freezing the system as mentioned above, we will prioritize and safely complete the following:
+
+We will modularize Service Control’s architecture, so the functionality is isolated and fails open. Thus, if a corresponding check fails, Service Control can still serve API requests.
+
+We will audit all systems that consume globally replicated data. Regardless of the business need for near instantaneous consistency of the data globally (i.e. quota management settings are global), data replication needs to be propagated incrementally with sufficient time to validate and detect issues.
+
+We will enforce all changes to critical binaries to be feature flag protected and disabled by default.
+
+We will improve our static analysis and testing practices to correctly handle errors and if need be fail open.
+
+We will audit and ensure our systems employ randomized exponential backoff.
+
+We will improve our external communications, both automated and human, so our customers get the information they need asap to react to issues, manage their systems and help their customers.
+
+We'll ensure our monitoring and communication infrastructure remains operational to serve customers even when Google Cloud and our primary monitoring products are down, ensuring business continuity.
+
+12 Jun 2025
+
+23:34 PDT
+
+Mini Incident Report
+
+We are deeply sorry for the impact to all of our users and their customers that this service disruption/outage caused. Businesses large and small trust Google Cloud with your workloads and we will do better. In the coming days, we will publish a full incident report of the root cause, detailed timeline and robust remediation steps we will be taking. Given the size and impact of this incident, we would like to provide some information below.
+
+Please note, this information is based on our best knowledge at the time of posting and is subject to change as our investigation continues. If you have experienced impact outside of what is listed below, please reach out to Google Cloud Support using 
+https://cloud.google.com/support
+ or to Google Workspace Support using help article 
+https://support.google.com/a/answer/1047213
+.
+
+(All Times US/Pacific)
+
+Incident Start:
+ 12 June, 2025 10:49
+
+All regions except us-central1 mitigated:
+ 12 June, 2025 12:48
+
+Incident End:
+ 12 June, 2025 13:49
+
+Duration:
+ 3 hours
+
+Regions/Zones:
+ Global
+
+Description:
+
+Multiple Google Cloud and Google Workspace products experienced increased 503 errors in external API requests, impacting customers.
+
+From our initial analysis, the issue occurred due to an invalid automated quota update to our API management system which was distributed globally, causing external API requests to be rejected. To recover we bypassed the offending quota check, which allowed recovery in most regions within 2 hours. However, the quota policy database in us-central1 became overloaded, resulting in much longer recovery in that region. Several products had moderate residual impact (e.g. backlogs) for up to an hour after the primary issue was mitigated and a small number recovering after that.
+
+Google will complete a full Incident Report in the following days that will provide a detailed root cause.
+
+Customer Impact:
+
+Customers had intermittent API and user-interface access issues to the impacted services. Existing streaming and IaaS resources were not impacted.
+
+Additional details:
+
+This incident should not have happened, and we will take the following measures to prevent future recurrence:
+
+Prevent our API management platform from failing due to invalid or corrupt data.
+
+Prevent metadata from propagating globally without appropriate protection, testing and monitoring in place.
+
+Improve system error handling and comprehensive testing for handling of invalid data.
+
+Affected Services and Features:
+
+Google Cloud Products:
+
+Identity and Access Management
+
+Cloud Build
+
+Cloud Key Management Service
+
+Google Cloud Storage
+
+Cloud Monitoring
+
+Google Cloud Dataproc
+
+Cloud Security Command Center
+
+Artifact Registry
+
+Cloud Workflows
+
+Cloud Healthcare
+
+Resource Manager API
+
+Dataproc Metastore
+
+Cloud Run
+
+VMWare engine
+
+Dataplex
+
+Migrate to Virtual Machines
+
+Google BigQuery
+
+Contact Center AI Platform
+
+Google Cloud Deploy
+
+Media CDN
+
+Colab Enterprise
+
+Vertex Gemini API
+
+Cloud Data Fusion
+
+Cloud Asset Inventory
+
+Datastream
+
+Integration Connectors
+
+Apigee
+
+Google Cloud NetApp Volumes
+
+Google Cloud Bigtable
+
+Looker (Google Cloud core)
+
+Looker Studio
+
+Google Cloud Functions
+
+Cloud Load Balancing
+
+Traffic Director
+
+Document AI
+
+AutoML Translation
+
+Pub/Sub Lite
+
+API Gateway
+
+Agent Assist
+
+AlloyDB for PostgreSQL
+
+Cloud Firestore
+
+Cloud Logging
+
+Cloud Shell
+
+Cloud Memorystore
+
+Cloud Spanner
+
+Contact Center Insights
+
+Database Migration Service
+
+Dialogflow CX
+
+Dialogflow ES
+
+Google App Engine
+
+Google Cloud Composer
+
+Google Cloud Console
+
+Google Cloud DNS
+
+Google Cloud Pub/Sub
+
+Google Cloud SQL
+
+Google Compute Engine
+
+Identity Platform
+
+Managed Service for Apache Kafka
+
+Memorystore for Memcached
+
+Memorystore for Redis
+
+Memorystore for Redis Cluster
+
+Persistent Disk
+
+Personalized Service Health
+
+Speech-to-Text
+
+Text-to-Speech
+
+Vertex AI Search
+
+Retail API
+
+Vertex AI Feature Store
+
+BigQuery Data Transfer Service
+
+Google Cloud Marketplace
+
+Cloud NAT
+
+Hybrid Connectivity
+
+Cloud Vision
+
+Network Connectivity Center
+
+Cloud Workstations
+
+Google Security Operations
+
+Google Workspace Products:
+
+AppSheet
+
+Gmail
+
+Google Calendar
+
+Google Drive
+
+Google Chat
+
+Google Voice
+
+Google Docs
+
+Google Meet
+
+Google Cloud Search
+
+Google Tasks
+
+12 Jun 2025
+
+18:27 PDT
+
+Vertex AI Online Prediction is full recovered as of 18:18 PDT.
+
+All the services are fully recovered from the service issue
+
+We will publish analysis of this incident once we have completed our internal investigation.
+
+We thank you for your patience while we worked on resolving the issue.
+
+12 Jun 2025
+
+17:59 PDT
+
+Vertex AI Online Prediction:
+
+The issue causing elevated 5xx errors with some Model Garden models was fully resolved as of 17:05 PDT. Vertex AI serving is now back to normal in all regions except europe-west1 and asia-southeast1. Engineers are actively working to restore normal serving capacity in these two regions.
+
+The ETA for restoring normal serving capacity in europe-west1 and asia-southeast1 is 19:45 PDT.
+
+We will provide an update by Thursday, 2025-06-12 19:45 PDT with current details.
+
+12 Jun 2025
+
+17:33 PDT
+
+The impact on Personalized Service Health is now resolved and the updates should be reflected without any issues.
+
+The issue with Google Cloud Dataflow is fully resolved as of 17:10 PDT
+
+The only remaining impact is on Vertex AI Online Prediction as follows:
+
+Vertex AI Online Prediction:
+ Customers may continue to experience elevated 5xx errors with some of the models available in the Model Garden. We are seeing gradual decrease in error rates as our engineers perform appropriate mitigation actions.
+
+The ETA for full resolution of these 5xx errors is 22:00 PDT
+
+We will provide an update by Thursday, 2025-06-12 22:00 PDT with current details.
+
+12 Jun 2025
+
+17:06 PDT
+
+The following Google Cloud products are still experiencing residual impact:
+
+Google Cloud Dataflow:
+ Dataflow backlog has cleared up in all regions except us-central1. Customers may experience delays with Dataflow operations in us-central1 as the backlog clears up gradually. We do not have an ETA for Cloud Dataflow recovery in us-central1.
+
+Vertex AI Online Prediction:
+ Customers may continue to experience elevated 5xx errors with some of the models available in the Model Garden. We are seeing gradual decrease in error rates as our engineers perform appropriate mitigation actions. The ETA for full resolution of these 5xx errors is 22:00 PDT
+
+Personalized Service Health:
+ Updates on the Personalized Service Health are delayed and we recommend customers to continue using Cloud Service Health dashboard for updates.
+
+We will provide an update by Thursday, 2025-06-12 17:45 PDT with current details.
+
+12 Jun 2025
+
+16:13 PDT
+
+The following Google Cloud products are still experiencing residual impact:
+
+Google Cloud Dataflow:
+ Customers may experience delays with Dataflow operations as the backlog is clearing up gradually.
+
+Vertex AI Online Prediction:
+ Customers may continue to experience elevated 5xx errors with some of the models available in the Model Garden.
+
+Personalized Service Health:
+ Updates on the Personalized Service Health are delayed and we recommend customers to continue using Cloud Service Health dashboard for updates.
+
+We currently do not have an ETA for full mitigation of the above services.
+
+We will provide an update by Thursday, 2025-06-12 17:00 PDT with current details.
+
+12 Jun 2025
+
+15:16 PDT
+
+Most of the Google Cloud products are fully recovered as of 13:45 PDT.
+
+There is some residual impact for the products currently marked as affected on the dashboard. Please continue to monitor the services and the dashboard for individual product recoveries.
+
+We will provide an update by Thursday, 2025-06-12 16:00 PDT with current details.
+
+12 Jun 2025
+
+14:23 PDT
+
+Most of the Google Cloud products have confirmed full service recovery.
+
+A few services are still seeing some residual impact and the respective engineering teams are actively working on recovery of those services.
+
+We expect the recovery to complete in less than an hour.
+
+We will provide an update by Thursday, 2025-06-12 15:00 PDT with current details.
+
+12 Jun 2025
+
+14:00 PDT
+
+We have implemented mitigation for the issue in us-central1 and multi-region/us and we are seeing signs of recovery.
+
+We have received confirmation from our internal monitoring and customers that the Google Cloud products are also seeing recovery in multiple regions and are also seeing signs of some recovery in us-central1 and mutli-region/us.
+
+We expect the recovery to complete in less than an hour.
+
+We will provide an update by Thursday, 2025-06-12 14:30 PDT with current details.
+
+12 Jun 2025
+
+13:16 PDT
+
+We have identified the root cause and applied appropriate mitigations.
+Our infrastructure has recovered in all regions except us-central1.
+
+Google Cloud products that rely on the affected infrastructure are seeing recovery in multiple locations.
+
+Our engineers are aware of the customers still experiencing issues on us-central1 and multi-region/us and are actively working on full recovery.
+
+We do not have an ETA for full recovery.
+
+We will provide an update by Thursday, 2025-06-12 14:00 PDT with current details.
+
+12 Jun 2025
+
+12:41 PDT
+
+Our engineers have identified the root cause and have applied appropriate mitigations.
+
+While our engineers have confirmed that the underlying dependency is recovered in all locations except us-central1, 
+we are aware that customers are still experiencing varying degrees of impact on individual google cloud products
+. All the respective engineering teams are actively engaged and working on service recovery.
+
+We do not have an ETA for full service recovery.
+
+We will provide an update by Thursday, 2025-06-12 13:30 PDT with current details.
+
+12 Jun 2025
+
+12:30 PDT
+
+All locations except us-central1 have fully recovered. us-central1 is mostly recovered. We do not have an ETA for full recovery in us-central1.
+
+We will provide an update by Thursday, 2025-06-12 13:00 PDT with current details.
+
+12 Jun 2025
+
+12:09 PDT
+
+Our engineers are continuing to mitigate the issue and we have confirmation that the issue is recovered in some locations.
+
+We do not have an ETA on full mitigation at this point.
+
+We will provide an update by Thursday, 2025-06-12 12:45 PDT with current details.
+
+12 Jun 2025
+
+11:59 PDT
+
+Summary:
+
+Multiple GCP products are experiencing Service issues with API requests
+
+Description
+
+We are experiencing service issues with multiple GCP products beginning at Thursday, 2025-06-12 10:51 PDT.
+
+Our engineering team continues to investigate the issue.
+
+We will provide an update by Thursday, 2025-06-12 12:15 PDT with current details.
+
+We apologize to all who are affected by the disruption.
+
+Symptoms:
+
+Multiple GCP products are experiencing varying level of service impacts with API requests.
+
+Workaround:
+
+None at this time.
+
+12 Jun 2025
+
+11:46 PDT
+
+Summary:
+
+Multiple GCP products are experiencing Service issues
+
+Description
+
+We are experiencing service issues with multiple GCP products beginning at Thursday, 2025-06-12 10:51 PDT.
+
+Our engineering team continues to investigate the issue.
+
+We will provide an update by Thursday, 2025-06-12 12:15 PDT with current details.
+
+We apologize to all who are affected by the disruption.
+
+Symptoms:
+
+Multiple GCP products are experiencing varying level of service impacts.
+
+Workaround:
+
+None at this time.
+
+All times are US/Pacific
+
+Documentation
+
+RSS Feed
+
+JSON History
+ | 
+Schema
+
+JSON Product Catalog
+ | 
+Schema
+
+Send feedback
+
+Privacy policy

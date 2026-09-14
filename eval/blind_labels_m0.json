@@ -1,0 +1,122 @@
+[
+  {
+    "doc": "aws_2025-10-20.txt",
+    "labeled_on": "2026-09-13",
+    "trigger_freetext": "DynamoDB DNS automation race condition",
+    "detection_method": "monitoring",
+    "contributing_factors": [
+      "stale DNS plan was allowed to overwrite a newer plan",
+      "DNS Enactor experienced unusually long update/retry delays",
+      "cleanup deleted the old plan while it had become the active plan",
+      "Automation couldn’t recover from the resulting inconsistent DNS state and required manual intervention"
+    ]
+  },
+  {
+    "doc": "cloudflare_2025-11-18.txt",
+    "labeled_on": "2026-09-13",
+    "trigger_freetext": "database permissions change generated an oversized Bot Management feature file",
+    "detection_method": "automated",
+    "contributing_factors": [
+      "feature-generation query didn't filter by database name",
+      "duplicate feature rows more than doubled the config file size",
+      "core proxy had a hard feature limit and panicked when it was exceeded",
+      "rapid global propagation spread the bad file across the network"
+    ]
+  },
+  {
+    "doc": "crowdstrike_2024-07-19.txt",
+    "labeled_on": "2026-09-13",
+    "trigger_freetext": "bad Channel File 291 update triggered an out-of-bounds memory read in the Falcon sensor",
+    "detection_method": "unknown",
+    "contributing_factors": [
+      "21-field template supplied only 20 input values",
+      "missing runtime array bounds check",
+      "tests used a wildcard for the 21st field, hiding the bug",
+      "new content wasn't deployed through staged rollout/canary rings"
+    ]
+  },
+  {
+    "doc": "datadog_2023-03-08.txt",
+    "labeled_on": "2026-09-13",
+    "trigger_freetext": "automatic systemd security update wiped Cilium network routes on running nodes",
+    "detection_method": "monitoring",
+    "contributing_factors": [
+      "legacy automatic security-update channel was still enabled",
+      "same update window across otherwise independent regions",
+      "bug only appeared when systemd-networkd restarted on an already-running node",
+      "Tens of thousands of nodes failed at once, making recovery harder"
+    ]
+  },
+  {
+    "doc": "gcp_2025-06-12.txt",
+    "labeled_on": "2026-09-13",
+    "trigger_freetext": "bad quota policy data triggered a null-pointer crash in Service Control",
+    "detection_method": "monitoring",
+    "contributing_factors": [
+      "missing error handling for blank policy fields",
+      "new code path wasn't protected by a feature flag",
+      "bad policy metadata replicated globally within seconds",
+      "missing randomized exponential backoff caused a restart herd"
+    ]
+  },
+  {
+    "doc": "github_2018-10-21.txt",
+    "labeled_on": "2026-09-13",
+    "trigger_freetext": "network maintenance partition triggered an unsafe cross-region MySQL failover",
+    "detection_method": "monitoring",
+    "contributing_factors": [
+      "Orchestrator was allowed to promote database primaries across regions",
+      "unreplicated writes left East and West Coast databases inconsistent",
+      "applications couldn't handle cross-country database latency",
+      "multi-terabyte backup restores made recovery take hours"
+    ]
+  },
+  {
+    "doc": "gitlab_2017-01-31.txt",
+    "labeled_on": "2026-09-13",
+    "trigger_freetext": "engineer accidentally deleted the primary PostgreSQL database directory",
+    "detection_method": "internal_manual",
+    "contributing_factors": [
+      "replication had already failed and the secondary was being rebuilt",
+      "primary and secondary hosts were too easy to confuse during manual recovery",
+      "database backups had been silently failing",
+      "backup failure emails were rejected so nobody knew backups were broken"
+    ]
+  },
+  {
+    "doc": "k8s_2019-02-08.txt",
+    "labeled_on": "2026-09-13",
+    "trigger_freetext": "Prow client refactor sent test jobs to the service cluster instead of the build cluster",
+    "detection_method": "internal_manual",
+    "contributing_factors": [
+      "client refactor ignored the configured default cluster alias",
+      "wrongly scheduled jobs piled up because they lacked required credentials and volumes",
+      "service cluster ran out of CPU and memory",
+      "no realistic staging Prow and insufficient end-to-end testing"
+    ]
+  },
+  {
+    "doc": "roblox_2021-10-28.txt",
+    "labeled_on": "2026-09-13",
+    "trigger_freetext": "Consul collapsed under heavy load after enabling its new streaming feature",
+    "detection_method": "internal_manual",
+    "contributing_factors": [
+      "high read and write load caused contention in Consul streaming",
+      "BoltDB freelist behavior caused pathological write latency",
+      "one Consul cluster was a single point of failure for many services",
+      "monitoring depended on Consul, hiding useful telemetry during the outage"
+    ]
+  },
+  {
+    "doc": "slack_2022-02-22.txt",
+    "labeled_on": "2026-09-13",
+    "trigger_freetext": "Consul maintenance churned the cache fleet and overloaded the backing database",
+    "detection_method": "monitoring",
+    "contributing_factors": [
+      "Consul restarts repeatedly removed memcached nodes",
+      "Mcrib aggressively replaced and flushed cache nodes",
+      "cache misses triggered expensive scatter queries across every Vitess shard",
+      "client retries added load during the cascading failure"
+    ]
+  }
+]

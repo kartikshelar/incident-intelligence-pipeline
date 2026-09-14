@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: incident_intel
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/incident_intel
+    command: ["alembic", "upgrade", "head"]
+
+  api:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      APP_DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/incident_intel
+    ports:
+      - "8000:8000"
+    command: ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  worker:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      APP_DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/incident_intel
+    command: ["python", "-m", "app.worker.main"]
+
+volumes:
+  postgres_data:

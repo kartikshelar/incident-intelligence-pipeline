@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<link rel="profile" href="https://gmpg.org/xfn/11" />
+	<link rel="shortcut icon" href="https://slack.engineering/wp-content/themes/tinyspeck/assets/public/icons/favicon.png" sizes="16x16 32x32 48x48" type="image/png">
+	<!-- Optanon Consent Notice start -->
+	<script src="https://d34u8crftukxnk.cloudfront.net/onetrust/slack.engineering/production/scripttemplates/otSDKStub.js" type="text/javascript" charset="UTF-8" data-domain-script="019872bf-9ff8-7d80-8158-f0c910bcdfad"></script>
+	<!-- Optanon Consent Notice end -->
+	<title>Slack’s Incident on 2-22-22 |  Engineering at Slack</title>
+	<meta name="description" content="By Laura Nolan, with contributions from Glen D. Sanford, Jamie Scheinblum, and Chris Sullivan. Assessing conditions Slack experienced a major incident on February 22 this year, during which time many users were unable to connect to Slack, including the author — which certainly made my role as Incident Commander more challenging! This incident was a&hellip;">
+	<meta property="og:url" content="https://slack.engineering/slacks-incident-on-2-22-22/">
+	<meta property="og:type" content="website">
+	<meta property="og:title" content="Slack’s Incident on 2-22-22">
+	<meta property="og:description" content="By Laura Nolan, with contributions from Glen D. Sanford, Jamie Scheinblum, and Chris Sullivan. Assessing conditions Slack experienced a major incident on February 22 this year, during which time many users were unable to connect to Slack, including the author — which certainly made my role as Incident Commander more challenging! This incident was a&hellip;">
+	<meta property="og:image" content="https://slack.engineering/wp-content/uploads/sites/7/2022/04/black-swan-gd3523927a_1920.jpg">
+	<meta property="og:image:width" content="6000">
+	<meta property="og:image:height" content="4000">
+	<meta name="twitter:card" content="summary_large_image">
+	<meta property="twitter:domain" content="slack.engineering">
+	<meta property="twitter:url" content="https://slack.engineering/slacks-incident-on-2-22-22/">
+	<meta name="twitter:title" content="Slack’s Incident on 2-22-22">
+	<meta name="twitter:description" content="By Laura Nolan, with contributions from Glen D. Sanford, Jamie Scheinblum, and Chris Sullivan. Assessing conditions Slack experienced a major incident on February 22 this year, during which time many users were unable to connect to Slack, including the author — which certainly made my role as Incident Commander more challenging! This incident was a&hellip;">
+	<meta name="twitter:image" content="https://slack.engineering/wp-content/uploads/sites/7/2022/04/black-swan-gd3523927a_1920.jpg">
+
+			<!-- Google tag (gtag.js) -->
+		<script async src="https://www.googletagmanager.com/gtag/js?id=G-590Q1VHB01"></script>
+		<script>
+			window.dataLayer = window.dataLayer || [];
+			function gtag(){dataLayer.push(arguments);}
+			gtag('js', new Date());
+			gtag('config', 'G-590Q1VHB01');
+		</script>
+		<!-- End Google Analytics -->
+		<title>Slack’s Incident on 2-22-22 &#8211; Engineering at Slack</title>
+<meta name='robots' content='max-image-preview:large' />
+<link rel="alternate" title="oEmbed (JSON)" type="application/json+oembed" href="https://slack.engineering/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fslack.engineering%2Fslacks-incident-on-2-22-22%2F" />
+<link rel="alternate" title="oEmbed (XML)" type="text/xml+oembed" href="https://slack.engineering/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fslack.engineering%2Fslacks-incident-on-2-22-22%2F&#038;format=xml" />
+<style id="wp-img-auto-sizes-contain-inline-css">
+img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
+/*# sourceURL=wp-img-auto-sizes-contain-inline-css */
+</style>
+<style id="wp-emoji-styles-inline-css">
+
+	img.wp-smiley, img.emoji {
+		display: inline !important;
+		border: none !important;
+		box-shadow: none !important;
+		height: 1em !important;
+		width: 1em !important;
+		margin: 0 0.07em !important;
+		vertical-align: -0.1em !important;
+		background: none !important;
+		padding: 0 !important;
+	}
+/*# sourceURL=wp-emoji-styles-inline-css */
+</style>
+<style id="wp-block-library-inline-css">
+:root{--wp-block-synced-color:#7a00df;--wp-block-synced-color--rgb:122,0,223;--wp-bound-block-color:var(--wp-block-synced-color);--wp-editor-canvas-background:#ddd;--wp-admin-theme-color:#007cba;--wp-admin-theme-color--rgb:0,124,186;--wp-admin-theme-color-darker-10:#006ba1;--wp-admin-theme-color-darker-10--rgb:0,107,160.5;--wp-admin-theme-color-darker-20:#005a87;--wp-admin-theme-color-darker-20--rgb:0,90,135;--wp-admin-border-width-focus:2px}@media (min-resolution:192dpi){:root{--wp-admin-border-width-focus:1.5px}}.wp-element-button{cursor:pointer}:root .has-very-light-gray-background-color{background-color:#eee}:root .has-very-dark-gray-background-color{background-color:#313131}:root .has-very-light-gray-color{color:#eee}:root .has-very-dark-gray-color{color:#313131}:root .has-vivid-green-cyan-to-vivid-cyan-blue-gradient-background{background:linear-gradient(135deg,#00d084,#0693e3)}:root .has-purple-crush-gradient-background{background:linear-gradient(135deg,#34e2e4,#4721fb 50%,#ab1dfe)}:root .has-hazy-dawn-gradient-background{background:linear-gradient(135deg,#faaca8,#dad0ec)}:root .has-subdued-olive-gradient-background{background:linear-gradient(135deg,#fafae1,#67a671)}:root .has-atomic-cream-gradient-background{background:linear-gradient(135deg,#fdd79a,#004a59)}:root .has-nightshade-gradient-background{background:linear-gradient(135deg,#330968,#31cdcf)}:root .has-midnight-gradient-background{background:linear-gradient(135deg,#020381,#2874fc)}:root{--wp--preset--font-size--normal:16px;--wp--preset--font-size--huge:42px}.has-regular-font-size{font-size:1em}.has-larger-font-size{font-size:2.625em}.has-normal-font-size{font-size:var(--wp--preset--font-size--normal)}.has-huge-font-size{font-size:var(--wp--preset--font-size--huge)}:root .has-text-align-center{text-align:center}:root .has-text-align-left{text-align:left}:root .has-text-align-right{text-align:right}.has-fit-text{white-space:nowrap!important}#end-resizable-editor-section{display:none}.aligncenter{clear:both}.items-justified-left{justify-content:flex-start}.items-justified-center{justify-content:center}.items-justified-right{justify-content:flex-end}.items-justified-space-between{justify-content:space-between}.screen-reader-text{word-wrap:normal!important;border:0;clip-path:inset(50%);height:1px;margin:-1px;overflow:hidden;padding:0;position:absolute;width:1px;word-break:normal!important}.screen-reader-text:focus{background-color:#ddd;clip-path:none;color:#444;display:block;font-size:1em;height:auto;left:5px;line-height:normal;padding:15px 23px 14px;text-decoration:none;top:5px;width:auto;z-index:100000}html :where(.has-border-color){border-style:solid}html :where([style^=border-color],[style*=";border-color"],[style*="; border-color"]){border-style:solid}html :where([style^=border-top-color],[style*=";border-top-color"],[style*="; border-top-color"]){border-top-style:solid}html :where([style^=border-right-color],[style*=";border-right-color"],[style*="; border-right-color"]){border-right-style:solid}html :where([style^=border-bottom-color],[style*=";border-bottom-color"],[style*="; border-bottom-color"]){border-bottom-style:solid}html :where([style^=border-left-color],[style*=";border-left-color"],[style*="; border-left-color"]){border-left-style:solid}html :where([style^=border-width],[style*=";border-width"],[style*="; border-width"]){border-style:solid}html :where([style^=border-top-width],[style*=";border-top-width"],[style*="; border-top-width"]){border-top-style:solid}html :where([style^=border-right-width],[style*=";border-right-width"],[style*="; border-right-width"]){border-right-style:solid}html :where([style^=border-bottom-width],[style*=";border-bottom-width"],[style*="; border-bottom-width"]){border-bottom-style:solid}html :where([style^=border-left-width],[style*=";border-left-width"],[style*="; border-left-width"]){border-left-style:solid}html :where(img[class*=wp-image-]){height:auto;max-width:100%}:where(figure){margin:0 0 1em}html :where(.is-position-sticky){--wp-admin--admin-bar--position-offset:var(--wp-admin--admin-bar--height,0px)}@media screen and (max-width:600px){html :where(.is-position-sticky){--wp-admin--admin-bar--position-offset:0px}}
+
+/*# sourceURL=/wp-includes/css/dist/block-library/common.min.css */
+</style>
+<style id="classic-theme-styles-inline-css">
+/*! This file is auto-generated */
+.wp-block-button__link{color:#fff;background-color:#32373c;border-radius:9999px;box-shadow:none;text-decoration:none;padding:calc(.667em + 2px) calc(1.333em + 2px);font-size:1.125em}.wp-block-file__button{background:#32373c;color:#fff;text-decoration:none}
+/*# sourceURL=/wp-includes/css/classic-themes.min.css */
+</style>
+
+<style id="global-styles-inline-css">
+:root{--wp--preset--aspect-ratio--square: 1;--wp--preset--aspect-ratio--4-3: 4/3;--wp--preset--aspect-ratio--3-4: 3/4;--wp--preset--aspect-ratio--3-2: 3/2;--wp--preset--aspect-ratio--2-3: 2/3;--wp--preset--aspect-ratio--16-9: 16/9;--wp--preset--aspect-ratio--9-16: 9/16;--wp--preset--color--black: #000000;--wp--preset--color--cyan-bluish-gray: #abb8c3;--wp--preset--color--white: #ffffff;--wp--preset--color--pale-pink: #f78da7;--wp--preset--color--vivid-red: #cf2e2e;--wp--preset--color--luminous-vivid-orange: #ff6900;--wp--preset--color--luminous-vivid-amber: #fcb900;--wp--preset--color--light-green-cyan: #7bdcb5;--wp--preset--color--vivid-green-cyan: #00d084;--wp--preset--color--pale-cyan-blue: #8ed1fc;--wp--preset--color--vivid-cyan-blue: #0693e3;--wp--preset--color--vivid-purple: #9b51e0;--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple: linear-gradient(135deg,rgb(6,147,227) 0%,rgb(155,81,224) 100%);--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan: linear-gradient(135deg,rgb(122,220,180) 0%,rgb(0,208,130) 100%);--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange: linear-gradient(135deg,rgb(252,185,0) 0%,rgb(255,105,0) 100%);--wp--preset--gradient--luminous-vivid-orange-to-vivid-red: linear-gradient(135deg,rgb(255,105,0) 0%,rgb(207,46,46) 100%);--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray: linear-gradient(135deg,rgb(238,238,238) 0%,rgb(169,184,195) 100%);--wp--preset--gradient--cool-to-warm-spectrum: linear-gradient(135deg,rgb(74,234,220) 0%,rgb(151,120,209) 20%,rgb(207,42,186) 40%,rgb(238,44,130) 60%,rgb(251,105,98) 80%,rgb(254,248,76) 100%);--wp--preset--gradient--blush-light-purple: linear-gradient(135deg,rgb(255,206,236) 0%,rgb(152,150,240) 100%);--wp--preset--gradient--blush-bordeaux: linear-gradient(135deg,rgb(254,205,165) 0%,rgb(254,45,45) 50%,rgb(107,0,62) 100%);--wp--preset--gradient--luminous-dusk: linear-gradient(135deg,rgb(255,203,112) 0%,rgb(199,81,192) 50%,rgb(65,88,208) 100%);--wp--preset--gradient--pale-ocean: linear-gradient(135deg,rgb(255,245,203) 0%,rgb(182,227,212) 50%,rgb(51,167,181) 100%);--wp--preset--gradient--electric-grass: linear-gradient(135deg,rgb(202,248,128) 0%,rgb(113,206,126) 100%);--wp--preset--gradient--midnight: linear-gradient(135deg,rgb(2,3,129) 0%,rgb(40,116,252) 100%);--wp--preset--font-size--small: 13px;--wp--preset--font-size--medium: 20px;--wp--preset--font-size--large: 36px;--wp--preset--font-size--x-large: 42px;--wp--preset--spacing--20: 0.44rem;--wp--preset--spacing--30: 0.67rem;--wp--preset--spacing--40: 1rem;--wp--preset--spacing--50: 1.5rem;--wp--preset--spacing--60: 2.25rem;--wp--preset--spacing--70: 3.38rem;--wp--preset--spacing--80: 5.06rem;--wp--preset--shadow--natural: 6px 6px 9px rgba(0, 0, 0, 0.2);--wp--preset--shadow--deep: 12px 12px 50px rgba(0, 0, 0, 0.4);--wp--preset--shadow--sharp: 6px 6px 0px rgba(0, 0, 0, 0.2);--wp--preset--shadow--outlined: 6px 6px 0px -3px rgb(255, 255, 255), 6px 6px rgb(0, 0, 0);--wp--preset--shadow--crisp: 6px 6px 0px rgb(0, 0, 0);}.wp-block-button{--wp--preset--dimension--25: 25%;--wp--preset--dimension--50: 50%;--wp--preset--dimension--75: 75%;--wp--preset--dimension--100: 100%;}:where(body) { margin: 0; }:where(.is-layout-flex){gap: 0.5em;}:where(.is-layout-grid){gap: 0.5em;}body .is-layout-flex{display: flex;}.is-layout-flex{flex-wrap: wrap;align-items: center;}.is-layout-flex > :is(*, div){margin: 0;}body .is-layout-grid{display: grid;}.is-layout-grid > :is(*, div){margin: 0;}body{padding-top: 0px;padding-right: 0px;padding-bottom: 0px;padding-left: 0px;}:root :where(.wp-element-button, .wp-block-button__link){background-color: #32373c;border-width: 0;color: #fff;font-family: inherit;font-size: inherit;font-style: inherit;font-weight: inherit;letter-spacing: inherit;line-height: inherit;padding-top: calc(0.667em + 2px);padding-right: calc(1.333em + 2px);padding-bottom: calc(0.667em + 2px);padding-left: calc(1.333em + 2px);text-decoration: none;text-transform: inherit;}.has-black-color{color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-color{color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-color{color: var(--wp--preset--color--white) !important;}.has-pale-pink-color{color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-color{color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-color{color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-color{color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-color{color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-color{color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-color{color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-color{color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-color{color: var(--wp--preset--color--vivid-purple) !important;}.has-black-background-color{background-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-background-color{background-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-background-color{background-color: var(--wp--preset--color--white) !important;}.has-pale-pink-background-color{background-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-background-color{background-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-background-color{background-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-background-color{background-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-background-color{background-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-background-color{background-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-background-color{background-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-background-color{background-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-background-color{background-color: var(--wp--preset--color--vivid-purple) !important;}.has-black-border-color{border-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-border-color{border-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-border-color{border-color: var(--wp--preset--color--white) !important;}.has-pale-pink-border-color{border-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-border-color{border-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-border-color{border-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-border-color{border-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-border-color{border-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-border-color{border-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-border-color{border-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-border-color{border-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-border-color{border-color: var(--wp--preset--color--vivid-purple) !important;}.has-vivid-cyan-blue-to-vivid-purple-gradient-background{background: var(--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple) !important;}.has-light-green-cyan-to-vivid-green-cyan-gradient-background{background: var(--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan) !important;}.has-luminous-vivid-amber-to-luminous-vivid-orange-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange) !important;}.has-luminous-vivid-orange-to-vivid-red-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-orange-to-vivid-red) !important;}.has-very-light-gray-to-cyan-bluish-gray-gradient-background{background: var(--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray) !important;}.has-cool-to-warm-spectrum-gradient-background{background: var(--wp--preset--gradient--cool-to-warm-spectrum) !important;}.has-blush-light-purple-gradient-background{background: var(--wp--preset--gradient--blush-light-purple) !important;}.has-blush-bordeaux-gradient-background{background: var(--wp--preset--gradient--blush-bordeaux) !important;}.has-luminous-dusk-gradient-background{background: var(--wp--preset--gradient--luminous-dusk) !important;}.has-pale-ocean-gradient-background{background: var(--wp--preset--gradient--pale-ocean) !important;}.has-electric-grass-gradient-background{background: var(--wp--preset--gradient--electric-grass) !important;}.has-midnight-gradient-background{background: var(--wp--preset--gradient--midnight) !important;}.has-small-font-size{font-size: var(--wp--preset--font-size--small) !important;}.has-medium-font-size{font-size: var(--wp--preset--font-size--medium) !important;}.has-large-font-size{font-size: var(--wp--preset--font-size--large) !important;}.has-x-large-font-size{font-size: var(--wp--preset--font-size--x-large) !important;}
+/*# sourceURL=global-styles-inline-css */
+</style>
+
+<link rel='stylesheet' id='all-css-12' href='https://slack.engineering/_static/??/wp-content/plugins/slack-config/style/shortcodes.css,/wp-content/themes/tinyspeck/assets/public/css/site.css?m=1783352904' type='text/css' media='all' />
+<script type="text/javascript" src="https://slack.engineering/_static/??-eJyFi0sOgCAQQy+kjiRGdGE8i0HEQRiUT4y3FxL3rprXvsJ91sJRlBThNEkhBQhmEUdpN1SgM+/OR+FWGRodKsgPJGFS5rLqK0n/fNFYpF+ptqj8EuUnz3ZifOB9242s0y+jLDUm" ></script><link rel="https://api.w.org/" href="https://slack.engineering/wp-json/" /><link rel="alternate" title="JSON" type="application/json" href="https://slack.engineering/wp-json/wp/v2/posts/14657" />	<style>img#wpstats{display:none}</style>
+		<link rel="icon" href="https://slack.engineering/wp-content/uploads/sites/7/2020/05/cropped-octothrope-1.png?w=32" sizes="32x32" />
+<link rel="icon" href="https://slack.engineering/wp-content/uploads/sites/7/2020/05/cropped-octothrope-1.png?w=192" sizes="192x192" />
+<link rel="apple-touch-icon" href="https://slack.engineering/wp-content/uploads/sites/7/2020/05/cropped-octothrope-1.png?w=180" />
+<meta name="msapplication-TileImage" content="https://slack.engineering/wp-content/uploads/sites/7/2020/05/cropped-octothrope-1.png?w=270" />
+</head>
+
+<body class="wp-singular post-template-default single single-post postid-14657 single-format-standard wp-embed-responsive wp-theme-tinyspeck">
+<a class="ts-skip-link" href="#main">Skip to main content</a>
+<div class="ts-site">
+	<div class="ts-site-inner">
+		<div class="ts-header-before"></div>
+		<header class="ts-header">
+			<div class="ts-container">
+				<div class="ts-header__inner ts-header__inner-desktop">
+					<div class="ts-header__col ts-col-left">
+						<div class="ts-logo">
+							<a class="ts-header__logo" href="https://slack.engineering/">
+								<img src="https://slack.engineering/wp-content/themes/tinyspeck/assets/public/images/logo.svg" alt="Slack Engineering"/>
+							</a>
+						</div>
+					</div>
+					<div class="ts-header__col ts-col-center"></div>
+					<div class="ts-header__col ts-col-right">
+						<!--<a href="https://slack.engineering/articles/">Articles</a>
+						<a href="https://slack.engineering/about/">About</a>-->
+						<span class="ts-header__search-toggle" role="button" data-search-toggle="open">
+							<span class="ts-header__search-toggle-label">Search</span>
+							<svg class="ts-icon ts-icon-search" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 21L16.7 16.7M19 11C19 15.4183 15.4183 19 11 19C6.58172 19 3 15.4183 3 11C3 6.58172 6.58172 3 11 3C15.4183 3 19 6.58172 19 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+						</span>
+					</div>
+				</div>
+				<div class="ts-header__inner ts-header__inner-mobile">
+					<div class="ts-header__col ts-col-left"></div>
+					<div class="ts-header__col ts-col-center">
+						<div class="ts-logo">
+							<a class="ts-header__logo" href="https://slack.engineering/">
+								<img src="https://slack.engineering/wp-content/themes/tinyspeck/assets/public/images/logo.svg" alt="Slack Engineering"/>
+							</a>
+						</div>
+					</div>
+					<div class="ts-header__col ts-col-right">
+						<span class="ts-header__search-toggle" role="button" data-search-toggle="open">
+							<span class="ts-header__search-toggle-label">Search</span>
+							<svg class="ts-icon ts-icon-search" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 21L16.7 16.7M19 11C19 15.4183 15.4183 19 11 19C6.58172 19 3 15.4183 3 11C3 6.58172 6.58172 3 11 3C15.4183 3 19 6.58172 19 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+						</span>
+					</div>
+				</div>
+			</div>
+			<div class="ts-search">
+				<div class="ts-container">
+					<div class="ts-search__close">
+						<div class="ts-search__close-inner" role="button" data-search-toggle="close">
+							<span class="ts-search__close-label">Close</span>
+							<svg class="ts-search__close-icon ts-icon ts-icon-x" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+						</div>
+					</div>
+					<div class="ts-search__wrapper">
+						<form role="search" method="get" class="ts-search__nav-form" action="https://slack.engineering/">
+							<div class="ts-search__group">
+								<input class="ts-search__input" type="search" required value="" name="s" placeholder="What are you looking for?">
+								<button class="ts-search__submit">Search</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			</div>
+		</header>
+		<main id="main" class="ts-site-primary">
+			<div class="ts-site-content ts-sidebar-enabled ts-singular-thumbnail-enabled">
+				<div class="ts-container">
+					<div class="ts-main-content">
+
+<div class="ts-content-area">
+			<div class="ts-entry__header ts-entry__header-large">
+			<div class="ts-entry__header-inner">
+				<div class="ts-entry__header-info">
+					<div class="ts-entry__post-meta-wrapper">
+						<div class="ts-entry__post-meta">
+														<div class="ts-meta-date">April 26, 2022</div>
+															<div class="ts-meta-date">
+									Updated: April 27, 2022								</div>
+														<div class="ts-meta-reading-time">14 min read</div>						</div>
+					</div>
+					<h1 class="ts-jumbo"><span>Slack’s Incident on 2-22-22</span></h1>					<p class="ts-hero-paragraph">Double Trouble with Datastores</p>
+					<div class="c-article__author__meta"><div class="c-article__author"><div class="c-article__author__avatar"><img src="https://slack.engineering/wp-content/uploads/sites/7/2020/07/E12KS1G65-WJ5E9CNF7-d613b16ac25c-512.jpeg"/></div><div class="c-article__author__info"><span class="c-article__author__name">Laura Nolan</span><span class="c-article__author__title">Senior Staff Engineer</span></div></div></div>				</div>
+									<figure class="ts-entry__post-media post-media filter-mayfair">
+						<img src="https://slack.engineering/wp-content/uploads/sites/7/2022/04/black-swan-gd3523927a_1920.jpg?w=1020" class="attachment-post-thumbnail size-post-thumbnail wp-post-image" alt="Photo of a pair of black swans" decoding="async" fetchpriority="high" srcset="https://slack.engineering/wp-content/uploads/sites/7/2022/04/black-swan-gd3523927a_1920.jpg 1920w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/black-swan-gd3523927a_1920.jpg?resize=640,427 640w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/black-swan-gd3523927a_1920.jpg?resize=768,512 768w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/black-swan-gd3523927a_1920.jpg?resize=1280,854 1280w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/black-swan-gd3523927a_1920.jpg?resize=1536,1025 1536w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/black-swan-gd3523927a_1920.jpg?resize=380,254 380w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/black-swan-gd3523927a_1920.jpg?resize=800,534 800w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/black-swan-gd3523927a_1920.jpg?resize=1160,774 1160w" sizes="(max-width: 1020px) 100vw, 1020px" />					</figure>
+												</div>
+		</div>
+			<div class="ts-entry__wrap">
+				<div class="ts-entry__container">
+					
+<aside class="ts-widget-area ts-sidebar__area">
+	<div class="ts-sidebar__inner">
+		<!-- Search -->
+		<div class="widget widget_search">
+			<p class="ts-section-heading">Search</p>
+			
+<form role="search" method="get" class="ts-search__form" action="https://slack.engineering/">
+	<div class="ts-search__container">
+		<input required class="ts-search__input" type="search" value="" name="s" placeholder="">
+		<button class="ts-search__submit"><svg class="ts-icon ts-icon-search" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 21L16.7 16.7M19 11C19 15.4183 15.4183 19 11 19C6.58172 19 3 15.4183 3 11C3 6.58172 6.58172 3 11 3C15.4183 3 19 6.58172 19 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+	</div>
+</form>
+		</div>
+
+		<!-- Latest Posts -->
+		<div class="widget">
+			<p class="ts-section-heading">Latest Posts</p>
+			<div class="widget-body ts-widget-posts">
+				<ul>
+										<li class="ts-post-item">
+						<article class="post-17832 post type-post status-publish format-standard has-post-thumbnail category-uncategorized tag-aws tag-migration ts-entry">
+							<div class="ts-entry__outer">
+								<div class="ts-entry__inner ts-entry__content">
+									<div class="ts-entry__post-meta ">
+										<div class="ts-meta-date">July 14, 2026</div>										<div class="ts-meta-reading-time">15 min read</div>									</div>
+									<h2 class="ts-entry__title">
+										<a href="https://slack.engineering/shipyard-how-we-built-slacks-next-generation-ec2-platform/">Shipyard: How We Built Slack’s Next-Generation EC2 Platform</a>
+									</h2>
+								</div>
+							</div>
+						</article>
+					</li>
+										<li class="ts-post-item">
+						<article class="post-17854 post type-post status-publish format-standard has-post-thumbnail category-uncategorized tag-automation-testing tag-developer-productivity tag-innovation ts-entry">
+							<div class="ts-entry__outer">
+								<div class="ts-entry__inner ts-entry__content">
+									<div class="ts-entry__post-meta ">
+										<div class="ts-meta-date">June 11, 2026</div>										<div class="ts-meta-reading-time">12 min read</div>									</div>
+									<h2 class="ts-entry__title">
+										<a href="https://slack.engineering/agentic-testing-where-agents-fit-in-the-e2e-testing-stack/">Agentic Testing: Where Agents Fit in the E2E Testing Stack</a>
+									</h2>
+								</div>
+							</div>
+						</article>
+					</li>
+										<li class="ts-post-item">
+						<article class="post-17812 post type-post status-publish format-standard has-post-thumbnail category-uncategorized tag-aws tag-backend tag-cloud-computing tag-collaboration tag-engineering tag-infrastructure tag-innovation tag-machine-learning tag-software-development ts-entry">
+							<div class="ts-entry__outer">
+								<div class="ts-entry__inner ts-entry__content">
+									<div class="ts-entry__post-meta ">
+										<div class="ts-meta-date">May 28, 2026</div>										<div class="ts-meta-reading-time">17 min read</div>									</div>
+									<h2 class="ts-entry__title">
+										<a href="https://slack.engineering/slack-ai-the-path-to-multi-cloud/">Slack AI: The Path to Multi-Cloud</a>
+									</h2>
+								</div>
+							</div>
+						</article>
+					</li>
+										<li class="ts-post-item">
+						<article class="post-17774 post type-post status-publish format-standard has-post-thumbnail category-uncategorized tag-airflow tag-aws tag-big-data tag-data-engineering tag-data-infrastructure tag-security ts-entry">
+							<div class="ts-entry__outer">
+								<div class="ts-entry__inner ts-entry__content">
+									<div class="ts-entry__post-meta ">
+										<div class="ts-meta-date">May 5, 2026</div>										<div class="ts-meta-reading-time">15 min read</div>									</div>
+									<h2 class="ts-entry__title">
+										<a href="https://slack.engineering/from-ssh-to-rest-a-security-driven-modernization-of-slacks-emr-data-pipelines/">From SSH to REST: A Security-Driven Modernization of Slack&#8217;s EMR Data Pipelines</a>
+									</h2>
+								</div>
+							</div>
+						</article>
+					</li>
+										<li class="ts-post-item">
+						<article class="post-17752 post type-post status-publish format-standard has-post-thumbnail category-uncategorized tag-development tag-security tag-software-engineering ts-entry">
+							<div class="ts-entry__outer">
+								<div class="ts-entry__inner ts-entry__content">
+									<div class="ts-entry__post-meta ">
+										<div class="ts-meta-date">April 13, 2026</div>										<div class="ts-meta-reading-time">14 min read</div>									</div>
+									<h2 class="ts-entry__title">
+										<a href="https://slack.engineering/managing-context-in-long-run-agentic-applications/">Managing context in long-run agentic applications</a>
+									</h2>
+								</div>
+							</div>
+						</article>
+					</li>
+									</ul>
+			</div>
+		</div>
+
+		<!-- Archives -->
+		<div class="widget">
+			<p class="ts-section-heading">Archives</p>
+			<ul class="wp-block-archives-list wp-block-archives">
+					<li><a href='https://slack.engineering/2026/'>2026</a>&nbsp;(7)</li>
+	<li><a href='https://slack.engineering/2025/'>2025</a>&nbsp;(9)</li>
+	<li><a href='https://slack.engineering/2024/'>2024</a>&nbsp;(19)</li>
+	<li><a href='https://slack.engineering/2023/'>2023</a>&nbsp;(16)</li>
+	<li><a href='https://slack.engineering/2022/'>2022</a>&nbsp;(21)</li>
+	<li><a href='https://slack.engineering/2021/'>2021</a>&nbsp;(24)</li>
+	<li><a href='https://slack.engineering/2020/'>2020</a>&nbsp;(26)</li>
+	<li><a href='https://slack.engineering/2019/'>2019</a>&nbsp;(21)</li>
+	<li><a href='https://slack.engineering/2018/'>2018</a>&nbsp;(11)</li>
+	<li><a href='https://slack.engineering/2017/'>2017</a>&nbsp;(21)</li>
+	<li><a href='https://slack.engineering/2016/'>2016</a>&nbsp;(19)</li>
+			</ul>
+		</div>
+	</div>
+</aside>
+
+					<div class="ts-entry__content-wrap">
+						<div class="ts-single-post ts-wysiwyg">
+														<p><i>By Laura Nolan, with contributions from Glen D. Sanford, Jamie Scheinblum, and Chris Sullivan.</i></p>
+<h2>Assessing conditions</h2>
+<p>Slack experienced a major incident on February 22 this year, during which time many users were unable to connect to Slack, including the author — which certainly made my role as <a href="https://www.pagerduty.com/resources/learn/what-is-incident-commander/">Incident Commander</a> more challenging!</p>
+<p>This incident was a textbook example of <a href="https://en.wikipedia.org/wiki/Complex_system">complex systems</a> failure: it had a number of contributing factors and part of the incident involved a <a href="https://www.infoq.com/articles/anatomy-cascading-failure/">cascading failure</a> scenario.</p>
+<p>Just after 6 a.m. Pacific Time, a number of things happened almost simultaneously: we began to receive user tickets about problems connecting to Slack, some internal users experienced problems using Slack, and a number of our engineering teams received pages or alerts about problems.</p>
+<p>When a user begins a new Slack session (after restarting their client or being disconnected from the network for some time), the Slack client performs a process called booting, which is described in Mark Christian’s blog post <a href="https://slack.engineering/getting-to-slack-faster-with-incremental-boot/">Getting to Slack faster with incremental boot</a>. During the client boot process, data such as channel listings, user and team preferences, and most recent conversations is fetched from Slack’s servers and cached on the client. Slack isn’t usable until your client is booted, and if Slack can’t boot, you get an error page.</p>
+<p>Assessing conditions at the beginning of the incident, we found that we were seeing more load than usual on parts of our database system. Slack stores its data in Vitess, a horizontal scaling system for MySQL (see <a href="https://slack.engineering/scaling-datastores-at-slack-with-vitess/">Scaling Datastores at Slack with Vitess</a>). Vitess supports <a href="https://vitess.io/docs/13.0/concepts/keyspace/">keyspaces</a>, which are logical databases. Different tables within a keyspace may be sharded by different keys. Slack uses multiple keyspaces, which gives us the ability to query data efficiently, provides isolation between different query workloads, and allows us to scale our datastores horizontally. During this incident one of our Vitess keyspaces (a keyspace containing channel membership which is sharded by user) became severely overloaded.</p>
+<p>What was not obvious early on was why we were seeing so much database load on this keyspace and how we might get to a normal serving state. Our response to this incident involved a number of responders who were subject-matter experts in various aspects of Slack’s infrastructure. Some responders began to work on investigating the reasons for the unusual load pattern that we were seeing, while others began to work on mitigations.</p>
+<h2>Throttling load to Slack</h2>
+<p>A significant element of the datastore load appeared to be from a query that listed Group Direct Message (GDM) conversations by user. This operation is fronted by our cache tier, so the high query load seemed to indicate something was wrong with our caches.</p>
+<p>The most affected Slack API operation during the incident was the client boot operation. Because of the overloaded database tier, client boot requests were taking much longer than usual and often failing. These slow requests were causing resource exhaustion in our database tier and were preventing other requests — from users who had booted clients — from succeeding. Therefore, we made a decision to throttle client boot requests.</p>
+<p>We knew that this throttling would mean that users without booted clients would be unlikely to be able to connect to Slack — but the tradeoff was that users who did have booted clients would likely see relatively normal service restored. Furthermore, reducing load would reduce the number of database queries timing out, and thus allow the cache to fill.</p>
+<p>We applied a restrictive throttle and it worked, to some degree. The number of errors we were servicing was reduced, and users with booted clients began to see more normal Slack performance. This was still not an ideal situation, but it was the best mitigation we had available at the time.</p>
+<p>We then attempted to increase the number of client boot operations permitted. However, our initial attempt increased the limit by too much. Database load increased again beyond sustainable limits and we observed the number of failed requests to Slack rising. We were forced to reduce the client boot rate limit once more, and then to increase by smaller increments.</p>
+<h2>What triggered the incident?</h2>
+<p>What caused us to go from a stable serving state to a state of overload? The answer turned out to lie in complex interactions between our application, the Vitess datastores, caching system, and our service discovery system.</p>
+<p><img decoding="async" width="920" height="499" class="alignnone size-medium wp-image-14658" src="https://slack.engineering/wp-content/uploads/sites/7/2022/04/image-2.png?w=640" alt="Diagram showing how the Slack application reads data from Memcached via Mcrouter, reading from the database on a cache miss." srcset="https://slack.engineering/wp-content/uploads/sites/7/2022/04/image-2.png 920w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/image-2.png?resize=640,347 640w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/image-2.png?resize=768,417 768w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/image-2.png?resize=380,206 380w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/image-2.png?resize=800,434 800w" sizes="(max-width: 920px) 100vw, 920px" /></p>
+<p>Requests to Slack are served by our web application and a variety of other services. We use <a href="https://memcached.org/">Memcached</a> as our caching tier, in order to provide low-latency access to frequently-used data. A component called <a href="https://github.com/facebook/mcrouter">Mcrouter</a> allows us to scale our cache fleet horizontally. Given a configuration file which provides an ordered list of healthy memcached hosts, Mcrouter uses  <a href="https://en.wikipedia.org/wiki/Consistent_hashing">consistent hashing</a> to route cache requests. If data isn’t in the cache, or if an update operation occurs, the Slack application reads it from the Vitess datastore and then inserts the data into Memcached.</p>
+<p>We also run a control plane for the cache tier, called Mcrib. Mcrib’s role is to generate up-to-date Mcrouter configurations. It watches Consul, our service discovery system. When memcached instances become unavailable (according to the <a href="https://www.consul.io/use-cases/discover-services">Consul service catalog</a>), Mcrib assigns a spare instance to replace it. If old memcached instances rejoin after a period of unavailability then they are flushed before being promoted to active, to avoid inconsistent data. Because an empty cache slot causes both increased latency and pressure on backing datastores as it fills, Mcrib is designed to maintain a stable cache ring and flush only when necessary.</p>
+<p><img decoding="async" width="1034" height="893" class="alignnone size-medium wp-image-14659" src="https://slack.engineering/wp-content/uploads/sites/7/2022/04/mcrib.png?w=640" alt="Diagram showing the architecture of the Mcrib control plane and summarizing the interactions between systems" srcset="https://slack.engineering/wp-content/uploads/sites/7/2022/04/mcrib.png 1034w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/mcrib.png?resize=640,553 640w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/mcrib.png?resize=768,663 768w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/mcrib.png?resize=380,328 380w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/mcrib.png?resize=800,691 800w" sizes="(max-width: 1034px) 100vw, 1034px" /></p>
+<p>The Mcrib component is a relatively new piece of software. Prior to Mcrib, we used a distributed locking mechanism based on Consul locks to generate the Mcrouter hash ring. The old distributed locking mechanism had scaling issues; all memcached instances that did not have an assigned part of the hash ring continuously attempted to gain a lock, which could cause contention. Mcrib solved that issue very effectively.</p>
+<p>In the lead-up to this incident, we had been performing maintenance on our Consul agent fleet. We were upgrading the Consul agent, which runs on each instance, participating in the<a href="https://www.serf.io/docs/internals/gossip.html"> Serf gossip protocol</a> which Consul uses for service discovery. This portion of the Consul rollout involved a percentage-based rollout (PBR) step that upgraded the Consul binary on the host, followed by a sequential (and fairly slow) restart of the agent on the hosts. This is intended to avoid a coordinated wave of restarts which might destabilize a service. When a Consul agent shuts down, it deregisters the node (and the services on the node) from the service catalog, and re-registers them when it starts up again. When the agent restart occurs on a memcached node, the node that leaves the service catalog gets replaced by Mcrib. The new cache node will be  empty.</p>
+<p>The PBR step on February 22 updated Consul on 25% of the fleet. It followed two previous 25% steps the prior week, both of which had occurred without any incident. However, on February 22, we hit a tipping point and entered a cascading failure scenario as we hit peak traffic for the day. As cache nodes were removed sequentially from the fleet, Mcrib continued to update the mcrouter configuration, promoting spare nodes to serving state and flushing nodes that left and rejoined. This caused the cache hit rate to drop.</p>
+<h2>Scatter queries and datastore load</h2>
+<p>One of the things that the client fetches during the boot process is the list of other users in the GDMs that you are in. We were querying this from a Vitess keyspace containing channel information that is sharded by user. The sharding scheme means that it is efficient to find the set of channels that any given user is a member of. However, it is quite inefficient to find the set of users that are members of a particular GDM from this sharded-by-user table, because you have to query every shard in the datastore. When the sharding key is not part of the query, Vitess allows for a feature called a “scatter query” which sends the query to every shard in the keyspace. In a low-query volume case, this can be a reasonable way to make the data available to the application. An alternative is to dual-write the data under a different sharding strategy. We also have a keyspace that has membership of a channel sharded by channel, which would have been more efficient for this query. However, the sharded-by-user keyspace was used because it contained needed columns that were not present in the sharded-by-channel table.</p>
+<p>Normally the GDM membership data is cached by channel ID, which means that the client boot performance is acceptable, despite the inefficient underlying query. Furthermore, membership of GDMs is immutable under the current application requirements, so there is a long cache TTL, and therefore the data is almost always available via the cache.</p>
+<p>However, since the data is sharded by user ID, even one channel missing from cache meant the application had to successfully run a query on every shard.  With a significant portion of the cache unavailable, nearly all users needed to successfully query every shard of the keyspace.  These queries are fast, but during this incident we simply had too many of them. The database was overwhelmed as the read load increased superlinearly in relation to the percentage of cache misses. Most queries to the channel membership-sharded-by-user Vitess tables were timing out, which meant that the cache could not be filled.</p>
+<h2>Cascading failure in the cache and datastore tiers</h2>
+<p>Early in the incident we had paused the Consul agent restart operation that had triggered the problem, even though at that point we had not suspected that the Consul restarts were related to the incident. However, by then it didn’t make a difference: we were in a cascading failure state, and systems in a cascading failure state do not normally return to a stable state without a significant reduction in load or increase in capacity (which normally is a result of operator intervention).</p>
+<p>In a normal stable state, cache hit rates are high, database load is healthy, and there is no barrier to reading data to fill the cache to maintain the cache hit rate.</p>
+<p><img loading="lazy" decoding="async" width="579" height="525" class="alignnone size-medium wp-image-14660" src="https://slack.engineering/wp-content/uploads/sites/7/2022/04/stable-happy.png?w=579" alt="Diagram showing the system in a stable serving state with full caches and a high hit-rate, with low database load." srcset="https://slack.engineering/wp-content/uploads/sites/7/2022/04/stable-happy.png 579w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/stable-happy.png?resize=380,345 380w" sizes="auto, (max-width: 579px) 100vw, 579px" /></p>
+<p>However, when something destabilizes the system — in this case, the Consul agent restarts combined with the problematic query — we can pass a tipping point and encounter the inverse relationship, where lower cache hit rates result in high database load and problems filling the cache.</p>
+<p><img loading="lazy" decoding="async" width="648" height="516" class="alignnone size-medium wp-image-14661" src="https://slack.engineering/wp-content/uploads/sites/7/2022/04/stable-unhappy.png?w=640" alt="Diagram showing system in an unhealthy state with a low cache hit rate and database overload preventing the cache filling." srcset="https://slack.engineering/wp-content/uploads/sites/7/2022/04/stable-unhappy.png 648w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/stable-unhappy.png?resize=640,510 640w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/stable-unhappy.png?resize=380,303 380w" sizes="auto, (max-width: 648px) 100vw, 648px" /></p>
+<p>Client retries are often a contributor to cascading failures, and this scenario was no exception. Clients have limited information about the state of the overall system. When a client request fails or times out, the client does not know whether it was a local or transient event such as a network failure or local hot-spotting, or whether there is ongoing global overload. For transient failures, prompt retrying is the best approach, as it avoids user impact. However, when the whole system is in overload, retries increase load and make recovery less likely, so clients should ideally avoid sending requests until the system has recovered. Slack’s clients use retries with exponentially increasing backoff periods and jitter, to reduce the impact of retries in an overload situation. However, automated retries still contributed to the load on the system.</p>
+<p>Once the system is in either a healthy state or a cascading failure state it will tend to stay there, unless there is an external intervention that changes the system (see Bronson, Charapko, Aghayev, and Zhu&#8217;s HotOS 2021 paper ‘<a href="https://sigops.org/s/conferences/hotos/2021/papers/hotos21-s11-bronson.pdf">Metastable States in Distributed Systems</a>’).</p>
+<p>In this case, we did several things to recover. We reduced traffic to the datastores via the client boot throttle. The inefficient query was modified to read from Vitess only the data that was missing from memcached, rather than reading from every shard on each miss. Because the GDM data is immutable and thus can tolerate staleness, the query was also updated to read from <a href="https://vitess.io/docs/13.0/overview/scalability-philosophy/#consistency-model">replicas</a> as well as Vitess primaries. The caches began to refill and hit-rates increased, reducing load on the database. We were able to slowly increase the client boot rate limit back to normal traffic levels while maximizing database goodput, until we had fully restored service.</p>
+<h2>Learnings</h2>
+<p>We see familiar patterns here which often arise in incidents: performance bottlenecks, cascading failures, dependency on a warm cache, and changes as triggering events. Reading an incident narrative such as this one can make the course of events seem quite predictable, even inevitable. However, predictions are much easier in retrospect, and it is much easier to make broad-brush statements about the sorts of incidents that may occur than to pinpoint every specific sequence of events or problems that can lead to a cascading failure. The incident on February 22 involved interactions across several system boundaries, and some of these systems had recently been changed. Complexity and change are inevitable in large software systems, but inevitably create risk of unpredictable behavior.</p>
+<p>Nevertheless, this incident, while truly painful, provided some important learning opportunities. The interactions between Consul and the caching architecture are now much more broadly understood, and we have already made changes in the process for performing Consul rollouts that should mean we do not trigger this failure mode again during upgrades.</p>
+<p>It’s interesting to note that the new Mcrib component contributed to the incident not by being incorrect or inefficient — quite the opposite. Mcrib was faster and more efficient at detecting downed memcached instances and repairing the cache configuration than the previous scheme had been. Mcrib’s efficiency increased the churn in the cache tier and contributed to the severity of the incident. Mcrib is objectively a better system for generating memcached configurations — but its efficiency made the broader system behave in a less safe way.</p>
+<p>The incident has also highlighted some other risks. A brief network outage or partition affecting the cache nodes might trigger the same kind of cascading failure scenario as the Consul agent restarts did (or worse, as it would be more coordinated). However, we are rolling out changes to this part of the Mcrib control loop to avoid this kind of failure.</p>
+<p>We have modified the problematic scatter query to read from a table that is sharded by channel. We have also analyzed our other database queries which are fronted by the caching tier to see if there are any other high-volume scatter queries which might pose similar risks. Other more long-term projects are exploring other ways of increasing the resilience of our caching tier.</p>
+<p>Often, after I am involved in an incident, I reread Dr. Richard Cook’s short and influential paper <a href="https://how.complexsystems.fail/">&#8216;How Complex Systems Fail&#8217;</a>. On this occasion, it was the fourth of the 18 sections that seemed most relevant:</p>
+<p>“Complex systems contain changing mixtures of failures latent within them. The complexity of these systems makes it impossible for them to run without multiple flaws being present. Because these are individually insufficient to cause failure they are regarded as minor factors during operations. Eradication of all latent failures is limited primarily by economic cost but also because it is difficult before the fact to see how such failures might contribute to an accident. The failures change constantly because of changing technology, work organization, and efforts to eradicate failures.”</p>
+<p>But all is not lost: what is left in Dr. Cook’s Pandora’s Box of Complex Systems Failure is not hope, but human expertise and adaptability. We at Slack Engineering share this story with you so that we can increase not only our own knowledge about systems failure, but contribute to the broader industry as well. We have learned a lot during our careers from other people’s stories about distributed systems failure, and we hope you can learn something from ours.</p>
+<p>Our incredible colleagues in Slack&#8217;s Communications and Social Media team put it best on the day: we’re grateful for your patience during the disruption — no two ways about it!</p>
+<p><img loading="lazy" decoding="async" width="647" height="297" class="alignnone size-medium wp-image-14662" src="https://slack.engineering/wp-content/uploads/sites/7/2022/04/Screenshot-2022-04-26-at-17.22.03.png?w=640" alt="Tweet by @SlackHQ on February 22 2022 which reads: &quot;Things we’ve learned on 2-22-22: Tuesdays can go two ways, two deep breaths can make a situation more manageable, two heads are better than one, and we’re twice as grateful for your patience during today’s disruption—no two ways about it.&quot;" srcset="https://slack.engineering/wp-content/uploads/sites/7/2022/04/Screenshot-2022-04-26-at-17.22.03.png 647w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/Screenshot-2022-04-26-at-17.22.03.png?resize=640,294 640w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/Screenshot-2022-04-26-at-17.22.03.png?resize=380,174 380w" sizes="auto, (max-width: 647px) 100vw, 647px" /></p>
+						</div>
+						<div class="ts-tags-section"><span class="ts-tag">#<a href="https://slack.engineering/tags/data-infrastructure/" rel="tag">data-infrastructure</a></span><span class="ts-tag">#<a href="https://slack.engineering/tags/debugging/" rel="tag">debugging</a></span><span class="ts-tag">#<a href="https://slack.engineering/tags/incident-response/" rel="tag">incident-response</a></span></div>					</div>
+				</div>
+			</div>
+	</div>
+<aside class="ts-metabar__area">
+	<div class="ts-metabar__inner">
+		<div class="ts-metabar__item">
+			<div class="ts-share-buttons-wrap">
+				<div class="ts-share-buttons-items">
+					<div class="ts-share-buttons-item ts-share-buttons-twitter">
+						<a href="https://x.com/intent/post?url=https%3A%2F%2Fslack.engineering%2Fslacks-incident-on-2-22-22%2F" class="ts-share-buttons-link" target="_blank">
+							<svg class="ts-share-buttons-icon ts-icon ts-icon-twitter" width="21" viewBox="0 0 72 65" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M22.6891 0H0L26.9014 35.3477L1.72089 65H13.355L32.3999 42.5731L49.3109 64.794H72L44.317 28.4191L44.366 28.4818L68.2015 0.412927H56.5674L38.8667 21.2573L22.6891 0ZM12.524 6.19052H19.5874L59.476 58.603H52.4126L12.524 6.19052Z" fill="currentColor"/></svg>
+						</a>
+					</div>
+					<div class="ts-share-buttons-item ts-share-buttons-linkedin">
+						<a href="https://www.linkedin.com/shareArticle?mini=true&#038;url=https%3A%2F%2Fslack.engineering%2Fslacks-incident-on-2-22-22%2F" class="ts-share-buttons-link" target="_blank">
+							<svg class="ts-share-buttons-icon ts-icon ts-icon-linkedin" width="21" height="21" viewBox="0 0 70 70" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15.8066 23.0188H1.17969V69.663H15.8066V23.0188Z" fill="currentColor"/><path d="M55.3732 22.0077C54.834 21.9403 54.2611 21.9066 53.6881 21.8729C45.4984 21.5359 40.8812 26.389 39.2635 28.4786C38.8254 29.0515 38.6231 29.3886 38.6231 29.3886V23.1536H24.6366V69.7978H38.6231H39.2635C39.2635 65.0458 39.2635 60.3274 39.2635 55.5754C39.2635 53.014 39.2635 50.4526 39.2635 47.8912C39.2635 44.7232 39.0276 41.3529 40.6116 38.4545C41.9597 36.0279 44.3862 34.8147 47.1161 34.8147C55.2047 34.8147 55.3732 42.1281 55.3732 42.8021C55.3732 42.8358 55.3732 42.8695 55.3732 42.8695V70H70.0001V39.5667C70.0001 29.1526 64.7088 23.0188 55.3732 22.0077Z" fill="currentColor"/><path d="M8.49301 16.986C13.1836 16.986 16.9861 13.1836 16.9861 8.49303C16.9861 3.80246 13.1836 0 8.49301 0C3.80244 0 0 3.80246 0 8.49303C0 13.1836 3.80244 16.986 8.49301 16.986Z" fill="currentColor"/></svg>
+						</a>
+					</div>
+					<div class="ts-share-buttons-item ts-share-buttons-facebook">
+						<a href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fslack.engineering%2Fslacks-incident-on-2-22-22%2F" class="ts-share-buttons-link" target="_blank">
+							<svg class="ts-share-buttons-icon ts-icon ts-icon-facebook" width="21" height="21" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_11_112)"><path d="M12 0C18.6274 0 24 5.37259 24 12C24 18.1352 19.3955 23.1944 13.4538 23.9121V15.667L16.7001 15.667L17.3734 12H13.4538V10.7031C13.4538 9.73417 13.6439 9.06339 14.0799 8.63483C14.5159 8.20627 15.1979 8.01993 16.1817 8.01993C16.4307 8.01993 16.6599 8.02241 16.8633 8.02736C17.1591 8.03456 17.4002 8.047 17.568 8.06467V4.74048C17.501 4.72184 17.4218 4.70321 17.3331 4.68486C17.1321 4.6433 16.8822 4.60324 16.6136 4.56806C16.0523 4.49453 15.4093 4.4423 14.9594 4.4423C13.1424 4.4423 11.7692 4.83102 10.8107 5.63619C9.65388 6.60791 9.10108 8.18622 9.10108 10.4199V12H6.62659V15.667H9.10108V23.6466C3.87432 22.3498 0 17.6277 0 12C0 5.37259 5.37259 0 12 0Z" fill="currentColor"/></g><defs><clipPath id="clip0_11_112"><rect width="24" height="24" fill="white"/></clipPath></defs></svg>
+						</a>
+					</div>
+					<div class="ts-share-buttons-item ts-share-buttons-threads">
+						<a href="https://www.threads.net/intent/post?text=+https%3A%2F%2Fslack.engineering%2Fslacks-incident-on-2-22-22%2F" class="ts-share-buttons-link" target="_blank">
+							<svg class="ts-share-buttons-icon ts-icon" width="21" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M331.5 235.7c2.2 .9 4.2 1.9 6.3 2.8c29.2 14.1 50.6 35.2 61.8 61.4c15.7 36.5 17.2 95.8-30.3 143.2c-36.2 36.2-80.3 52.5-142.6 53h-.3c-70.2-.5-124.1-24.1-160.4-70.2c-32.3-41-48.9-98.1-49.5-169.6V256v-.2C17 184.3 33.6 127.2 65.9 86.2C102.2 40.1 156.2 16.5 226.4 16h.3c70.3 .5 124.9 24 162.3 69.9c18.4 22.7 32 50 40.6 81.7l-40.4 10.8c-7.1-25.8-17.8-47.8-32.2-65.4c-29.2-35.8-73-54.2-130.5-54.6c-57 .5-100.1 18.8-128.2 54.4C72.1 146.1 58.5 194.3 58 256c.5 61.7 14.1 109.9 40.3 143.3c28 35.6 71.2 53.9 128.2 54.4c51.4-.4 85.4-12.6 113.7-40.9c32.3-32.2 31.7-71.8 21.4-95.9c-6.1-14.2-17.1-26-31.9-34.9c-3.7 26.9-11.8 48.3-24.7 64.8c-17.1 21.8-41.4 33.6-72.7 35.3c-23.6 1.3-46.3-4.4-63.9-16c-20.8-13.8-33-34.8-34.3-59.3c-2.5-48.3 35.7-83 95.2-86.4c21.1-1.2 40.9-.3 59.2 2.8c-2.4-14.8-7.3-26.6-14.6-35.2c-10-11.7-25.6-17.7-46.2-17.8H227c-16.6 0-39 4.6-53.3 26.3l-34.4-23.6c19.2-29.1 50.3-45.1 87.8-45.1h.8c62.6 .4 99.9 39.5 103.7 107.7l-.2 .2zm-156 68.8c1.3 25.1 28.4 36.8 54.6 35.3c25.6-1.4 54.6-11.4 59.5-73.2c-13.2-2.9-27.8-4.4-43.4-4.4c-4.8 0-9.6 .1-14.4 .4c-42.9 2.4-57.2 23.2-56.2 41.8l-.1 .1z"></path></svg>
+						</a>
+					</div>
+					<div class="ts-share-buttons-item ts-share-buttons-copy">
+						<a href="#" class="ts-share-buttons-link" data-share-link title="Copy link">
+							<svg width="21" height="21" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 13C10.4295 13.5741 10.9774 14.0491 11.6066 14.3929C12.2357 14.7367 12.9315 14.9411 13.6467 14.9923C14.3618 15.0435 15.0796 14.9403 15.7513 14.6897C16.4231 14.4392 17.0331 14.047 17.54 13.54L20.54 10.54C21.4508 9.59695 21.9548 8.33394 21.9434 7.02296C21.932 5.71198 21.4061 4.45791 20.4791 3.53087C19.5521 2.60383 18.298 2.07799 16.987 2.0666C15.676 2.0552 14.413 2.55918 13.47 3.46997L11.75 5.17997M14 11C13.5705 10.4259 13.0226 9.9508 12.3934 9.60704C11.7642 9.26328 11.0684 9.05886 10.3533 9.00765C9.63816 8.95643 8.92037 9.05961 8.24861 9.3102C7.57685 9.56079 6.96684 9.95291 6.45996 10.46L3.45996 13.46C2.54917 14.403 2.04519 15.666 2.05659 16.977C2.06798 18.288 2.59382 19.542 3.52086 20.4691C4.4479 21.3961 5.70197 21.922 7.01295 21.9334C8.32393 21.9447 9.58694 21.4408 10.53 20.53L12.24 18.82" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+						</a>
+						<span class="ts-share-notification" data-share-notification>Copied!</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</aside>
+					</div>
+				</div>
+				
+<!-- Next and Previous Post Pagination -->
+<div style="margin-top: 5rem;">
+	<div class="ts-container">
+		<div class="ts-post-pagination">
+							<div>
+					<p class="ts-section-heading">Previous Post</p>
+					<div class="ts-post-unfurl">
+						<div class="ts-post-unfurl-content">
+							<div>
+								<a href="https://slack.engineering/handling-flaky-tests-at-scale-auto-detection-suppression/">
+									<strong>Handling Flaky Tests at Scale: Auto Detection &amp; Suppression</strong>
+									<span aria-label="(opens in new tab)"></span>
+								</a>
+								<p class="ts-post-unfurl-text">
+									At Slack, the goal of the Mobile Developer Experience Team (DevXp) is to empower developers&hellip;								</p>
+							</div>
+							<div class="ts-entry__post-meta">
+								<div class="ts-meta-date">April 5, 2022</div>
+								<div class="ts-meta-reading-time"><div class="ts-meta-reading-time">16 min read</div></div>
+							</div>
+						</div>
+						<div class="ts-post-unfurl-img">
+							<img src="https://slack.engineering/wp-content/uploads/sites/7/2022/04/Cornflake_copy-removebg.png?w=160&amp;h=160&amp;crop=1" class="attachment-thumbnail size-thumbnail wp-post-image" alt="it&#039;s a title image of article" decoding="async" loading="lazy" srcset="https://slack.engineering/wp-content/uploads/sites/7/2022/04/Cornflake_copy-removebg.png?resize=160,160 160w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/Cornflake_copy-removebg.png?resize=80,80 80w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/Cornflake_copy-removebg.png?resize=110,110 110w" sizes="auto, (max-width: 160px) 100vw, 160px" />						</div>
+					</div>
+				</div>
+			
+							<div>
+					<p class="ts-section-heading">Next Post</p>
+					<div class="ts-post-unfurl">
+						<div class="ts-post-unfurl-content">
+							<a href="https://slack.engineering/continuous-load-testing/">
+								<strong>Continuous Load Testing</strong>
+								<span aria-label="(opens in new tab)"></span>
+							</a>
+							<p class="ts-post-unfurl-text">
+								Building load test infrastructure is tricky and poses many questions. How can we identify performance&hellip;							</p>
+							<div class="ts-entry__post-meta">
+								<div class="ts-meta-date">April 29, 2022</div>
+								<div class="ts-meta-reading-time"><div class="ts-meta-reading-time">15 min read</div></div>
+							</div>
+						</div>
+						<div class="ts-post-unfurl-img">
+							<img src="https://slack.engineering/wp-content/uploads/sites/7/2022/04/Screen-Shot-2022-04-26-at-4.03.29-PM.png?w=160&amp;h=160&amp;crop=1" class="attachment-thumbnail size-thumbnail wp-post-image" alt="Sketch of a Koi Pond. Koi are grouped together as a school and a hat with the description of &quot;Keeper&quot; is at the edge of the pond." decoding="async" loading="lazy" srcset="https://slack.engineering/wp-content/uploads/sites/7/2022/04/Screen-Shot-2022-04-26-at-4.03.29-PM.png?resize=160,160 160w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/Screen-Shot-2022-04-26-at-4.03.29-PM.png?resize=80,80 80w, https://slack.engineering/wp-content/uploads/sites/7/2022/04/Screen-Shot-2022-04-26-at-4.03.29-PM.png?resize=110,110 110w" sizes="auto, (max-width: 160px) 100vw, 160px" />						</div>
+					</div>
+				</div>
+					</div>
+	</div>
+</div>
+	<div class="ts-entry__post-related">
+		<div class="ts-container">
+			<p class="ts-section-heading">Recommended Reading</p>
+			<div class="ts-entry__post-wrap">
+									<article class="post-17774 post type-post status-publish format-standard has-post-thumbnail category-uncategorized tag-airflow tag-aws tag-big-data tag-data-engineering tag-data-infrastructure tag-security ts-entry">
+						<div class="ts-entry__outer">
+															<div class="ts-entry__inner ts-entry__thumbnail">
+									<div class="ts-overlay-background filter-mayfair">
+										<img src="https://slack.engineering/wp-content/uploads/sites/7/2026/04/SSH-Rest-CoverImage.png?w=380&amp;h=250&amp;crop=1" class="attachment-tinyspeck-thumbnail size-tinyspeck-thumbnail wp-post-image" alt="From SSH to REST_ A Security-Driven Modernization of Slack&#039;s EMR Data Pipelines" decoding="async" loading="lazy" />									</div>
+									<a href="https://slack.engineering/from-ssh-to-rest-a-security-driven-modernization-of-slacks-emr-data-pipelines/" class="ts-overlay-link"></a>
+								</div>
+														<div class="ts-entry__inner ts-entry__content">
+								<div class="ts-entry__post-meta">
+									<div class="ts-meta-date">May 5, 2026</div>									<div class="ts-meta-reading-time">15 min read</div>								</div>
+								<h2 class="ts-entry__title"><a href="https://slack.engineering/from-ssh-to-rest-a-security-driven-modernization-of-slacks-emr-data-pipelines/"><span>From SSH to REST: A Security-Driven Modernization of Slack&#8217;s EMR Data Pipelines</span></a></h2><span class="ts-mention">@Mahendran Vasagam</span>							</div>
+						</div>
+					</article>
+									<article class="post-17513 post type-post status-publish format-standard has-post-thumbnail category-uncategorized tag-automation tag-ci-cd tag-deployment tag-engineering tag-incident-response tag-infrastructure tag-observability ts-entry">
+						<div class="ts-entry__outer">
+															<div class="ts-entry__inner ts-entry__thumbnail">
+									<div class="ts-overlay-background filter-mayfair">
+										<img src="https://slack.engineering/wp-content/uploads/sites/7/2025/05/deploy-safety-smaller.jpeg?w=380&amp;h=250&amp;crop=1" class="attachment-tinyspeck-thumbnail size-tinyspeck-thumbnail wp-post-image" alt="A rocket streaking across the sky wearing a life vest to symbolize deploying safely" decoding="async" loading="lazy" />									</div>
+									<a href="https://slack.engineering/deploy-safety/" class="ts-overlay-link"></a>
+								</div>
+														<div class="ts-entry__inner ts-entry__content">
+								<div class="ts-entry__post-meta">
+									<div class="ts-meta-date">October 7, 2025</div>									<div class="ts-meta-reading-time">11 min read</div>								</div>
+								<h2 class="ts-entry__title"><a href="https://slack.engineering/deploy-safety/"><span>Deploy Safety: Reducing customer impact from change</span></a></h2><span class="ts-mention">@Sam Bailey</span>							</div>
+						</div>
+					</article>
+									<article class="post-17534 post type-post status-publish format-standard has-post-thumbnail category-uncategorized tag-incident-response tag-security ts-entry">
+						<div class="ts-entry__outer">
+															<div class="ts-entry__inner ts-entry__thumbnail">
+									<div class="ts-overlay-background filter-mayfair">
+										<img src="https://slack.engineering/wp-content/uploads/sites/7/2025/06/pexels-scottwebb-430208.jpg?w=380&amp;h=250&amp;crop=1" class="attachment-tinyspeck-thumbnail size-tinyspeck-thumbnail wp-post-image" alt="" decoding="async" loading="lazy" />									</div>
+									<a href="https://slack.engineering/building-slacks-anomaly-event-response/" class="ts-overlay-link"></a>
+								</div>
+														<div class="ts-entry__inner ts-entry__content">
+								<div class="ts-entry__post-meta">
+									<div class="ts-meta-date">September 4, 2025</div>									<div class="ts-meta-reading-time">9 min read</div>								</div>
+								<h2 class="ts-entry__title"><a href="https://slack.engineering/building-slacks-anomaly-event-response/"><span>Building Slack&#8217;s Anomaly Event Response</span></a></h2><span class="ts-mention">@Nathan Lehotsky</span><span class="ts-mention">@Ryan Persaud</span>							</div>
+						</div>
+					</article>
+									<article class="post-17276 post type-post status-publish format-standard has-post-thumbnail category-uncategorized tag-incident-management tag-incident-response ts-entry">
+						<div class="ts-entry__outer">
+															<div class="ts-entry__inner ts-entry__thumbnail">
+									<div class="ts-overlay-background filter-mayfair">
+										<img src="https://slack.engineering/wp-content/uploads/sites/7/2024/11/team-lunch.jpg?w=380&amp;h=250&amp;crop=1" class="attachment-tinyspeck-thumbnail size-tinyspeck-thumbnail wp-post-image" alt="" decoding="async" loading="lazy" />									</div>
+									<a href="https://slack.engineering/theres-no-such-thing-as-a-free-lunch/" class="ts-overlay-link"></a>
+								</div>
+														<div class="ts-entry__inner ts-entry__content">
+								<div class="ts-entry__post-meta">
+									<div class="ts-meta-date">November 14, 2024</div>									<div class="ts-meta-reading-time">13 min read</div>								</div>
+								<h2 class="ts-entry__title"><a href="https://slack.engineering/theres-no-such-thing-as-a-free-lunch/"><span>There’s No Such Thing as a Free Lunch!</span></a></h2><span class="ts-mention">@Scott Nelson Windels</span>							</div>
+						</div>
+					</article>
+							</div>
+		</div>
+	</div>
+	<!-- Arc -->
+	<div class="c-arc concave-up">
+		<div class="c-arc__upper color-blue"></div>
+		<div class="c-arc__lower color-white"></div>
+	</div>
+				</div>
+		</main>
+		<footer class="ts-footer">
+			<div class="ts-container">
+				<div class="ts-footer__item">
+					<div class="ts-footer__col ts-col-left">
+						<div class="ts-footer__inner">
+							<div class="ts-logo">
+								<a class="ts-footer__logo" href="https://slack.engineering/">
+									<img src="https://slack.engineering/wp-content/themes/tinyspeck/assets/public/images/logo.svg" alt="Slack Engineering"/>
+								</a>
+							</div>
+						</div>
+					</div>
+					<div class="ts-footer__col ts-col-canter">
+						<div class="ts-footer__inner">
+							<nav class="ts-footer__nav">
+								<div class="ts-footer__nav-item">
+									<ul class="ts-footer__nav-inner">
+										<li><a href="https://slack.engineering/articles/">Articles</a></li>
+										<!--<li><a href="https://slack.engineering/about/">About</a></li>-->
+										<li><a href="https://slack.com/careers/dept/software-engineering" target="_blank">Careers</a></li>
+										<li><a href="https://slack.dev/blog/" target="_blank">Slack Developer Blog</a></li>
+										<li><a href="https://slack.com/blog/" target="_blank">The Slack Blog</a></li>
+									</ul>
+								</div>
+							</nav>
+						</div>
+					</div>
+					<div class="ts-footer__col ts-col-right">
+						<div class="ts-footer__inner">
+							<span>
+								<a href="https://x.com/SlackEng" target="_blank" class="ts-share-buttons-twitter">
+									<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+										<path d="M9.70487 6.85148L15.289 0.5H13.9657L9.11705 6.0149L5.24443 0.5H0.777832L6.63398 8.8395L0.777832 15.5H2.10116L7.22147 9.67608L11.3112 15.5H15.7778L9.70455 6.85148H9.70487ZM7.89239 8.91297L7.29905 8.08255L2.57797 1.47476H4.61052L8.42048 6.80746L9.01383 7.63788L13.9663 14.5696H11.9338L7.89239 8.91329V8.91297Z" fill="currentcolor"></path>
+									</svg>
+								</a>
+								<a href="https://www.youtube.com/@Slackhq" target="_blank" class="ts-share-buttons-youtube">
+									<svg width="21" height="14" viewBox="0 0 21 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+										<path fill-rule="evenodd" clip-rule="evenodd" d="M10.463 0C19.0721 0 20.1483 0 20.1483 7C20.1483 14 19.0721 14 10.463 14C1.85397 14 0.777832 14 0.777832 7C0.777832 0 1.85397 0 10.463 0ZM8.46143 2.7998C8.10631 2.7998 7.77271 3.0798 7.77271 3.4998V10.4998C7.77271 10.9521 8.11707 11.1998 8.46143 11.1998C8.60133 11.1998 8.7197 11.1567 8.82732 11.0921L14.3694 7.59211C14.5846 7.47365 14.6923 7.26904 14.6923 6.9998C14.6923 6.73057 14.5846 6.52596 14.3694 6.4075L8.82732 2.9075C8.70894 2.83211 8.59057 2.7998 8.46143 2.7998Z" fill="currentcolor"></path>
+									</svg>
+								</a>
+							</span>
+						</div>
+					</div>
+				</div>
+				<br/><br/>
+				<div class="ts-footer__item">
+					<p class="ts-footer__info">
+						<a href="https://slack.com/terms-of-service/user" target="_blank">Terms of Service</a>
+						<a href="https://slack.com/trust/privacy/privacy-policy" target="_blank">Privacy Information</a>
+						<a href="#" class="optanon-show-settings">Cookie Preferences</a>
+						<a href="https://www.salesforce.com/form/other/privacy-request/?_gl=1*1yvb56x*_gcl_au*OTY0OTg5MzcuMTcyNTkxMjE5Nw..*_ga*MTMzNjk3MzQ3MC4xNzE4MDQ0MzEy*_ga_QTJQME5M5D*MTcyNjI2OTEwNy40OS4xLjE3MjYyNjkyMzAuNS4wLjA." target="_blank">Your Privacy Choices</a>
+						<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="30" height="14"><path d="M7.4 12.8h6.8l3.1-11.6H7.4C4.2 1.2 1.6 3.8 1.6 7s2.6 5.8 5.8 5.8z" style="fill-rule:evenodd;clip-rule:evenodd;fill:#fff"/><path d="M22.6 0H7.4c-3.9 0-7 3.1-7 7s3.1 7 7 7h15.2c3.9 0 7-3.1 7-7s-3.2-7-7-7zm-21 7c0-3.2 2.6-5.8 5.8-5.8h9.9l-3.1 11.6H7.4c-3.2 0-5.8-2.6-5.8-5.8z" style="fill-rule:evenodd;clip-rule:evenodd;fill:#06f"/><path d="M24.6 4c.2.2.2.6 0 .8L22.5 7l2.2 2.2c.2.2.2.6 0 .8-.2.2-.6.2-.8 0l-2.2-2.2-2.2 2.2c-.2.2-.6.2-.8 0-.2-.2-.2-.6 0-.8L20.8 7l-2.2-2.2c-.2-.2-.2-.6 0-.8.2-.2.6-.2.8 0l2.2 2.2L23.8 4c.2-.2.6-.2.8 0z" style="fill:#fff"/><path d="M12.7 4.1c.2.2.3.6.1.8L8.6 9.8c-.1.1-.2.2-.3.2-.2.1-.5.1-.7-.1L5.4 7.7c-.2-.2-.2-.6 0-.8.2-.2.6-.2.8 0L8 8.6l3.8-4.5c.2-.2.6-.2.9 0z" style="fill:#06f"/></svg>
+						<br/><br/>
+						&copy; 2026 Slack Technologies, LLC, a Salesforce company. All rights reserved. Various trademarks held by their respective owners.
+					</p>
+				</div>
+			</div>
+		</footer>
+	</div>
+</div>
+
+<a href="#top" data-scroll-to-top class="ts-scroll-to-top">
+	<svg class="ts-icon-up" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+	<span>scroll to top</span>
+</a>
+
+<script type="speculationrules">
+{"prefetch":[{"source":"document","where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/wp-*.php","/wp-admin/*","/wp-content/uploads/sites/7/*","/wp-content/*","/wp-content/plugins/*","/wp-content/themes/tinyspeck/*","/*\\?(.+)"]}},{"not":{"selector_matches":"a[rel~=\"nofollow\"]"}},{"not":{"selector_matches":".no-prefetch, .no-prefetch a"}}]},"eagerness":"conservative"}]}
+</script>
+<script type="text/javascript" src="https://slack.engineering/_static/??/wp-includes/js/imagesloaded.min.js,/wp-content/themes/tinyspeck/assets/src/js/site.js?m=1787604914j" ></script><script id="jetpack-stats-js-before">
+_stq = window._stq || [];
+_stq.push([ "view", {"v":"ext","blog":"195077423","post":"14657","tz":"-7","srv":"slack.engineering","hp":"vip","j":"1:16.1.3"} ]);
+_stq.push([ "clickTrackerInit", "195077423", "14657" ]);
+//# sourceURL=jetpack-stats-js-before
+</script>
+<script data-wp-strategy="defer" defer fetchpriority="low" id="jetpack-stats-js" src="https://stats.wp.com/e-202637.js"></script>
+<script id="wp-emoji-settings" type="application/json">
+{"baseUrl":"https://s.w.org/images/core/emoji/17.0.2/72x72/","ext":".png","svgUrl":"https://s.w.org/images/core/emoji/17.0.2/svg/","svgExt":".svg","source":{"concatemoji":"https://slack.engineering/wp-includes/js/wp-emoji-release.min.js?ver=7.1"}}
+</script>
+<script type="module">
+/*! This file is auto-generated */
+var e="script#wp-emoji-settings",t=document.querySelector(e);if(!(t instanceof HTMLScriptElement))throw new Error("Element missing: "+e);const r=JSON.parse(t.text),s=(window._wpemojiSettings=r,"wpEmojiSettingsSupports"),o=["flag","emoji"];function i(e){try{var t={supportTests:e,timestamp:(new Date).valueOf()};sessionStorage.setItem(s,JSON.stringify(t))}catch(e){}}function c(e,t,n){e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(t,0,0);t=new Uint32Array(e.getImageData(0,0,e.canvas.width,e.canvas.height).data);e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(n,0,0);const r=new Uint32Array(e.getImageData(0,0,e.canvas.width,e.canvas.height).data);return t.every((e,t)=>e===r[t])}function p(e,t){e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(t,0,0);var n=e.getImageData(16,16,1,1);for(let e=0;e<n.data.length;e++)if(0!==n.data[e])return!1;return!0}function u(e,t,n,r){switch(t){case"flag":return n(e,"\ud83c\udff3\ufe0f\u200d\u26a7\ufe0f","\ud83c\udff3\ufe0f\u200b\u26a7\ufe0f")?!1:!n(e,"\ud83c\udde8\ud83c\uddf6","\ud83c\udde8\u200b\ud83c\uddf6")&&!n(e,"\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f","\ud83c\udff4\u200b\udb40\udc67\u200b\udb40\udc62\u200b\udb40\udc65\u200b\udb40\udc6e\u200b\udb40\udc67\u200b\udb40\udc7f");case"emoji":return!r(e,"\ud83e\u1fac8")}return!1}function f(e,t,n,r){let a;const s=(a="undefined"!=typeof WorkerGlobalScope&&self instanceof WorkerGlobalScope?new OffscreenCanvas(300,150):document.createElement("canvas")).getContext("2d",{willReadFrequently:!0}),o=(s.textBaseline="top",s.font="600 32px Arial",{});return e.forEach(e=>{o[e]=t(s,e,n,r)}),o}function a(e){var t=document.createElement("script");t.src=e,t.defer=!0,document.head.appendChild(t)}r.supports={everything:!0,everythingExceptFlag:!0},new Promise(t=>{let n=function(){try{var e=JSON.parse(sessionStorage.getItem(s));if("object"==typeof e&&"number"==typeof e.timestamp&&(new Date).valueOf()<e.timestamp+604800&&"object"==typeof e.supportTests)return e.supportTests}catch(e){}return null}();if(!n){if("undefined"!=typeof Worker&&"undefined"!=typeof OffscreenCanvas&&"undefined"!=typeof URL&&URL.createObjectURL&&"undefined"!=typeof Blob)try{var e="postMessage("+f.toString()+"("+[JSON.stringify(o),u.toString(),c.toString(),p.toString()].join(",")+"));",r=new Blob([e],{type:"text/javascript"});const a=new Worker(URL.createObjectURL(r),{name:"wpTestEmojiSupports"});return void(a.onmessage=e=>{i(n=e.data),a.terminate(),t(n)})}catch(e){}i(n=f(o,u,c,p))}t(n)}).then(e=>{for(const n in e)r.supports[n]=e[n],r.supports.everything=r.supports.everything&&r.supports[n],"flag"!==n&&(r.supports.everythingExceptFlag=r.supports.everythingExceptFlag&&r.supports[n]);var t;r.supports.everythingExceptFlag=r.supports.everythingExceptFlag&&!r.supports.flag,r.supports.everything||((t=r.source||{}).concatemoji?a(t.concatemoji):t.wpemoji&&t.twemoji&&(a(t.twemoji),a(t.wpemoji)))});
+//# sourceURL=https://slack.engineering/wp-includes/js/wp-emoji-loader.min.js
+</script>
+</body>
+</html>
