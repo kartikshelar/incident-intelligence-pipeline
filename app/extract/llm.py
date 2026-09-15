@@ -12,10 +12,10 @@ Adding a provider later: implement `LLMClient`, add a constructor to
 `_PROVIDERS`, set APP_LLM_PROVIDER. Callers of `build_llm_client` do not
 change.
 
-Provider, model, and key are configuration (app.settings), never
-constants here. The Anthropic adapter's job is: build the structured-
-output request, and map SDK failures onto Transient/PermanentExtractionError
-per shared/error-codes.md:
+Provider, model, thinking setting, and key are configuration
+(app.settings), never constants here. The Anthropic adapter's job is:
+build the structured-output request, and map SDK failures onto
+Transient/PermanentExtractionError per shared/error-codes.md:
 
   429, >=500 (incl. 529 overloaded), connection error, timeout -> transient
   400/401/403/404/413 -> permanent (our request/credentials are wrong;
@@ -34,10 +34,25 @@ guarantee is unavailable for this schema, and schema conformance rests on
 app.extract.extractor's validate-and-retry loop, which was built for
 exactly that. The schema is static, so it caches with the system prompt.
 
-No `thinking` parameter is sent: on current models omitting it runs
-adaptive thinking. Non-streaming with the configured max_tokens (default
-16000) stays under the SDK's 10-minute timeout for the largest document
-in the spike corpus.
+Thinking is configuration too (APP_EXTRACTION_THINKING), because on
+current models it is most of the bill: run 04 produced ~20k tokens of
+visible JSON against ~80k billed output tokens, the rest being adaptive
+thinking, which is what the API runs when no `thinking` parameter is
+sent. The setting is one string, interpreted here and stored verbatim on
+the extractions row (see `thinking_request_params`):
+
+  default          send no `thinking` and no effort; the API's default
+                   applies (adaptive thinking on Sonnet 5 — what runs
+                   01-04 did)
+  adaptive         thinking={"type": "adaptive"}
+  disabled         thinking={"type": "disabled"}
+  <mode>:<effort>  any of the above plus output_config={"effort": ...},
+                   effort in low | medium | high | xhigh | max
+
+`budget_tokens` is not expressible: the API rejects it on Sonnet 5.
+
+Non-streaming with the configured max_tokens (default 16000) stays under
+the SDK's 10-minute timeout for the largest document in the spike corpus.
 """
 
 from __future__ import annotations
@@ -51,6 +66,33 @@ from app.extract.errors import PermanentExtractionError, TransientExtractionErro
 from app.settings import Settings
 
 ANTHROPIC = "anthropic"
+
+# The grammar of APP_EXTRACTION_THINKING for the Anthropic adapter (module
+# docstring). `default` is a mode, not a default: the setting itself has
+# no default in code, and an unset value is a recorded configuration error.
+THINKING_MODES: tuple[str, ...] = ("default", "adaptive", "disabled")
+EFFORT_LEVELS: tuple[str, ...] = ("low", "medium", "high", "xhigh", "max")
+
+
+def thinking_request_params(spec: str) -> dict[str, Any]:
+    """Messages API parameters for one APP_EXTRACTION_THINKING value.
+
+    Strict on purpose: the string is stored verbatim as part of the row's
+    identity, so two spellings of one request must not both be accepted.
+    """
+    mode, has_effort, effort = spec.partition(":")
+    if mode not in THINKING_MODES or (has_effort and effort not in EFFORT_LEVELS):
+        raise PermanentExtractionError(
+            f"APP_EXTRACTION_THINKING={spec!r} is not valid: expected one of "
+            f"{', '.join(THINKING_MODES)}, optionally followed by ':' and one of "
+            f"{', '.join(EFFORT_LEVELS)} (e.g. 'adaptive:low')"
+        )
+    params: dict[str, Any] = {}
+    if mode != "default":
+        params["thinking"] = {"type": mode}
+    if has_effort:
+        params["output_config"] = {"effort": effort}
+    return params
 
 
 @dataclasses.dataclass(frozen=True)
@@ -75,8 +117,8 @@ class LLMResponse:
 class LLMClient(Protocol):
     """One structured-output completion, plus the identity of what serves it.
 
-    `provider` / `model` are what the pipeline records on each extraction
-    row and keys idempotency on: the *configured* model string, not
+    `provider` / `model` / `thinking` are what the pipeline records on each
+    extraction row and keys idempotency on: the *configured* strings, not
     whatever the API echoes back (that goes in the attempt log).
 
     `messages` is the conversation so far (user/assistant alternation);
@@ -87,6 +129,7 @@ class LLMClient(Protocol):
 
     provider: str
     model: str
+    thinking: str
 
     def complete(
         self, *, system: str, messages: list[dict[str, Any]], schema: dict[str, Any]
@@ -102,11 +145,16 @@ class AnthropicClient:
         self,
         *,
         model: str,
+        thinking: str,
         max_tokens: int = 16000,
         api_key: str | None = None,
         client: Any | None = None,
     ) -> None:
         self.model = model
+        self.thinking = thinking
+        # Validated here, not per request: a bad value is a configuration
+        # error and fails the job with a recorded reason before any call.
+        self._thinking_params = thinking_request_params(thinking)
         self.max_tokens = max_tokens
         if client is None:
             import anthropic
@@ -142,6 +190,9 @@ class AnthropicClient:
                     }
                 ],
                 messages=messages,
+                # `thinking` / `output_config.effort`, or nothing (mode
+                # `default`) — see thinking_request_params.
+                **self._thinking_params,
             )
         except anthropic.RateLimitError as exc:
             raise TransientExtractionError(f"rate limited (429): {exc.message}") from exc
@@ -206,18 +257,21 @@ def response_to_llm_response(response: Any) -> LLMResponse:
     return result
 
 
-def _build_anthropic(settings: Settings, model: str) -> LLMClient:
+def _build_anthropic(settings: Settings, model: str, thinking: str) -> LLMClient:
     key = settings.anthropic_api_key
     return AnthropicClient(
         model=model,
+        thinking=thinking,
         max_tokens=settings.extraction_max_tokens,
         api_key=key.get_secret_value() if key is not None else None,
     )
 
 
-# Provider name (APP_LLM_PROVIDER) -> constructor. The only place a
-# provider is named; add a second entry here to add a second provider.
-_PROVIDERS: dict[str, Callable[[Settings, str], LLMClient]] = {
+# Provider name (APP_LLM_PROVIDER) -> constructor (settings, model,
+# thinking). The only place a provider is named; add a second entry here to
+# add a second provider. Each provider interprets the thinking string its
+# own way; the pipeline stores it verbatim either way.
+_PROVIDERS: dict[str, Callable[[Settings, str, str], LLMClient]] = {
     ANTHROPIC: _build_anthropic,
 }
 
@@ -228,8 +282,9 @@ def build_llm_client(settings: Settings) -> LLMClient:
     """Construct the configured provider's client.
 
     Raises PermanentExtractionError for any configuration gap — unset or
-    unknown provider, unset model, unusable credentials — so the worker
-    records the reason on the extraction row and dead-letters the job.
+    unknown provider, unset model, unset or invalid thinking setting,
+    unusable credentials — so the worker records the reason on the
+    extraction row and dead-letters the job.
     """
     if settings.llm_provider is None:
         raise PermanentExtractionError(
@@ -243,4 +298,9 @@ def build_llm_client(settings: Settings) -> LLMClient:
         )
     if settings.extraction_model is None:
         raise PermanentExtractionError("APP_EXTRACTION_MODEL is not set")
-    return factory(settings, settings.extraction_model)
+    if settings.extraction_thinking is None:
+        raise PermanentExtractionError(
+            "APP_EXTRACTION_THINKING is not set (for anthropic: one of "
+            f"{', '.join(THINKING_MODES)}, optionally ':<effort>')"
+        )
+    return factory(settings, settings.extraction_model, settings.extraction_thinking)

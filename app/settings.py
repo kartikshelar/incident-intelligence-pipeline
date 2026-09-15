@@ -7,13 +7,18 @@ provider, the model string, and the API key all come from here.
 
   APP_LLM_PROVIDER        which app.extract.llm implementation to use
   APP_EXTRACTION_MODEL    the model string passed to that provider verbatim
+  APP_EXTRACTION_THINKING the thinking/effort setting, interpreted by the
+                          provider (for anthropic: `default`, `adaptive`,
+                          `disabled`, optionally `:<effort>` — see
+                          app.extract.llm) and stored verbatim on every
+                          extractions row next to provider and model
   ANTHROPIC_API_KEY       the provider's key (its own name, not APP_-prefixed,
                           so the same variable the SDK reads still works)
 
-Provider and model are optional at load time so that processes which never
-call a model (API, migrations) start without them. The worker's LLM factory
-(app.extract.llm.build_llm_client) is what insists on them, and it fails per
-job with a recorded reason rather than at import time.
+Provider, model and thinking are optional at load time so that processes
+which never call a model (API, migrations) start without them. The worker's
+LLM factory (app.extract.llm.build_llm_client) is what insists on them, and
+it fails per job with a recorded reason rather than at import time.
 """
 
 from pydantic import Field, SecretStr, field_validator
@@ -30,10 +35,12 @@ class Settings(BaseSettings):
     job_visibility_timeout_seconds: int = 600  # 10 minutes, per ADR-003
     job_max_attempts: int = 5
 
-    # Extraction v0 (M3). Provider + model identify what produced a row —
-    # both are stored on every `extractions` row.
+    # Extraction v0 (M3). Provider + model + thinking identify what produced
+    # a row — all three are stored on every `extractions` row and are part
+    # of its idempotency key. No default for any of them exists in code.
     llm_provider: str | None = None
     extraction_model: str | None = None
+    extraction_thinking: str | None = None
     extraction_max_tokens: int = 16000
     # Schema-validation retries *within* one job (validation error fed back
     # to the model). Distinct from job_max_attempts, which is the queue's
@@ -46,7 +53,7 @@ class Settings(BaseSettings):
     # token, `ant auth login` profile).
     anthropic_api_key: SecretStr | None = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
 
-    @field_validator("llm_provider", "extraction_model", mode="before")
+    @field_validator("llm_provider", "extraction_model", "extraction_thinking", mode="before")
     @classmethod
     def _blank_is_unset(cls, value: object) -> object:
         # `APP_EXTRACTION_MODEL=` (empty) means "not configured", not "".

@@ -143,6 +143,7 @@ def overlong_description_output_json() -> str:
 
 class FakeLLMClient:
     provider = "fake"
+    thinking = "fake-thinking"
 
     def __init__(self, script: list[str | BaseException], *, model: str = "fake-model") -> None:
         self.script = list(script)

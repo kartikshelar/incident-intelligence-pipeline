@@ -15,9 +15,15 @@ import pytest
 from anthropic import DefaultHttpxClient
 
 from app.extract.errors import PermanentExtractionError, TransientExtractionError
-from app.extract.llm import AnthropicClient, response_to_llm_response, system_with_schema
+from app.extract.llm import (
+    AnthropicClient,
+    response_to_llm_response,
+    system_with_schema,
+    thinking_request_params,
+)
 
 MODEL = "some-configured-model"
+THINKING = "default"
 Handler = Callable[[httpx2.Request], httpx2.Response]
 
 
@@ -62,14 +68,19 @@ class _Transport:
         return json.loads(self.requests[-1].content)
 
 
-def _adapter(respond: Handler, *, max_tokens: int = 1234) -> tuple[AnthropicClient, _Transport]:
+def _adapter(
+    respond: Handler, *, max_tokens: int = 1234, thinking: str = THINKING
+) -> tuple[AnthropicClient, _Transport]:
     transport = _Transport(respond)
     sdk_client = anthropic.Anthropic(
         api_key="test-key-never-sent-anywhere",
         max_retries=0,  # the SDK would otherwise back off and retry 429/5xx in-test
         http_client=DefaultHttpxClient(transport=httpx2.MockTransport(transport)),
     )
-    return AnthropicClient(model=MODEL, max_tokens=max_tokens, client=sdk_client), transport
+    adapter = AnthropicClient(
+        model=MODEL, thinking=thinking, max_tokens=max_tokens, client=sdk_client
+    )
+    return adapter, transport
 
 
 def _json_response(status: int, body: dict[str, Any]) -> Handler:
@@ -111,7 +122,55 @@ def test_request_wire_format_and_response_parsing() -> None:
     assert system_block["text"].startswith("SYSTEM\n\n")
     assert json.dumps(schema, sort_keys=True) in system_block["text"]
     assert body["messages"] == [{"role": "user", "content": "hi"}]
-    assert "thinking" not in body  # adaptive by default; nothing sent
+    assert "thinking" not in body  # mode `default`: the API decides; nothing sent
+
+
+@pytest.mark.parametrize(
+    ("spec", "expected"),
+    [
+        ("default", {}),
+        ("adaptive", {"thinking": {"type": "adaptive"}}),
+        ("disabled", {"thinking": {"type": "disabled"}}),
+        ("adaptive:low", {"thinking": {"type": "adaptive"}, "output_config": {"effort": "low"}}),
+        ("disabled:high", {"thinking": {"type": "disabled"}, "output_config": {"effort": "high"}}),
+        ("default:medium", {"output_config": {"effort": "medium"}}),
+        ("adaptive:max", {"thinking": {"type": "adaptive"}, "output_config": {"effort": "max"}}),
+    ],
+)
+def test_thinking_setting_maps_onto_the_request(spec: str, expected: dict[str, Any]) -> None:
+    """APP_EXTRACTION_THINKING is one string; the adapter turns it into
+    `thinking` and/or `output_config.effort`, or into nothing at all."""
+    assert thinking_request_params(spec) == expected
+
+    adapter, transport = _adapter(_json_response(200, _message_json("{}")), thinking=spec)
+    adapter.complete(system="s", messages=[{"role": "user", "content": "x"}], schema={})
+    body = transport.last_body()
+    for key in ("thinking", "output_config"):
+        assert body.get(key) == expected.get(key), key
+    assert "format" not in body.get("output_config", {})  # still no grammar (ADR-005)
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        "",
+        "enabled",
+        "ADAPTIVE",  # stored verbatim as identity, so spellings are not folded
+        "adaptive:",
+        "adaptive:ultra",
+        "adaptive:low:extra",
+        "budget:1024",  # budget_tokens is rejected by the API on Sonnet 5 anyway
+        "low",
+    ],
+)
+def test_invalid_thinking_setting_fails_at_construction_not_per_request(spec: str) -> None:
+    transport = _Transport(_json_response(200, _message_json("{}")))
+    sdk_client = anthropic.Anthropic(
+        api_key="k", http_client=DefaultHttpxClient(transport=httpx2.MockTransport(transport))
+    )
+    with pytest.raises(PermanentExtractionError, match="APP_EXTRACTION_THINKING"):
+        AnthropicClient(model=MODEL, thinking=spec, client=sdk_client)
+    assert transport.requests == []
 
 
 def test_system_with_schema_is_byte_stable_for_caching() -> None:
@@ -120,10 +179,11 @@ def test_system_with_schema_is_byte_stable_for_caching() -> None:
     assert a == b
 
 
-def test_client_identity_is_provider_and_configured_model() -> None:
-    adapter, _ = _adapter(_json_response(200, _message_json("{}")))
+def test_client_identity_is_provider_configured_model_and_thinking() -> None:
+    adapter, _ = _adapter(_json_response(200, _message_json("{}")), thinking="adaptive:low")
     assert adapter.provider == "anthropic"
     assert adapter.model == MODEL
+    assert adapter.thinking == "adaptive:low"
 
 
 @pytest.mark.parametrize(
@@ -167,7 +227,7 @@ def test_missing_credentials_is_permanent(monkeypatch: pytest.MonkeyPatch) -> No
         max_retries=0,
         http_client=DefaultHttpxClient(transport=httpx2.MockTransport(transport)),
     )
-    adapter = AnthropicClient(model=MODEL, client=sdk_client)
+    adapter = AnthropicClient(model=MODEL, thinking=THINKING, client=sdk_client)
     with pytest.raises(PermanentExtractionError):
         adapter.complete(system="s", messages=[{"role": "user", "content": "x"}], schema={})
     assert transport.requests == []  # never reached the wire

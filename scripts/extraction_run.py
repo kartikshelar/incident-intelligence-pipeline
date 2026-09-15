@@ -151,6 +151,7 @@ def _extractions(conn: Any, document_id: str) -> list[dict[str, Any]]:
                 "status": r["status"],
                 "provider": r["provider"],
                 "model": r["model"],
+                "thinking": r["thinking"],
                 "schema_version": r["schema_version"],
                 "validation_attempts": r["attempts"],
                 "usage": r["usage"],
@@ -275,6 +276,9 @@ def main() -> int:
     total_cost = sum(costs) if pricing is not None else None
     providers_models = sorted({(d["extraction"]["provider"], d["extraction"]["model"])
                                for d in per_doc if d["extraction"]})
+    thinking_settings = sorted({d["extraction"]["thinking"] for d in per_doc if d["extraction"]})
+    schema_versions = sorted({d["extraction"]["schema_version"]
+                              for d in per_doc if d["extraction"]})
 
     summary = {
         "documents": len(per_doc),
@@ -289,6 +293,8 @@ def main() -> int:
                                    + [r for d in per_doc for r in d["this_run_extraction_rows"]]),
         "total_cost_usd": total_cost,
         "provider_model": [f"{p}/{m}" for p, m in providers_models],
+        "thinking": thinking_settings,
+        "schema_version": schema_versions,
     }
     report = {
         "run": out_path.stem,

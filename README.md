@@ -29,20 +29,24 @@ dead-letters with a recorded "not configured" error.
 
 ## Configuration
 
-Provider, model, and API key are configuration, never constants in app
-code (`app/settings.py`; `.env` is read if present and is git-ignored):
+Provider, model, thinking setting, and API key are configuration, never
+constants in app code (`app/settings.py`; `.env` is read if present and
+is git-ignored):
 
 | Variable | Meaning |
 |---|---|
 | `APP_LLM_PROVIDER` | which `app/extract/llm.py` implementation to use (`anthropic`) |
 | `APP_EXTRACTION_MODEL` | model string passed to the provider verbatim; the project default, `claude-sonnet-5`, lives in `.env.example` and `docker-compose.yml`, not in code |
+| `APP_EXTRACTION_THINKING` | thinking/effort, interpreted by the provider and stored verbatim. For `anthropic`: `default` (send nothing; the API's default, which on Sonnet 5 is adaptive thinking), `adaptive`, `disabled`, each optionally `:<low\|medium\|high\|xhigh\|max>` for `output_config.effort`, e.g. `adaptive:low`. The project default, `default`, lives in `.env.example` and `docker-compose.yml` |
 | `ANTHROPIC_API_KEY` | the provider's key, under the SDK's own name |
 | `APP_EXTRACTION_MAX_TOKENS`, `APP_EXTRACTION_MAX_ATTEMPTS` | 16000 / 3 |
 
-Both `provider` and `model` are stored on every `extractions` row and are
-part of its idempotency key. `build_llm_client` is the only place a
-provider is chosen; a second provider is a new entry in that registry and
-no change to the worker or pipeline.
+`provider`, `model` and `thinking` are stored on every `extractions` row
+and are part of its idempotency key, so the same document re-run at a
+different thinking setting is a new extraction, not a no-op.
+`build_llm_client` is the only place a provider is chosen; a second
+provider is a new entry in that registry and no change to the worker or
+pipeline.
 
 Register a source:
 
@@ -139,8 +143,8 @@ permanent (dead letter). Either way an `extractions` row with
 `status='failed'`, the error, and the attempt log is committed in the same
 transaction as the job's state change. Failed rows never block a later
 success; one `complete` row per (document, schema version, provider,
-model) is enforced by a partial unique index, which is what makes the extract job
-idempotent under at-least-once delivery.
+model, thinking) is enforced by a partial unique index, which is what makes
+the extract job idempotent under at-least-once delivery.
 
 **Confidence**: `FieldConfidence` is one self-reported number per
 top-level field, stored in `extractions.per_field_confidence` with
@@ -198,10 +202,12 @@ again), and a retry resends the document. Output tokens went *up*
 (76,526 → 80,412) and cost per document rose to $0.104. The written
 fields were never the lever: across all three runs the model's visible
 JSON is ~70k characters (roughly 20k tokens) against 76–80k billed
-output tokens, because the adapter sends no `thinking` parameter and
-Sonnet 5 then runs adaptive thinking, billed as output. Whether to set
-`output_config.effort` or disable thinking is a quality question for
-M5's eval to answer, not a trim. Under ADR-007, AWS and Google Cloud
+output tokens, because the adapter sent no `thinking` parameter and
+Sonnet 5 then runs adaptive thinking, billed as output. That setting is
+now configuration (`APP_EXTRACTION_THINKING`, stored on the row); whether
+to lower effort or disable thinking is a quality question, measured on
+the same 10 documents below and left for M5's eval to decide, not a
+trim. Under ADR-007, AWS and Google Cloud
 came back with new nonces a third time and were matched on `text_hash`:
 provenance updated, no new documents, 10 rows in `documents` (down from
 12 after migration 0005 merged the run-03 duplicates).

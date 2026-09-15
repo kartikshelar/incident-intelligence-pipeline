@@ -85,6 +85,7 @@ def test_complete_extraction_is_persisted_with_confidence_and_derived(engine: En
     assert row["schema_version"] == SCHEMA_VERSION
     assert row["provider"] == "fake"  # from the client, not a caller argument
     assert row["model"] == MODEL
+    assert row["thinking"] == "fake-thinking"
     assert row["record"]["mechanism"]["label"] == "crash_on_bad_input"
     assert row["record"]["trigger"]["label"] == "config_change"
     assert row["per_field_confidence"]["detection_method"] == 0.9
@@ -143,7 +144,8 @@ def test_validation_exhausted_is_recorded_as_failed_and_reraised(engine: Engine)
     row = rows[0]
     assert row["status"] == "failed"
     assert row["record"] is None
-    assert (row["provider"], row["model"]) == ("fake", MODEL)  # recorded on failures too
+    # Recorded on failures too.
+    assert (row["provider"], row["model"], row["thinking"]) == ("fake", MODEL, "fake-thinking")
     assert row["error_kind"] == "permanent"
     assert "SchemaValidationExhaustedError" in row["error"]
     assert row["attempts"] == 3
@@ -195,7 +197,7 @@ def test_complete_extraction_is_idempotent(engine: Engine) -> None:
     assert len(_rows(engine, document_id)) == 1
 
 
-def test_unique_index_enforces_one_complete_row_per_document_schema_provider_model(
+def test_unique_index_enforces_one_complete_row_per_document_schema_provider_model_thinking(
     engine: Engine,
 ) -> None:
     document_id = _insert_document(engine)
@@ -204,11 +206,33 @@ def test_unique_index_enforces_one_complete_row_per_document_schema_provider_mod
         conn.execute(
             text(
                 "INSERT INTO extractions (id, document_id, schema_version, provider, model, "
-                "status, record, attempts, attempt_log, usage) "
-                "VALUES (:id, :d, :v, 'fake', :m, 'complete', '{}', 1, '[]', '{}')"
+                "thinking, status, record, attempts, attempt_log, usage) "
+                "VALUES (:id, :d, :v, 'fake', :m, 'fake-thinking', 'complete', '{}', 1, "
+                "'[]', '{}')"
             ),
             {"id": uuid.uuid4(), "d": document_id, "v": SCHEMA_VERSION, "m": MODEL},
         )
+
+
+def test_same_model_at_another_thinking_setting_is_a_separate_extraction(
+    engine: Engine,
+) -> None:
+    """The thinking setting is part of the identity of what produced a row:
+    re-running a document at a different setting is a new extraction (this
+    is what lets spike/thinking_experiment.json exist), not a no-op."""
+    document_id = _insert_document(engine)
+    _extract(engine, document_id, FakeLLMClient([valid_output_json()]))
+
+    other = FakeLLMClient([valid_output_json()])
+    other.thinking = "other-thinking"
+    outcome = _extract(engine, document_id, other)
+
+    assert outcome.was_duplicate is False
+    assert len(other.calls) == 1
+    assert sorted(r["thinking"] for r in _rows(engine, document_id)) == [
+        "fake-thinking",
+        "other-thinking",
+    ]
 
 
 def test_same_model_on_another_provider_is_a_separate_extraction(engine: Engine) -> None:

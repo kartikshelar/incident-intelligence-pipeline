@@ -46,10 +46,13 @@ services:
       # key. Compose reads them from the shell or from ./.env (see
       # .env.example). Without them, ingest still works and each extract
       # job dead-letters with a recorded "not configured" error — see
-      # README. The model default lives here and in .env.example, not in
-      # app code.
+      # README. The model and thinking defaults live here and in
+      # .env.example, not in app code. `default` sends no thinking
+      # parameter (the API's own default; see app/extract/llm.py for the
+      # other values) — runs 01-04 were made this way.
       APP_LLM_PROVIDER: ${APP_LLM_PROVIDER:-anthropic}
       APP_EXTRACTION_MODEL: ${APP_EXTRACTION_MODEL:-claude-sonnet-5}
+      APP_EXTRACTION_THINKING: ${APP_EXTRACTION_THINKING:-default}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     command: ["python", "-m", "app.worker.main"]
 
