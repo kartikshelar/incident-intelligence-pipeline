@@ -28,15 +28,16 @@ def _insert_document(engine: Engine, *, title: str | None = "Outage Title") -> u
         )
         conn.execute(
             text(
-                "INSERT INTO documents (id, source_id, source_url, content_hash, format, "
-                "fetched_at, raw_bytes, text, title) VALUES (:id, :source_id, :url, :hash, "
-                "'html', now(), :raw, :text, :title)"
+                "INSERT INTO documents (id, source_id, source_url, content_hash, text_hash, "
+                "format, fetched_at, raw_bytes, text, title) VALUES (:id, :source_id, :url, "
+                ":hash, :text_hash, 'html', now(), :raw, :text, :title)"
             ),
             {
                 "id": document_id,
                 "source_id": source_id,
                 "url": "https://example.com/pm",
                 "hash": uuid.uuid4().hex,
+                "text_hash": uuid.uuid4().hex,
                 "raw": b"<html/>",
                 "text": "The service was down. A change caused it.",
                 "title": title,

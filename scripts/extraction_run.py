@@ -117,8 +117,8 @@ def _jobs(conn: Any, source_id: uuid.UUID) -> list[dict[str, Any]]:
 
 def _document(conn: Any, document_id: str) -> dict[str, Any] | None:
     r = conn.execute(
-        text("SELECT id, source_url, format, title, length(text) AS text_chars, content_hash "
-             "FROM documents WHERE id = :id"),
+        text("SELECT id, source_url, format, title, length(text) AS text_chars, content_hash, "
+             "text_hash, fetched_at, created_at FROM documents WHERE id = :id"),
         {"id": uuid.UUID(document_id)},
     ).mappings().fetchone()
     if r is None:
@@ -129,7 +129,12 @@ def _document(conn: Any, document_id: str) -> dict[str, Any] | None:
         "format": r["format"],
         "title": r["title"],
         "text_chars": r["text_chars"],
+        # ADR-007: content_hash names the stored bytes (may change across
+        # fetches); text_hash is the document's identity.
         "content_hash": r["content_hash"],
+        "text_hash": r["text_hash"],
+        "fetched_at": r["fetched_at"].isoformat(),
+        "first_seen_at": r["created_at"].isoformat(),
     }
 
 

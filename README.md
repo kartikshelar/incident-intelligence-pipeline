@@ -59,7 +59,7 @@ curl http://localhost:8000/jobs/<job_id>
 ```
 
 `queued` -> `running` -> `succeeded`, with a new row in `documents`
-(title, normalized text, format, content_hash, fetched_at). A 404/403/etc.
+(title, normalized text, format, content_hash, text_hash, fetched_at). A 404/403/etc.
 sends the job straight to `dead_letter` (no retry wasted on a URL that
 doesn't exist); a timeout or 5xx requeues it. An extraction that produces
 empty text is treated as a **hard failure** (`dead_letter`, no `documents`
@@ -69,6 +69,17 @@ row written) rather than a partial record — see
 On success the ingest job enqueues an `extract` job (`jobs.kind`) for the
 document in the same transaction. That job's success is a `complete` row
 in `extractions`.
+
+**Document identity** ([ADR-007](docs/adr/007-document-identity.md)): a
+document is its extracted text, not its bytes. `content_hash` (sha256 of
+the raw bytes) is the storage key; `text_hash` (sha256 of the normalized
+text) is the identity and the ingest idempotency key. Re-ingesting a
+source whose bytes changed but whose text did not — the AWS and Google
+Cloud status pages re-serve with new script nonces on every fetch —
+updates the existing row's provenance (final URL, `fetched_at`,
+`content_hash`, `raw_bytes`) and writes no new document; different text
+is a new document. Migration 0005 backfills `text_hash` and merges
+documents that already shared a text.
 
 ## Extraction
 

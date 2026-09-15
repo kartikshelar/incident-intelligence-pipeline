@@ -49,10 +49,18 @@ sources = Table(
     Column("created_at", DateTime(timezone=True), server_default=func.now(), nullable=False),
 )
 
-# Fetched + normalized result of ingesting a source (M2). One row per
-# distinct `content_hash` — idempotent on re-ingest (FINDINGS.md §2.9 notes
-# content_hash dedups *documents*, not incidents; that distinction is left
-# for the incident table in M3+).
+# Fetched + normalized result of ingesting a source (M2). Two hashes, two
+# jobs (ADR-007):
+#   content_hash  sha256 of `raw_bytes` — the storage key, unique.
+#   text_hash     sha256 of `text` — the document's identity and the ingest
+#                 idempotency key, unique. A re-fetch whose bytes changed
+#                 but whose text did not (nonces, CSP headers) updates this
+#                 row's provenance columns (source_url, fetched_at,
+#                 content_hash, raw_bytes, storage_backend) in place.
+# So (content_hash, raw_bytes, source_url, fetched_at, storage_backend)
+# describe the bytes currently stored; (text, text_hash, title, created_at)
+# describe the document, and never change after insert. FINDINGS.md §2.9:
+# this dedups *documents*, not incidents (still open, §4.11/§4.12).
 #
 # `raw_bytes` is stored in Postgres for M2, not MinIO (see ADR discussion in
 # the M2 session): a `storage_backend` column records where the bytes live
@@ -65,6 +73,7 @@ documents = Table(
     Column("source_id", UUID(as_uuid=True), nullable=False),
     Column("source_url", Text, nullable=False),
     Column("content_hash", Text, nullable=False),
+    Column("text_hash", Text, nullable=False),
     # markdown | html | pdf — detected from Content-Type / URL, see
     # app/ingest/detect.py.
     Column("format", String, nullable=False),
@@ -83,6 +92,7 @@ documents = Table(
     Column("title", Text, nullable=True),
     Column("created_at", DateTime(timezone=True), server_default=func.now(), nullable=False),
     UniqueConstraint("content_hash", name="documents_content_hash_key"),
+    UniqueConstraint("text_hash", name="documents_text_hash_key"),
 )
 
 # Job lifecycle per ADR-003 §4:

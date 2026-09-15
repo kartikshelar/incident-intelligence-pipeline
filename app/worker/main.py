@@ -44,7 +44,18 @@ def process_ingest(conn: Connection, job: Job) -> None:
     ).scalar_one()
 
     result = ingest_source(conn, source_id=job.source_id, source_url=source_url)
-    if result.was_duplicate:
+    if result.provenance_updated:
+        # ADR-007: new bytes, same text. The document keeps its id and
+        # its extractions; only where-it-came-from moved.
+        logger.info(
+            "job %s: text_hash %s already ingested as document %s; bytes changed "
+            "(content_hash now %s), provenance updated in place",
+            job.id,
+            result.text_hash,
+            result.document_id,
+            result.content_hash,
+        )
+    elif result.was_duplicate:
         logger.info(
             "job %s: content_hash %s already ingested as document %s (idempotent no-op)",
             job.id,
