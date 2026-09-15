@@ -57,6 +57,13 @@ sentence-count validator, so an over-long value fails validation and is
 retried with the error fed back. Every `quote` field is untouched: quotes
 are provenance, not prose. Bumped because the validation contract changed
 and the version is part of the extraction idempotency key.
+MEASURED (run 04, same corpus and prompt): written descriptions
+11,442 -> 8,713 chars, but 3 of 4 retries were the cap itself firing on
+`mechanism.description`; mean attempts 1.30 -> 1.40, output tokens
+76,526 -> 80,412, cost $0.99 -> $1.04. Also a net loss. The visible JSON
+is ~20k tokens per run against ~78k billed output tokens: the rest is
+adaptive thinking (no `thinking` parameter is sent, see llm.py), which no
+schema change can reach.
 
 OPEN, deliberately not decided here (FINDINGS §4.11, §4.12): one record per
 DOCUMENT. Nothing in this schema links two documents to one incident, and a

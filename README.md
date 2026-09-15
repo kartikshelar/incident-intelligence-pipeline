@@ -158,6 +158,13 @@ confidence, derived durations, validation attempts, tokens, cost, error).
 | [`run_01`](spike/extraction_run_01.json) | 0/10 | 10/10 | 0 | $0 (400 before any tokens) |
 | [`run_02`](spike/extraction_run_02.json) | 10/10 | 0/10 | 1.20 | $0.96 ($0.06–$0.13 per document) |
 | [`run_03`](spike/extraction_run_03.json) (schema v0.2) | 10/10 | 0/10 | 1.30 | $0.99 ($0.07–$0.15 per document) |
+| [`run_04`](spike/extraction_run_04.json) (schema v0.3) | 10/10 | 0/10 | 1.40 | $1.04 ($0.07–$0.14 per document) |
+
+| Run | Uncached input | Cache read | Output | Written-description chars | Mean attempts | Cost / document |
+|---|---|---|---|---|---|---|
+| run_02 (v0.1) | 88,570 | 60,852 | 75,927 | 11,644 | 1.20 | $0.096 |
+| run_03 (v0.2) | 98,593 | 62,376 | 76,526 | 11,442 | 1.30 | $0.099 |
+| run_04 (v0.3) | 106,126 | 72,293 | 80,412 | 8,713 | 1.40 | $0.104 |
 
 Run 01 is the grammar-limit failure described above. Run 02, after the
 schema moved into the system block, produced a schema-valid record for
@@ -179,6 +186,24 @@ so they were re-ingested as new documents — the DERIVE-07 case
 (re-ingest semantics) showing up on the second day. Roblox again derives
 a negative `time_to_detect` (detection 2h58m before impact), now
 recorded as a signed value by design.
+
+Run 04 is schema v0.3: the v0.2 read-side trim reverted, and the
+descriptions the model *writes* capped at one sentence / 200
+characters. **Second measured negative result.** The written
+descriptions did shrink (11,442 → 8,713 characters, −24%; the compact
+record −6%), but three of the four retries were the new cap itself
+firing on `mechanism.description` (the fourth was an invented extra key
+again), and a retry resends the document. Output tokens went *up*
+(76,526 → 80,412) and cost per document rose to $0.104. The written
+fields were never the lever: across all three runs the model's visible
+JSON is ~70k characters (roughly 20k tokens) against 76–80k billed
+output tokens, because the adapter sends no `thinking` parameter and
+Sonnet 5 then runs adaptive thinking, billed as output. Whether to set
+`output_config.effort` or disable thinking is a quality question for
+M5's eval to answer, not a trim. Under ADR-007, AWS and Google Cloud
+came back with new nonces a third time and were matched on `text_hash`:
+provenance updated, no new documents, 10 rows in `documents` (down from
+12 after migration 0005 merged the run-03 duplicates).
 
 ### Open — flagged, not decided
 
