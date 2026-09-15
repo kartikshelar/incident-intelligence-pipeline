@@ -1,0 +1,2978 @@
+{
+  "run": "extraction_run_02",
+  "started_at": "2026-09-15T06:34:48.920535+00:00",
+  "finished_at": "2026-09-15T06:46:10.637406+00:00",
+  "manifest": "spike/corpus_manifest.json",
+  "pricing_usd_per_mtok": {
+    "input_tokens": 2.0,
+    "output_tokens": 10.0,
+    "cache_read_input_tokens": 0.2,
+    "cache_creation_input_tokens": 2.5
+  },
+  "summary": {
+    "documents": 10,
+    "succeeded": 10,
+    "dead_lettered": 0,
+    "not_terminal": 0,
+    "mean_validation_attempts": 1.2,
+    "validation_attempts_histogram": {
+      "1": 8,
+      "2": 2
+    },
+    "total_tokens": {
+      "input_tokens": 88570,
+      "output_tokens": 75927,
+      "cache_read_input_tokens": 60852,
+      "cache_creation_input_tokens": 5532
+    },
+    "total_cost_usd": 0.9624104,
+    "provider_model": [
+      "anthropic/claude-sonnet-5"
+    ]
+  },
+  "documents": [
+    {
+      "id": "A",
+      "org": "Cloudflare",
+      "url": "https://blog.cloudflare.com/18-november-2025-outage/",
+      "manifest_format": "blog_html",
+      "source_id": "a1556945-ea6c-4b9a-b851-ae635c56dccb",
+      "jobs": [
+        {
+          "job_id": "5f04a9f0-813c-46c2-9adc-aaa19234bc16",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "991c024f-8946-4bf2-ba17-37b20c0d8edb",
+          "kind": "extract",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": "76db9d14-27cb-4d56-b41e-ead99a24248e"
+        }
+      ],
+      "document": {
+        "document_id": "76db9d14-27cb-4d56-b41e-ead99a24248e",
+        "final_url": "https://blog.cloudflare.com/18-november-2025-outage/",
+        "format": "html",
+        "title": "Cloudflare outage on November 18, 2025",
+        "text_chars": 18114,
+        "content_hash": "fb0c5218ebb4c3694829cc04a4d23e40c73af8571384967aec078a9036e0e8eb"
+      },
+      "outcome": "complete",
+      "validation_attempts": 1,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 5598,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 5532,
+        "total_input_tokens": 11130,
+        "output_tokens": 4891
+      },
+      "cost_usd": 0.073936,
+      "error": null,
+      "extraction": {
+        "extraction_id": "4efafd59-26c7-4800-becd-10c9dfa08194",
+        "status": "complete",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 1,
+        "usage": {
+          "input_tokens": 5598,
+          "output_tokens": 4891,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 5532
+        },
+        "error": null,
+        "error_kind": null,
+        "record": {
+          "title": "Cloudflare outage on November 18, 2025",
+          "summary": "On 18 November 2025, a permissions change to a ClickHouse database cluster caused a query used to generate Cloudflare's Bot Management feature file to return duplicate rows, doubling the file's size. When the oversized file propagated across Cloudflare's network, a hardcoded feature-count limit in the Bot Management module was exceeded, causing the core proxy (FL2) to panic and return HTTP 5xx errors, with FL customers instead receiving invalid all-zero bot scores. The team initially suspected a DDoS attack due to fluctuating good/bad file generation and a coincidental outage of Cloudflare's independently-hosted status page, before identifying the root cause and rolling back to a known-good configuration file, restoring most traffic by 14:30 UTC and fully resolving remaining issues by 17:06 UTC.",
+          "trigger": {
+            "label": "config_change",
+            "quote": "we made a change at 11:05 to make this access explicit, so that users can see the metadata of these tables as well",
+            "description": "A change to ClickHouse database permissions, deployed at 11:05 UTC to make table access explicit, caused a metadata query to return duplicate rows from an underlying schema, doubling the size of the Bot Management feature file."
+          },
+          "affected": {
+            "regions": [],
+            "services": [
+              "Core CDN and security services",
+              "Turnstile",
+              "Workers KV",
+              "Dashboard",
+              "Email Security",
+              "Access"
+            ],
+            "all_services": false,
+            "list_is_complete": true
+          },
+          "change_at": {
+            "at": "2025-11-18T11:05:00",
+            "quote": "Database access control change deployed.",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "mechanism": {
+            "label": "crash_on_bad_input",
+            "quote": "thread fl2_worker_thread panicked: called Result::unwrap() on an Err value",
+            "description": "The Bot Management module's proxy code had a hardcoded limit of 200 machine learning features and panicked (unhandled Result::unwrap error) when the propagated feature file exceeded that limit, causing widespread HTTP 5xx errors."
+          },
+          "vendor_org": null,
+          "detected_at": {
+            "at": "2025-11-18T11:31:00",
+            "quote": "The first automated test detected the issue at 11:31 and manual investigation started at 11:32.",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "mitigations": [
+            {
+              "date": "2025-11-18",
+              "text": "Used internal system bypasses for Workers KV and Cloudflare Access so they fell back to a prior version of the core proxy",
+              "status": "done"
+            },
+            {
+              "date": "2025-11-18",
+              "text": "Attempted traffic manipulation and account limiting to bring Workers KV back to normal levels",
+              "status": "done"
+            },
+            {
+              "date": "2025-11-18",
+              "text": "Stopped automatic deployment/propagation of new Bot Management configuration files",
+              "status": "done"
+            },
+            {
+              "date": "2025-11-18",
+              "text": "Manually inserted a known good feature configuration file into the distribution queue and restored it globally",
+              "status": "done"
+            },
+            {
+              "date": "2025-11-18",
+              "text": "Forced a restart of the core proxy",
+              "status": "done"
+            },
+            {
+              "date": "2025-11-18",
+              "text": "Scaled control plane concurrency to restore dashboard availability",
+              "status": "done"
+            }
+          ],
+          "resolved_at": {
+            "at": "2025-11-18T17:06:00",
+            "quote": "All services resolved. Impact ends.",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "affected_org": "Cloudflare",
+          "blast_radius": {
+            "qualitative": "Today was Cloudflare's worst outage since 2019, causing the majority of core traffic to stop flowing through our network.",
+            "quantitative": [
+              {
+                "quote": "Currently that limit is set to 200, well above our current use of ~60 features.",
+                "value": "200",
+                "metric": "Bot Management feature limit"
+              }
+            ]
+          },
+          "impact_start": {
+            "at": "2025-11-18T11:28:00",
+            "quote": "Deployment reaches customer environments, first errors observed on customer HTTP traffic.",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "mitigated_at": {
+            "at": "2025-11-18T14:30:00",
+            "quote": "Main impact resolved. Downstream impacted services started observing reduced errors.",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "remediations": [
+            {
+              "date": null,
+              "text": "Hardening ingestion of Cloudflare-generated configuration files in the same way we would for user-generated input",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Enabling more global kill switches for features",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Eliminating the ability for core dumps or other error reports to overwhelm system resources",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Reviewing failure modes for error conditions across all core proxy modules",
+              "status": "planned"
+            }
+          ],
+          "title_source": "document_metadata",
+          "publisher_org": "Cloudflare",
+          "detection_quote": "The first automated test detected the issue at 11:31 and manual investigation started at 11:32.",
+          "detection_method": "monitoring",
+          "affected_org_kind": "company",
+          "time_to_detect_text": null,
+          "contributing_factors": [
+            {
+              "text": "Bad data was only generated if the query ran on a part of the ClickHouse cluster which had been updated, so every five minutes there was a chance of good or bad configuration files being generated, causing confusing intermittent recovery and failure that delayed diagnosis.",
+              "source_section": "body"
+            },
+            {
+              "text": "Cloudflare's independently-hosted status page coincidentally went down at the same time, leading the team to suspect an attacker was targeting both systems.",
+              "source_section": "body"
+            },
+            {
+              "text": "Significant increases in response latency were caused by large amounts of CPU being consumed by debugging and observability systems that automatically enhance uncaught errors with additional debugging information.",
+              "source_section": "body"
+            },
+            {
+              "text": "There were prior assumptions that a metadata query would only return columns from the 'default' database, which was no longer true after the permissions change, causing the duplicate-row bug.",
+              "source_section": "body"
+            }
+          ],
+          "time_to_mitigate_text": null
+        },
+        "per_field_confidence": {
+          "title": 0.95,
+          "summary": 0.9,
+          "trigger": 0.85,
+          "affected": 0.85,
+          "change_at": 0.9,
+          "mechanism": 0.85,
+          "vendor_org": 0.55,
+          "detected_at": 0.75,
+          "mitigations": 0.8,
+          "resolved_at": 0.9,
+          "affected_org": 0.97,
+          "blast_radius": 0.6,
+          "impact_start": 0.85,
+          "mitigated_at": 0.85,
+          "remediations": 0.8,
+          "title_source": 0.95,
+          "publisher_org": 0.97,
+          "detection_quote": 0.8,
+          "detection_method": 0.75,
+          "affected_org_kind": 0.9,
+          "time_to_detect_text": 0.9,
+          "contributing_factors": 0.7,
+          "time_to_mitigate_text": 0.9
+        },
+        "derived": {
+          "time_to_detect": {
+            "to": "detected_at",
+            "from": "impact_start",
+            "seconds": 180.0,
+            "precision": "minute"
+          },
+          "time_to_mitigate": {
+            "to": "mitigated_at",
+            "from": "impact_start",
+            "seconds": 10920.0,
+            "precision": "minute"
+          }
+        },
+        "attempt_log": [
+          {
+            "ok": true,
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 5598,
+              "output_tokens": 4891,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 5532
+            },
+            "number": 1,
+            "validation_error": null
+          }
+        ],
+        "created_at": "2026-09-15T06:34:55.590538+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "B",
+      "org": "GitLab",
+      "url": "https://about.gitlab.com/blog/postmortem-of-database-outage-of-january-31/",
+      "manifest_format": "blog_html",
+      "source_id": "a7aa988e-4e72-4feb-95d0-d64655aef669",
+      "jobs": [
+        {
+          "job_id": "86f17478-a871-4c02-bbfc-173dfc58d772",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "6abc87e7-cb4a-45d7-8976-ebb995800ee2",
+          "kind": "extract",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": "fa09e1ed-65c2-401b-bf1a-09c6c483d2bb"
+        }
+      ],
+      "document": {
+        "document_id": "fa09e1ed-65c2-401b-bf1a-09c6c483d2bb",
+        "final_url": "https://about.gitlab.com/blog/postmortem-of-database-outage-of-january-31/",
+        "format": "html",
+        "title": "Postmortem of database outage of January 31",
+        "text_chars": 24216,
+        "content_hash": "755e13b43aefa03a1f6031006dd075f4afdf900435d235946fb1111a11f572e3"
+      },
+      "outcome": "complete",
+      "validation_attempts": 1,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 8073,
+        "cache_read_input_tokens": 5532,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 13605,
+        "output_tokens": 7843
+      },
+      "cost_usd": 0.0956824,
+      "error": null,
+      "extraction": {
+        "extraction_id": "9cb36c88-816d-4115-8b92-ef6d92ab722e",
+        "status": "complete",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 1,
+        "usage": {
+          "input_tokens": 8073,
+          "output_tokens": 7843,
+          "cache_read_input_tokens": 5532,
+          "cache_creation_input_tokens": 0
+        },
+        "error": null,
+        "error_kind": null,
+        "record": {
+          "title": "Postmortem of database outage of January 31",
+          "summary": "While troubleshooting a broken PostgreSQL replication process caused by a database load spike, an engineer intended to wipe the data directory on the secondary but accidentally ran the command against the primary, deleting roughly 300GB of production data. Recovery attempts revealed that all standard backup mechanisms (pg_dump, Azure disk snapshots, replication) had failed or were not enabled, so GitLab.com was restored from a 6-hour-old LVM snapshot originally intended for staging. The restore took about 18 hours due to slow staging disk throughput, and data created or modified between 17:20 and 00:00 UTC on January 31 was permanently lost, affecting roughly 5,000 projects, 5,000 comments, and 700 user accounts.",
+          "trigger": {
+            "label": "manual_command",
+            "quote": "Trying to restore the replication process, an engineer proceeds to wipe the PostgreSQL database directory, errantly thinking they were doing so on the secondary. Unfortunately this process was executed on the primary instead.",
+            "description": "An engineer, attempting to rebuild replication by wiping the secondary's PostgreSQL data directory, mistakenly ran the wipe command against the primary database instead."
+          },
+          "affected": {
+            "regions": [],
+            "services": [
+              "GitLab.com"
+            ],
+            "all_services": true,
+            "list_is_complete": null
+          },
+          "change_at": null,
+          "mechanism": {
+            "label": "data_loss",
+            "quote": "The engineer terminated the process a second or two after noticing their mistake, but at this point around 300 GB of data had already been removed.",
+            "description": "The accidental directory wipe deleted approximately 300GB of production data from the primary database before the engineer could stop the process, and no viable backup or replica existed to restore it immediately."
+          },
+          "vendor_org": null,
+          "detected_at": {
+            "at": "2017-01-31T23:30:00",
+            "quote": "The engineer terminated the process a second or two after noticing their mistake",
+            "timezone": "UTC",
+            "precision": "approximate",
+            "source_section": "timeline"
+          },
+          "mitigations": [
+            {
+              "date": null,
+              "text": "Temporarily increased max_wal_senders from 3 to 32 to allow replication connections.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Reduced max_connections from 8000 to 2000 to allow PostgreSQL to restart.",
+              "status": "done"
+            },
+            {
+              "date": "2017-02-01",
+              "text": "Restored the production database using a 6-hour-old LVM snapshot copied from staging.",
+              "status": "done"
+            },
+            {
+              "date": "2017-02-01",
+              "text": "Restored webhooks separately using a staging database built from the same snapshot without webhook removal.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Incremented all database sequences by 100,000 to avoid ID reuse.",
+              "status": "done"
+            },
+            {
+              "date": "2017-02-01",
+              "text": "Gradually re-enabled GitLab.com after restoration.",
+              "status": "done"
+            }
+          ],
+          "resolved_at": {
+            "at": "2017-02-01T18:00:00",
+            "quote": "Around 18:00 UTC we finished the final restoration procedures such as restoring the webhooks and confirming everything was operating as expected.",
+            "timezone": "UTC",
+            "precision": "hour",
+            "source_section": "body"
+          },
+          "affected_org": "GitLab.com",
+          "blast_radius": {
+            "qualitative": "This incident caused the GitLab.com service to be unavailable for many hours, and production data such as projects, comments, and user accounts created in a roughly 6-hour window was permanently lost. Self-managed, GitLab Enterprise, and GitHost customers were unaffected.",
+            "quantitative": [
+              {
+                "quote": "Our best estimate is that it affected roughly 5,000 projects, 5,000 comments and 700 new user accounts.",
+                "value": "roughly 5,000",
+                "metric": "projects affected by data loss"
+              },
+              {
+                "quote": "Our best estimate is that it affected roughly 5,000 projects, 5,000 comments and 700 new user accounts.",
+                "value": "roughly 5,000",
+                "metric": "comments affected by data loss"
+              },
+              {
+                "quote": "Our best estimate is that it affected roughly 5,000 projects, 5,000 comments and 700 new user accounts.",
+                "value": "roughly 700",
+                "metric": "new user accounts affected by data loss"
+              },
+              {
+                "quote": "at this point around 300 GB of data had already been removed.",
+                "value": "around 300 GB",
+                "metric": "data removed from primary"
+              },
+              {
+                "quote": "GitLab.com was down for about 18 hours.",
+                "value": "about 18 hours",
+                "metric": "total downtime"
+              },
+              {
+                "quote": "with a peak viewer count of around 5000",
+                "value": "around 5000",
+                "metric": "peak livestream viewers"
+              }
+            ]
+          },
+          "impact_start": {
+            "at": "2017-01-31T23:30:00",
+            "quote": "± 23:30 UTC: ... Trying to restore the replication process, an engineer proceeds to wipe the PostgreSQL database directory, errantly thinking they were doing so on the secondary.",
+            "timezone": "UTC",
+            "precision": "approximate",
+            "source_section": "timeline"
+          },
+          "mitigated_at": {
+            "at": "2017-02-01T17:00:00",
+            "quote": "On February 1st at 17:00 UTC we managed to restore the GitLab.com database without webhooks.",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "body"
+          },
+          "remediations": [
+            {
+              "date": null,
+              "text": "Add Prometheus monitoring for backups (#1095).",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Set PostgreSQL's max_connections to a sane value (#1096).",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Investigate point-in-time recovery and continuous archiving for PostgreSQL (#1097).",
+              "status": "proposed"
+            },
+            {
+              "date": null,
+              "text": "Take LVM snapshots of production databases hourly instead of every 24 hours (#1098).",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Enable Azure disk snapshots of production databases (#1099).",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Move staging to the ARM environment (#1100).",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Recover production replica(s) (#1101).",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Automate testing of PostgreSQL database backup recovery (#1102).",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Improve PostgreSQL replication documentation/runbooks (#1103).",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Investigate pgbarman for creating PostgreSQL backups (#1105).",
+              "status": "proposed"
+            },
+            {
+              "date": null,
+              "text": "Investigate using WAL-E for database backup and realtime replication (#494).",
+              "status": "proposed"
+            },
+            {
+              "date": null,
+              "text": "Build a streaming database restore capability.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Assign an owner for data durability.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Set up multiple secondaries with load balancing via pgpool-II.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Build a public backup monitoring dashboard.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Improve the abuse reporting and response system so accounts are not accidentally scheduled for hard deletion.",
+              "status": "planned"
+            }
+          ],
+          "title_source": "document_metadata",
+          "publisher_org": "GitLab",
+          "detection_quote": "The engineer terminated the process a second or two after noticing their mistake, but at this point around 300 GB of data had already been removed.",
+          "detection_method": "operator",
+          "affected_org_kind": "company",
+          "time_to_detect_text": null,
+          "contributing_factors": [
+            {
+              "text": "A spike in database load, caused by an increase in spam plus a background job trying to hard-delete a GitLab employee's account, caused replication to lag and fail.",
+              "source_section": "timeline"
+            },
+            {
+              "text": "pg_dump backups had been silently failing for some time because they were run on an application server that defaulted to PostgreSQL 9.2 tooling against a 9.6 database, producing a version-mismatch error.",
+              "source_section": "body"
+            },
+            {
+              "text": "Failure notification emails for the broken backup cronjob were rejected by the receiving mail server because DMARC was not enabled, so nobody was alerted.",
+              "source_section": "body"
+            },
+            {
+              "text": "Azure disk snapshots were not enabled for the database servers because other backup procedures were assumed to be sufficient.",
+              "source_section": "body"
+            },
+            {
+              "text": "max_connections had been set to an excessively high value (8000), which caused PostgreSQL to fail to restart when max_wal_senders was increased, complicating recovery.",
+              "source_section": "body"
+            },
+            {
+              "text": "pg_basebackup's silent waiting behavior when replication connections were unavailable was not documented in engineering runbooks, causing confusion during troubleshooting.",
+              "source_section": "body"
+            },
+            {
+              "text": "There was no ownership for testing the backup procedure on a regular basis.",
+              "source_section": "body"
+            }
+          ],
+          "time_to_mitigate_text": "GitLab.com was down for about 18 hours."
+        },
+        "per_field_confidence": {
+          "title": 0.95,
+          "summary": 0.85,
+          "trigger": 0.85,
+          "affected": 0.7,
+          "change_at": 0.3,
+          "mechanism": 0.85,
+          "vendor_org": 0.6,
+          "detected_at": 0.45,
+          "mitigations": 0.75,
+          "resolved_at": 0.75,
+          "affected_org": 0.9,
+          "blast_radius": 0.8,
+          "impact_start": 0.45,
+          "mitigated_at": 0.8,
+          "remediations": 0.7,
+          "title_source": 0.95,
+          "publisher_org": 0.95,
+          "detection_quote": 0.7,
+          "detection_method": 0.7,
+          "affected_org_kind": 0.85,
+          "time_to_detect_text": 0.5,
+          "contributing_factors": 0.75,
+          "time_to_mitigate_text": 0.7
+        },
+        "derived": {
+          "time_to_detect": {
+            "to": "detected_at",
+            "from": "impact_start",
+            "seconds": 0.0,
+            "precision": "approximate"
+          },
+          "time_to_mitigate": {
+            "to": "mitigated_at",
+            "from": "impact_start",
+            "seconds": 63000.0,
+            "precision": "approximate"
+          }
+        },
+        "attempt_log": [
+          {
+            "ok": true,
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 8073,
+              "output_tokens": 7843,
+              "cache_read_input_tokens": 5532,
+              "cache_creation_input_tokens": 0
+            },
+            "number": 1,
+            "validation_error": null
+          }
+        ],
+        "created_at": "2026-09-15T06:35:40.262498+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "C",
+      "org": "AWS",
+      "url": "https://aws.amazon.com/message/101925/",
+      "manifest_format": "vendor_post_event_summary_html",
+      "source_id": "cbed9fc2-6a3b-478f-a6fd-4dd6c642f0f1",
+      "jobs": [
+        {
+          "job_id": "4fd5dc02-76ca-48a4-a683-1a6eff4cac2e",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "7e2f9be7-3d85-43f3-be5e-be290e8ef889",
+          "kind": "extract",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": "ca018f06-f56f-4c76-acfc-e4cc7b84031a"
+        }
+      ],
+      "document": {
+        "document_id": "ca018f06-f56f-4c76-acfc-e4cc7b84031a",
+        "final_url": "https://aws.amazon.com/message/101925/",
+        "format": "html",
+        "title": "Summary of the Amazon DynamoDB Service Disruption in the Northern Virginia (US-EAST-1) Region",
+        "text_chars": 24080,
+        "content_hash": "fbbd07538daf81e6d6dfaa406dc7d5aa3394dcea73d961cd041402a176db8df2"
+      },
+      "outcome": "complete",
+      "validation_attempts": 1,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 7862,
+        "cache_read_input_tokens": 5532,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 13394,
+        "output_tokens": 9945
+      },
+      "cost_usd": 0.11628039999999999,
+      "error": null,
+      "extraction": {
+        "extraction_id": "a08f9c6d-550b-4f8a-ac8e-9a9c20f1c86d",
+        "status": "complete",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 1,
+        "usage": {
+          "input_tokens": 7862,
+          "output_tokens": 9945,
+          "cache_read_input_tokens": 5532,
+          "cache_creation_input_tokens": 0
+        },
+        "error": null,
+        "error_kind": null,
+        "record": {
+          "title": "Summary of the Amazon DynamoDB Service Disruption in the Northern Virginia (US-EAST-1) Region",
+          "summary": "Between October 19 and 20, 2025, a latent race condition in DynamoDB's automated DNS management system produced an incorrect, empty DNS record for the regional endpoint in US-EAST-1, causing widespread DynamoDB API failures starting at 11:48 PM PDT on October 19. This DNS failure cascaded into EC2 (instance-launch failures via DropletWorkflow Manager congestive collapse and Network Manager propagation backlog), Network Load Balancer (health-check failures and AZ DNS failover), and numerous dependent services (Lambda, ECS/EKS/Fargate, Connect, STS, IAM console sign-in, Redshift, and AWS Support). Engineers restored DynamoDB's DNS state by 2:25 AM PDT on October 20, but EC2 and NLB recovery took much longer, with the overall event fully resolved by 2:20 PM PDT on October 20.",
+          "trigger": null,
+          "affected": {
+            "regions": [
+              "US-EAST-1 (N. Virginia)"
+            ],
+            "services": [
+              "DynamoDB",
+              "EC2",
+              "Network Load Balancer (NLB)",
+              "Lambda",
+              "ECS",
+              "EKS",
+              "Fargate",
+              "Amazon Connect",
+              "STS",
+              "IAM/Console sign-in",
+              "Redshift",
+              "AWS Support Console/API",
+              "Managed Workflows for Apache Airflow",
+              "Outposts"
+            ],
+            "all_services": false,
+            "list_is_complete": false
+          },
+          "change_at": null,
+          "mechanism": {
+            "label": "race_condition",
+            "quote": "The root cause of this issue was a latent race condition in the DynamoDB DNS management system that resulted in an incorrect empty DNS record for the service’s regional endpoint",
+            "description": "A race condition between two independent DNS Enactor processes caused an older DNS plan to overwrite a newer one for DynamoDB's regional endpoint, and the plan cleanup process then deleted the active plan, removing all IP addresses for the endpoint and leaving the system unable to apply further updates without manual intervention."
+          },
+          "vendor_org": null,
+          "detected_at": null,
+          "mitigations": [
+            {
+              "date": "2025-10-20T01:15:00",
+              "text": "Temporary mitigations were applied that enabled some internal services to connect to DynamoDB and repaired key internal tooling that unblocked further recovery.",
+              "status": "done"
+            },
+            {
+              "date": "2025-10-20T04:14:00",
+              "text": "Engineers throttled incoming work and began selective restarts of DWFM hosts to recover from congestive collapse.",
+              "status": "done"
+            },
+            {
+              "date": "2025-10-20T09:36:00",
+              "text": "Engineers disabled automatic health check failovers for NLB, allowing all available healthy nodes and backend targets to be brought back into service.",
+              "status": "done"
+            },
+            {
+              "date": "2025-10-20T14:09:00",
+              "text": "Re-enabled automatic DNS health check failover for NLB after EC2 recovered.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Throttled Lambda Event Source Mappings and asynchronous invocations to prioritize latency-sensitive synchronous invocations.",
+              "status": "done"
+            },
+            {
+              "date": "2025-10-20T06:45:00",
+              "text": "Engineers took action to stop the Redshift workflow backlog from growing.",
+              "status": "done"
+            }
+          ],
+          "resolved_at": {
+            "at": "2025-10-20T14:20:00",
+            "quote": "the event started at 11:48 PM PDT on October 19 and ended at 2:20 PM PDT on October 20",
+            "timezone": "PDT",
+            "precision": "minute",
+            "source_section": "summary"
+          },
+          "affected_org": "Amazon Web Services (AWS)",
+          "blast_radius": {
+            "qualitative": "We know this event impacted many customers in significant ways.",
+            "quantitative": [
+              {
+                "quote": "Services like DynamoDB maintain hundreds of thousands of DNS records to operate a very large heterogeneous fleet of load balancers in each Region.",
+                "value": "hundreds of thousands",
+                "metric": "DNS records maintained by DynamoDB's automation"
+              }
+            ]
+          },
+          "impact_start": {
+            "at": "2025-10-19T23:48:00",
+            "quote": "the event started at 11:48 PM PDT on October 19",
+            "timezone": "PDT",
+            "precision": "minute",
+            "source_section": "summary"
+          },
+          "mitigated_at": {
+            "at": "2025-10-20T02:25:00",
+            "quote": "By 2:25 AM, all DNS information was restored, and all global tables replicas were fully caught up by 2:32 AM. ... This completed recovery from the primary service disruption event.",
+            "timezone": "PDT",
+            "precision": "minute",
+            "source_section": "body"
+          },
+          "remediations": [
+            {
+              "date": null,
+              "text": "Disabled the DynamoDB DNS Planner and DNS Enactor automation worldwide.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Will fix the race condition scenario and add additional protections to prevent application of incorrect DNS plans before re-enabling automation.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Adding a velocity control mechanism to limit the capacity a single NLB can remove when health check failures cause AZ failover.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Building an additional test suite to augment existing scale testing, exercising the DWFM recovery workflow to identify future regressions.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Will improve the throttling mechanism in EC2 data propagation systems to rate limit incoming work based on queue size.",
+              "status": "planned"
+            },
+            {
+              "date": "2025-10-20T02:58:00",
+              "text": "Took additional actions to prevent recurrence of the AWS Support Center account-metadata issue.",
+              "status": "done"
+            }
+          ],
+          "title_source": "document_metadata",
+          "publisher_org": "Amazon Web Services (AWS)",
+          "detection_quote": null,
+          "detection_method": "unknown",
+          "affected_org_kind": "company",
+          "time_to_detect_text": null,
+          "contributing_factors": [
+            {
+              "text": "The check that was made at the start of the plan application process, which ensures that the plan is newer than the previously applied plan, was stale by this time due to the unusually high delays in Enactor processing.",
+              "source_section": "body"
+            },
+            {
+              "text": "This was caused by health check failures in the NLB fleet, which resulted in increased connection errors on some NLBs.",
+              "source_section": "summary"
+            },
+            {
+              "text": "due to the large number of droplets, efforts to establish new droplet leases took long enough that the work could not be completed before they timed out",
+              "source_section": "body"
+            },
+            {
+              "text": "Since these network propagation events had been delayed by the issue with DWFM, a significant backlog of network state propagations needed to be processed by Network Manager within the N. Virginia (us-east-1) Region.",
+              "source_section": "body"
+            },
+            {
+              "text": "an internal subsystem responsible for polling SQS queues failed and did not recover automatically",
+              "source_section": "body"
+            },
+            {
+              "text": "Amazon Redshift customers in all AWS Regions were unable to use IAM user credentials for executing queries due to a Redshift defect that used an IAM API in the N. Virginia (us-east-1) Region to resolve user groups.",
+              "source_section": "body"
+            }
+          ],
+          "time_to_mitigate_text": null
+        },
+        "per_field_confidence": {
+          "title": 0.98,
+          "summary": 0.85,
+          "trigger": 0.8,
+          "affected": 0.85,
+          "change_at": 0.9,
+          "mechanism": 0.9,
+          "vendor_org": 0.9,
+          "detected_at": 0.2,
+          "mitigations": 0.7,
+          "resolved_at": 0.8,
+          "affected_org": 0.9,
+          "blast_radius": 0.6,
+          "impact_start": 0.9,
+          "mitigated_at": 0.75,
+          "remediations": 0.75,
+          "title_source": 0.98,
+          "publisher_org": 0.95,
+          "detection_quote": 0.2,
+          "detection_method": 0.3,
+          "affected_org_kind": 0.9,
+          "time_to_detect_text": 0.9,
+          "contributing_factors": 0.7,
+          "time_to_mitigate_text": 0.9
+        },
+        "derived": {
+          "time_to_detect": null,
+          "time_to_mitigate": {
+            "to": "mitigated_at",
+            "from": "impact_start",
+            "seconds": 9420.0,
+            "precision": "minute"
+          }
+        },
+        "attempt_log": [
+          {
+            "ok": true,
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 7862,
+              "output_tokens": 9945,
+              "cache_read_input_tokens": 5532,
+              "cache_creation_input_tokens": 0
+            },
+            "number": 1,
+            "validation_error": null
+          }
+        ],
+        "created_at": "2026-09-15T06:36:48.778345+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "D",
+      "org": "Datadog",
+      "url": "https://www.datadoghq.com/blog/2023-03-08-multiregion-infrastructure-connectivity-issue/",
+      "manifest_format": "blog_html",
+      "source_id": "6e00394f-1213-4bbd-8231-95ca827e0d09",
+      "jobs": [
+        {
+          "job_id": "a736feb3-a099-42b2-9343-f74ee9aa582f",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "f671e0af-7c0d-4ecc-bcc9-e07990cf7f73",
+          "kind": "extract",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": "b9d8dc91-31e0-4b20-b354-e76aeb1a90a3"
+        }
+      ],
+      "document": {
+        "document_id": "b9d8dc91-31e0-4b20-b354-e76aeb1a90a3",
+        "final_url": "https://www.datadoghq.com/blog/2023-03-08-multiregion-infrastructure-connectivity-issue/",
+        "format": "html",
+        "title": "2023-03-08 Incident: Infrastructure connectivity issue affecting multiple regions | Datadog",
+        "text_chars": 12091,
+        "content_hash": "e6800c32a40bd24a3845a1003d76c0ac017d9e2b06fb21ab3412637fbeebf947"
+      },
+      "outcome": "complete",
+      "validation_attempts": 1,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 3782,
+        "cache_read_input_tokens": 5532,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 9314,
+        "output_tokens": 5375
+      },
+      "cost_usd": 0.0624204,
+      "error": null,
+      "extraction": {
+        "extraction_id": "7fa422b7-b62e-44e7-83a2-2d7fcab22a61",
+        "status": "complete",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 1,
+        "usage": {
+          "input_tokens": 3782,
+          "output_tokens": 5375,
+          "cache_read_input_tokens": 5532,
+          "cache_creation_input_tokens": 0
+        },
+        "error": null,
+        "error_kind": null,
+        "record": {
+          "title": "2023-03-08 Incident: Infrastructure connectivity issue affecting multiple regions | Datadog",
+          "summary": "On March 8, 2023 at 06:00 UTC, an automatic systemd security update was applied to a large number of Datadog's VMs, causing systemd-networkd to restart and forcibly delete network routes installed by the Cilium CNI plugin, taking the affected nodes offline. Because the update's default apply window (06:00-07:00 UTC) and a legacy update channel were enabled across regions on three cloud providers, tens of thousands of nodes across US1, EU1, US3, US4, and US5 went offline simultaneously, causing a global outage affecting all services including platform access, monitors, and data ingestion. Recovery was phased over several days, restoring real-time data first, then historical data, with the incident fully resolved after backfilling on March 10, 2023.",
+          "trigger": {
+            "label": "os_auto_update",
+            "quote": "a security update to systemd was automatically applied to a number of VMs",
+            "description": "An automatic security update to systemd was applied to a number of VMs at 06:00 UTC on March 8, 2023, due to a legacy security update channel enabled in the base OS image."
+          },
+          "affected": {
+            "regions": [
+              "US1",
+              "EU1",
+              "US3",
+              "US4",
+              "US5"
+            ],
+            "services": [
+              "platform access (browser/API)",
+              "monitors and alerting",
+              "data ingestion"
+            ],
+            "all_services": true,
+            "list_is_complete": true
+          },
+          "change_at": {
+            "at": "2023-03-08T06:00:00",
+            "quote": "the trigger of the first faulty upgrade (March 8, 2023, at 06:00 UTC)",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "body"
+          },
+          "mechanism": {
+            "label": "race_condition",
+            "quote": "systemd-networkd forcibly deleted the routes managed by the Container Network Interface (CNI) plugin (Cilium) we use for communication between containers. This caused the affected nodes to go offline.",
+            "description": "The systemd security update caused systemd-networkd to restart, which forcibly deleted network routes managed by the Cilium CNI plugin, taking the affected nodes offline because this route-deletion behavior only manifests on restart of a running node, not on boot."
+          },
+          "vendor_org": null,
+          "detected_at": {
+            "at": "2023-03-08T06:03:00",
+            "quote": "We were first alerted to the issue by our internal monitoring, three minutes after the trigger of the first faulty upgrade (March 8, 2023, at 06:00 UTC).",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "body"
+          },
+          "mitigations": [
+            {
+              "date": null,
+              "text": "Focused initial recovery efforts on restoring normal ingestion and processing for real-time telemetry data",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Switched recovery efforts to historical data that had been ingested but left unprocessed",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Provided frequent updates on the status page to keep customers apprised",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Recovered compute capacity per region, scaling higher than normal to process real-time and historical data simultaneously",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Recovered each service in parallel once compute capacity was ready",
+              "status": "done"
+            }
+          ],
+          "resolved_at": {
+            "at": "2023-03-10T06:25:00",
+            "quote": "The incident was fully resolved on March 10, 2023, at 06:25 UTC once we had backfilled historical data.",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "affected_org": "Datadog",
+          "blast_radius": {
+            "qualitative": "This affected tens of thousands of nodes in our fleet between 06:00 and 07:00; by 06:31 UTC, enough of our fleet was offline that the outage was visible to our customers.",
+            "quantitative": [
+              {
+                "quote": "This affected tens of thousands of nodes in our fleet between 06:00 and 07:00",
+                "value": "tens of thousands",
+                "metric": "nodes affected"
+              },
+              {
+                "quote": "a pool of 450 to 750 incident responders active throughout the incident",
+                "value": "450 to 750",
+                "metric": "incident responders"
+              },
+              {
+                "quote": "about 70 local incident commanders",
+                "value": "about 70",
+                "metric": "local incident commanders"
+              },
+              {
+                "quote": "Our communications lead orchestrated about 200 status updates across four regions",
+                "value": "about 200",
+                "metric": "status updates"
+              }
+            ]
+          },
+          "impact_start": {
+            "at": "2023-03-08T06:03:00",
+            "quote": "Starting on March 8, 2023, at 06:03 UTC, we experienced an outage that affected the US1, EU1, US3, US4, and US5 Datadog regions across all services.",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "summary"
+          },
+          "mitigated_at": {
+            "at": "2023-03-09T08:58:00",
+            "quote": "we declared all services operational in all regions on March 9, 2023, 08:58 UTC",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "remediations": [
+            {
+              "date": null,
+              "text": "Disabled the legacy security update channel across all affected regions",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Changed the configuration of systemd-networkd so that it leaves the routing table unchanged upon restart",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Audited infrastructure for potential similar legacy update channels",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Will take the clear hierarchy of data value into account in how we handle processing and access in degraded mode",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Will use the level of infrastructure disruption seen to prove the platform can operate in degraded conditions without being completely down",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Will prioritize sharing guidance with customers about which services and data are available and how to access them",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Will devise a way to communicate in real-time a detailed status for each product, even in degraded mode",
+              "status": "planned"
+            }
+          ],
+          "title_source": "document_metadata",
+          "publisher_org": "Datadog",
+          "detection_quote": "We were first alerted to the issue by our internal monitoring, three minutes after the trigger of the first faulty upgrade (March 8, 2023, at 06:00 UTC).",
+          "detection_method": "monitoring",
+          "affected_org_kind": "company",
+          "time_to_detect_text": "three minutes after the trigger",
+          "contributing_factors": [
+            {
+              "text": "the base OS image we use to run Kubernetes had a legacy security update channel enabled, which caused the update to apply automatically",
+              "source_section": "body"
+            },
+            {
+              "text": "the time at which the automatic update happens is set by default in the OS to a window between 06:00 and 07:00 UTC. Thus it affected multiple regions at the exact same time",
+              "source_section": "body"
+            },
+            {
+              "text": "neither a fresh node nor a rebooted node exhibit this behavior... outside of the systemd-networkd update scenario on a running node, no obvious test reproduces the exact sequence",
+              "source_section": "body"
+            },
+            {
+              "text": "Some cloud providers' auto-scaling logic immediately replaces the unhealthy node with a fresh one... it also created a thundering herd that tested the cloud provider's regional rate limits",
+              "source_section": "body"
+            }
+          ],
+          "time_to_mitigate_text": null
+        },
+        "per_field_confidence": {
+          "title": 0.9,
+          "summary": 0.9,
+          "trigger": 0.9,
+          "affected": 0.85,
+          "change_at": 0.9,
+          "mechanism": 0.8,
+          "vendor_org": 0.55,
+          "detected_at": 0.75,
+          "mitigations": 0.75,
+          "resolved_at": 0.9,
+          "affected_org": 0.98,
+          "blast_radius": 0.8,
+          "impact_start": 0.9,
+          "mitigated_at": 0.6,
+          "remediations": 0.85,
+          "title_source": 0.9,
+          "publisher_org": 0.98,
+          "detection_quote": 0.8,
+          "detection_method": 0.75,
+          "affected_org_kind": 0.95,
+          "time_to_detect_text": 0.85,
+          "contributing_factors": 0.75,
+          "time_to_mitigate_text": 0.95
+        },
+        "derived": {
+          "time_to_detect": {
+            "to": "detected_at",
+            "from": "impact_start",
+            "seconds": 0.0,
+            "precision": "minute"
+          },
+          "time_to_mitigate": {
+            "to": "mitigated_at",
+            "from": "impact_start",
+            "seconds": 96900.0,
+            "precision": "minute"
+          }
+        },
+        "attempt_log": [
+          {
+            "ok": true,
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 3782,
+              "output_tokens": 5375,
+              "cache_read_input_tokens": 5532,
+              "cache_creation_input_tokens": 0
+            },
+            "number": 1,
+            "validation_error": null
+          }
+        ],
+        "created_at": "2026-09-15T06:38:15.788526+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "E",
+      "org": "GitHub",
+      "url": "https://github.blog/news-insights/company-news/oct21-post-incident-analysis/",
+      "manifest_format": "blog_html",
+      "source_id": "6d3b56d8-e04c-4a4c-ac54-350b0a4e441f",
+      "jobs": [
+        {
+          "job_id": "c3667817-e0d4-4fa4-87e0-59865bbb4b39",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "0091cf36-c405-40e9-9057-79a02ee9f44a",
+          "kind": "extract",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": "e79ef927-ee32-4e01-b1bb-39e05e637998"
+        }
+      ],
+      "document": {
+        "document_id": "e79ef927-ee32-4e01-b1bb-39e05e637998",
+        "final_url": "https://github.blog/news-insights/company-news/oct21-post-incident-analysis/",
+        "format": "html",
+        "title": "October 21 post-incident analysis",
+        "text_chars": 17483,
+        "content_hash": "885850d39a7de519c1a54413d73509837d834e7c624ad8f464d3d082b2d19885"
+      },
+      "outcome": "complete",
+      "validation_attempts": 2,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 13266,
+        "cache_read_input_tokens": 11064,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 24330,
+        "output_tokens": 9116
+      },
+      "cost_usd": 0.1199048,
+      "error": null,
+      "extraction": {
+        "extraction_id": "ea041379-4fd9-481f-b969-828e9a96ecb7",
+        "status": "complete",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 2,
+        "usage": {
+          "input_tokens": 13266,
+          "output_tokens": 9116,
+          "cache_read_input_tokens": 11064,
+          "cache_creation_input_tokens": 0
+        },
+        "error": null,
+        "error_kind": null,
+        "record": {
+          "title": "October 21 post-incident analysis",
+          "summary": "During routine maintenance to replace failing 100G optical equipment, GitHub lost connectivity between its US East Coast network hub and primary East Coast data center for 43 seconds. This brief network partition caused Orchestrator to fail MySQL primaries over to the US West Coast data center, and once connectivity returned both sites held un-replicated writes, making it unsafe to fail back to the East Coast. GitHub chose to prioritize data integrity over availability, pausing webhooks and Pages builds and rebuilding clusters from backup, resulting in 24 hours and 11 minutes of degraded, inconsistent service before full recovery and backlog processing completed.",
+          "trigger": {
+            "label": "infrastructure_maintenance",
+            "quote": "routine maintenance work to replace failing 100G optical equipment resulted in the loss of connectivity between our US East Coast network hub and our primary US East Coast data center.",
+            "description": "Routine maintenance work to replace failing 100G optical equipment caused a 43-second loss of connectivity between the US East Coast network hub and the primary US East Coast data center."
+          },
+          "affected": {
+            "regions": [
+              "US East Coast data center",
+              "US West Coast data center"
+            ],
+            "services": [
+              "webhook events",
+              "GitHub Pages"
+            ],
+            "all_services": false,
+            "list_is_complete": null
+          },
+          "change_at": {
+            "at": "2018-10-21T22:52:00",
+            "quote": "At 22:52 UTC on October 21, routine maintenance work to replace failing 100G optical equipment resulted in the loss of connectivity",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "mechanism": {
+            "label": "unsafe_failover",
+            "quote": "Because the database clusters in both data centers now contained writes that were not present in the other data center, we were unable to fail the primary back over to the US East Coast data center safely.",
+            "description": "The brief network partition triggered Orchestrator to fail MySQL cluster primaries over to the US West Coast data center, and because both data centers ended up with writes not replicated to the other, GitHub could not safely fail back, producing prolonged data inconsistency and degraded service."
+          },
+          "vendor_org": null,
+          "detected_at": {
+            "at": "2018-10-21T22:54:00",
+            "quote": "2018 October 21 22:54 UTC Our internal monitoring systems began generating alerts indicating that our systems were experiencing numerous faults.",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "mitigations": [
+            {
+              "date": "2018-10-21",
+              "text": "Manually locked internal deployment tooling to prevent additional changes.",
+              "status": "done"
+            },
+            {
+              "date": "2018-10-21",
+              "text": "Paused webhook delivery and GitHub Pages builds to avoid jeopardizing already-received user data.",
+              "status": "done"
+            },
+            {
+              "date": "2018-10-22",
+              "text": "Restored MySQL clusters from backups and synchronized replicas between sites.",
+              "status": "done"
+            },
+            {
+              "date": "2018-10-22",
+              "text": "Provisioned additional MySQL read replicas in the US East Coast public cloud to spread read load and let replication catch up.",
+              "status": "done"
+            },
+            {
+              "date": "2018-10-22",
+              "text": "Conducted a failover back to the original East Coast topology once replicas were in sync.",
+              "status": "done"
+            },
+            {
+              "date": "2018-10-22",
+              "text": "Paused webhook backlog processing after discovering dropped payloads and increased the TTL.",
+              "status": "done"
+            }
+          ],
+          "resolved_at": {
+            "at": "2018-10-22T23:03:00",
+            "quote": "All pending webhooks and Pages builds had been processed and the integrity and proper operation of all systems had been confirmed. The site status was updated to green.",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "affected_org": "GitHub",
+          "blast_radius": {
+            "qualitative": "resulted in degraded service for 24 hours and 11 minutes... multiple internal systems were affected which resulted in our displaying of information that was out of date and inconsistent.",
+            "quantitative": [
+              {
+                "quote": "resulted in degraded service for 24 hours and 11 minutes",
+                "value": "24 hours and 11 minutes",
+                "metric": "service degradation duration"
+              },
+              {
+                "quote": "one of our busiest clusters had 954 writes in the affected window.",
+                "value": "954",
+                "metric": "unreplicated writes on busiest cluster"
+              },
+              {
+                "quote": "There were over five million hook events and 80 thousand Pages builds queued.",
+                "value": "over five million",
+                "metric": "webhook events queued"
+              },
+              {
+                "quote": "There were over five million hook events and 80 thousand Pages builds queued.",
+                "value": "80 thousand",
+                "metric": "Pages builds queued"
+              },
+              {
+                "quote": "we processed ~200,000 webhook payloads that had outlived an internal TTL and were dropped.",
+                "value": "~200,000",
+                "metric": "webhook payloads dropped"
+              }
+            ]
+          },
+          "impact_start": {
+            "at": "2018-10-21T22:52:00",
+            "quote": "2018 October 21 22:52 UTC",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "mitigated_at": {
+            "at": "2018-10-22T16:24:00",
+            "quote": "Once the replicas were in sync, we conducted a failover to the original topology, addressing the immediate latency/availability concerns.",
+            "timezone": "UTC",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "remediations": [
+            {
+              "date": null,
+              "text": "Adjust the configuration of Orchestrator to prevent the promotion of database primaries across regional boundaries.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Accelerated migration to a new status reporting mechanism providing richer, per-component incident status.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Company-wide initiative to serve GitHub traffic from multiple data centers in an active/active/active design for N+1 facility redundancy, given added urgency by this incident.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Take a more proactive stance in testing assumptions about system behavior.",
+              "status": "proposed"
+            },
+            {
+              "date": null,
+              "text": "Begin a systemic practice of validating failure scenarios via fault injection and chaos engineering tooling.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Performing analysis on captured MySQL binary logs to determine which unreplicated writes can be automatically reconciled versus requiring user outreach.",
+              "status": "done"
+            }
+          ],
+          "title_source": "document_metadata",
+          "publisher_org": "GitHub",
+          "detection_quote": "Our internal monitoring systems began generating alerts indicating that our systems were experiencing numerous faults.",
+          "detection_method": "monitoring",
+          "affected_org_kind": "company",
+          "time_to_detect_text": null,
+          "contributing_factors": [
+            {
+              "text": "Orchestrator's actions behaved as configured, despite our application tier being unable to support this topology change.",
+              "source_section": "body"
+            },
+            {
+              "text": "the sudden introduction of cross-country latency was a major contributing factor during this incident",
+              "source_section": "body"
+            },
+            {
+              "text": "This was emergent behavior of the system given that we hadn't previously seen an internal network partition of this magnitude.",
+              "source_section": "body"
+            },
+            {
+              "text": "In reality, the time required for replication to catch up had adhered to a power decay function instead of a linear trajectory. Due to increased write load on our database clusters as users woke up and began their workday in Europe and the US, the recovery process took longer than originally estimated.",
+              "source_section": "timeline"
+            }
+          ],
+          "time_to_mitigate_text": null
+        },
+        "per_field_confidence": {
+          "title": 0.85,
+          "summary": 0.85,
+          "trigger": 0.85,
+          "affected": 0.7,
+          "change_at": 0.85,
+          "mechanism": 0.75,
+          "vendor_org": 0.6,
+          "detected_at": 0.8,
+          "mitigations": 0.7,
+          "resolved_at": 0.85,
+          "affected_org": 0.97,
+          "blast_radius": 0.75,
+          "impact_start": 0.7,
+          "mitigated_at": 0.55,
+          "remediations": 0.7,
+          "title_source": 0.85,
+          "publisher_org": 0.97,
+          "detection_quote": 0.8,
+          "detection_method": 0.8,
+          "affected_org_kind": 0.9,
+          "time_to_detect_text": 0.9,
+          "contributing_factors": 0.65,
+          "time_to_mitigate_text": 0.9
+        },
+        "derived": {
+          "time_to_detect": {
+            "to": "detected_at",
+            "from": "impact_start",
+            "seconds": 120.0,
+            "precision": "minute"
+          },
+          "time_to_mitigate": {
+            "to": "mitigated_at",
+            "from": "impact_start",
+            "seconds": 63120.0,
+            "precision": "minute"
+          }
+        },
+        "attempt_log": [
+          {
+            "ok": false,
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 5179,
+              "output_tokens": 6276,
+              "cache_read_input_tokens": 5532,
+              "cache_creation_input_tokens": 0
+            },
+            "number": 1,
+            "validation_error": "- record.detected_at_unused: Extra inputs are not permitted"
+          },
+          {
+            "ok": true,
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 8087,
+              "output_tokens": 2840,
+              "cache_read_input_tokens": 5532,
+              "cache_creation_input_tokens": 0
+            },
+            "number": 2,
+            "validation_error": null
+          }
+        ],
+        "created_at": "2026-09-15T06:39:01.878855+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "F",
+      "org": "CrowdStrike",
+      "url": "https://www.crowdstrike.com/wp-content/uploads/2024/08/Channel-File-291-Incident-Root-Cause-Analysis-08.06.2024.pdf",
+      "manifest_format": "pdf",
+      "source_id": "83768b92-a1e0-480c-927e-062fd311a77e",
+      "jobs": [
+        {
+          "job_id": "2b9648eb-92f7-418b-88fe-da454ef9a879",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "691abb34-d60e-4563-b15c-29d631c0f8ee",
+          "kind": "extract",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": "8958aad5-2c4d-43af-ba63-8f7e6c15c120"
+        }
+      ],
+      "document": {
+        "document_id": "8958aad5-2c4d-43af-ba63-8f7e6c15c120",
+        "final_url": "https://www.crowdstrike.com/wp-content/uploads/2024/08/Channel-File-291-Incident-Root-Cause-Analysis-08.06.2024.pdf",
+        "format": "pdf",
+        "title": null,
+        "text_chars": 29027,
+        "content_hash": "740e8428c6db97a42d38975492712e4714173d2cdbe920942fa7907dc5a68a23"
+      },
+      "outcome": "complete",
+      "validation_attempts": 1,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 11044,
+        "cache_read_input_tokens": 5532,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 16576,
+        "output_tokens": 6222
+      },
+      "cost_usd": 0.0854144,
+      "error": null,
+      "extraction": {
+        "extraction_id": "345df179-d8ef-417b-a0f5-20d4b310fafa",
+        "status": "complete",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 1,
+        "usage": {
+          "input_tokens": 11044,
+          "output_tokens": 6222,
+          "cache_read_input_tokens": 5532,
+          "cache_creation_input_tokens": 0
+        },
+        "error": null,
+        "error_kind": null,
+        "record": {
+          "title": "External Technical Root Cause Analysis — Channel File 291",
+          "summary": "On July 19, 2024, CrowdStrike deployed new IPC Template Instances via Channel File 291, one of which introduced a non-wildcard matching criterion for a 21st input parameter that the sensor's IPC Template Type never actually supplied (it only generated 20 inputs). This mismatch had evaded the Content Validator, compile-time checks, and prior test coverage, which had relied on wildcard matching for that field. When sensors evaluated the new content against the next IPC notification, the Content Interpreter performed an out-of-bounds read on the 20-element input array, causing a system crash (BSOD) via the csagent.sys kernel driver on affected Windows hosts. By July 29, 2024 at 5 p.m. PT, ~99% of Windows sensors were back online compared to pre-incident levels.",
+          "trigger": {
+            "label": "config_change",
+            "quote": "On July 19, 2024, two additional IPC Template Instances were deployed. One of these introduced a non-wildcard matching criterion for the 21st input parameter.",
+            "description": "On July 19, 2024, CrowdStrike deployed two additional IPC Template Instances via Channel File 291, one of which introduced a non-wildcard matching criterion for the 21st input parameter, requiring the sensor to inspect a value it never provided."
+          },
+          "affected": {
+            "regions": [],
+            "services": [
+              "Falcon sensor (Windows)"
+            ],
+            "all_services": false,
+            "list_is_complete": null
+          },
+          "change_at": {
+            "at": "2024-07-19",
+            "quote": "On July 19, 2024, two additional IPC Template Instances were deployed.",
+            "timezone": null,
+            "precision": "day",
+            "source_section": "body"
+          },
+          "mechanism": {
+            "label": "out_of_bounds_read",
+            "quote": "the attempt to access the 21st value produced an out-of-bounds memory read beyond the end of the input data array and resulted in a system crash.",
+            "description": "The Content Interpreter attempted to read a 21st input value from an array that the IPC Template Type only populated with 20 entries, producing an out-of-bounds memory read that crashed the sensor's kernel driver (csagent.sys)."
+          },
+          "vendor_org": null,
+          "detected_at": null,
+          "mitigations": [],
+          "resolved_at": null,
+          "affected_org": "CrowdStrike Falcon sensor customers (Windows hosts)",
+          "blast_radius": {
+            "qualitative": null,
+            "quantitative": [
+              {
+                "quote": "~99% of Windows sensors are online compared to before the content update.",
+                "value": "~99%",
+                "metric": "Windows sensors online (week-over-week comparison)"
+              }
+            ]
+          },
+          "impact_start": {
+            "at": "2024-07-19",
+            "quote": "Sensors that received the new version of Channel File 291 carrying the problematic content were exposed to a latent out-of-bounds read issue in the Content Interpreter.",
+            "timezone": null,
+            "precision": "day",
+            "source_section": "body"
+          },
+          "mitigated_at": {
+            "at": "2024-07-29T17:00:00",
+            "quote": "As of July 29 at 5 p.m. PT, using a week-over-week comparison, ~99% of Windows sensors are online compared to before the content update.",
+            "timezone": "PT",
+            "precision": "hour",
+            "source_section": "summary"
+          },
+          "remediations": [
+            {
+              "date": "2024-07-27",
+              "text": "Patch for the Sensor Content Compiler to validate the number of input fields provided by a Template Type at compile time, and verify no other Template Types had mismatched input counts.",
+              "status": "done"
+            },
+            {
+              "date": "2024-07-25",
+              "text": "Add runtime input array bounds checks to the Content Interpreter function that retrieves input strings, plus a check that array size matches expected inputs.",
+              "status": "done"
+            },
+            {
+              "date": "2024-08-09",
+              "text": "Backport the bounds-check and corrected IPC Template Type input-count fixes to all Windows sensor versions 7.11 and above via a hotfix release.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Increase test coverage during Template Type development with automated tests using non-wildcard matching criteria for every field, for existing and future Template Types.",
+              "status": "done"
+            },
+            {
+              "date": "2024-08-19",
+              "text": "Add new checks in the Content Validator to ensure Template Instance matching criteria do not exceed the inputs provided to the Content Interpreter.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Modify the Content Validator to only allow wildcard matching criteria in the 21st field, preventing out-of-bounds access on sensors providing only 20 inputs.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Update Content Configuration System test procedures so every new Template Instance is tested, not just at Template Type creation.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Update the Content Configuration System with additional deployment layers, canary rings, acceptance checks, and bake-in time for staged rollout of Template Instances.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Provide customers with increased control over when and where Rapid Response Content updates are deployed, with further enhancements planned.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Engage two independent third-party security vendors to review Falcon sensor code and the end-to-end quality process from development through deployment.",
+              "status": "done"
+            }
+          ],
+          "title_source": "document_metadata",
+          "publisher_org": "CrowdStrike",
+          "detection_quote": null,
+          "detection_method": "unknown",
+          "affected_org_kind": "company",
+          "time_to_detect_text": null,
+          "contributing_factors": [
+            {
+              "text": "The IPC Template Type's declared 21 input fields did not match the 20 inputs actually supplied by sensor code, and this mismatch was not validated at compile time.",
+              "source_section": "body"
+            },
+            {
+              "text": "The Content Validator assessed Template Instances based on the (incorrect) expectation that the IPC Template Type would be provided with 21 inputs, allowing the problematic instance through.",
+              "source_section": "body"
+            },
+            {
+              "text": "Automated and manual test cases used wildcard matching criteria for the 21st field, so testing never exercised the non-wildcard path that triggered the fault.",
+              "source_section": "body"
+            },
+            {
+              "text": "Stress testing of the IPC Template Type with a test Template Instance did not observe that the mismatched input count would cause a crash.",
+              "source_section": "body"
+            },
+            {
+              "text": "Template Instances were not deployed via staged/canary rollout, which could have limited exposure before wide deployment.",
+              "source_section": "body"
+            }
+          ],
+          "time_to_mitigate_text": null
+        },
+        "per_field_confidence": {
+          "title": 0.55,
+          "summary": 0.8,
+          "trigger": 0.85,
+          "affected": 0.6,
+          "change_at": 0.85,
+          "mechanism": 0.9,
+          "vendor_org": 0.6,
+          "detected_at": 0.9,
+          "mitigations": 0.6,
+          "resolved_at": 0.8,
+          "affected_org": 0.55,
+          "blast_radius": 0.7,
+          "impact_start": 0.5,
+          "mitigated_at": 0.55,
+          "remediations": 0.7,
+          "title_source": 0.5,
+          "publisher_org": 0.9,
+          "detection_quote": 0.9,
+          "detection_method": 0.55,
+          "affected_org_kind": 0.75,
+          "time_to_detect_text": 0.9,
+          "contributing_factors": 0.75,
+          "time_to_mitigate_text": 0.9
+        },
+        "derived": {
+          "time_to_detect": null,
+          "time_to_mitigate": null
+        },
+        "attempt_log": [
+          {
+            "ok": true,
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 11044,
+              "output_tokens": 6222,
+              "cache_read_input_tokens": 5532,
+              "cache_creation_input_tokens": 0
+            },
+            "number": 1,
+            "validation_error": null
+          }
+        ],
+        "created_at": "2026-09-15T06:40:16.407250+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "G",
+      "org": "Google Cloud",
+      "url": "https://status.cloud.google.com/incidents/ow5i3PPK96RduMcb1SsW",
+      "manifest_format": "status_page_html",
+      "source_id": "5c0ba642-c81d-4047-9978-af3d0009a83b",
+      "jobs": [
+        {
+          "job_id": "3faf8b17-096a-4e26-894c-12fe4e4d43fd",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "cbd0c619-d219-4b31-ba15-4603f2cd1244",
+          "kind": "extract",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": "a380aecb-5637-4a07-9cb4-408f6e0d4d3b"
+        }
+      ],
+      "document": {
+        "document_id": "a380aecb-5637-4a07-9cb4-408f6e0d4d3b",
+        "final_url": "https://status.cloud.google.com/incidents/ow5i3PPK96RduMcb1SsW",
+        "format": "html",
+        "title": "Incident details",
+        "text_chars": 20855,
+        "content_hash": "e83ddcec1a0d8b67c0c2a04505c99e39747cf86712dd48c0e81f16664434fa56"
+      },
+      "outcome": "complete",
+      "validation_attempts": 1,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 7550,
+        "cache_read_input_tokens": 5532,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 13082,
+        "output_tokens": 11440
+      },
+      "cost_usd": 0.1306064,
+      "error": null,
+      "extraction": {
+        "extraction_id": "09453e6c-5a39-4f9b-8745-7ae444e276c0",
+        "status": "complete",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 1,
+        "usage": {
+          "input_tokens": 7550,
+          "output_tokens": 11440,
+          "cache_read_input_tokens": 5532,
+          "cache_creation_input_tokens": 0
+        },
+        "error": null,
+        "error_kind": null,
+        "record": {
+          "title": "Incident details",
+          "summary": "On June 12, 2025, an automated policy update containing unintended blank fields was replicated globally to Google's Service Control system, exercising a latent null-pointer bug introduced by an unflagged May 29 code change and causing Service Control binaries to crash-loop worldwide. This knocked out external API serving for numerous Google Cloud, Google Workspace, and Google Security Operations products, producing increased 503 errors for roughly three hours in most regions. Engineers mitigated the global crash by rolling out a 'red-button' to disable the offending policy-check path, but us-central1 suffered a much longer recovery (up to ~2h40m) due to a thundering-herd overload on the underlying Spanner infrastructure. Full recovery across all regions and services, including Vertex AI Online Prediction, was declared at 18:18 PDT the same day.",
+          "trigger": {
+            "label": "config_change",
+            "quote": "a policy change was inserted into the regional Spanner tables that Service Control uses for policies... This policy data contained unintended blank fields.",
+            "description": "An automated policy update inserted into the regional Spanner tables used by Service Control contained unintended blank fields and was replicated globally within seconds."
+          },
+          "affected": {
+            "regions": [
+              "Global"
+            ],
+            "services": [
+              "Identity and Access Management",
+              "Cloud Build",
+              "Cloud Key Management Service",
+              "Google Cloud Storage",
+              "Cloud Monitoring",
+              "Google Cloud Dataproc",
+              "Cloud Security Command Center",
+              "Artifact Registry",
+              "Cloud Workflows",
+              "Cloud Healthcare",
+              "Resource Manager API",
+              "Dataproc Metastore",
+              "Cloud Run",
+              "VMWare engine",
+              "Dataplex",
+              "Migrate to Virtual Machines",
+              "Google BigQuery",
+              "Contact Center AI Platform",
+              "Google Cloud Deploy",
+              "Media CDN",
+              "Colab Enterprise",
+              "Vertex Gemini API",
+              "Cloud Data Fusion",
+              "Cloud Asset Inventory",
+              "Datastream",
+              "Integration Connectors",
+              "Apigee",
+              "Google Cloud NetApp Volumes",
+              "Google Cloud Bigtable",
+              "Looker (Google Cloud core)",
+              "Looker Studio",
+              "Google Cloud Functions",
+              "Cloud Load Balancing",
+              "Traffic Director",
+              "Document AI",
+              "AutoML Translation",
+              "Pub/Sub Lite",
+              "API Gateway",
+              "Agent Assist",
+              "AlloyDB for PostgreSQL",
+              "Cloud Firestore",
+              "Cloud Logging",
+              "Cloud Shell",
+              "Cloud Memorystore",
+              "Cloud Spanner",
+              "Contact Center Insights",
+              "Database Migration Service",
+              "Dialogflow CX",
+              "Dialogflow ES",
+              "Google App Engine",
+              "Google Cloud Composer",
+              "Google Cloud Console",
+              "Google Cloud DNS",
+              "Google Cloud Pub/Sub",
+              "Google Cloud SQL",
+              "Google Compute Engine",
+              "Identity Platform",
+              "Managed Service for Apache Kafka",
+              "Memorystore for Memcached",
+              "Memorystore for Redis",
+              "Memorystore for Redis Cluster",
+              "Persistent Disk",
+              "Personalized Service Health",
+              "Speech-to-Text",
+              "Text-to-Speech",
+              "Vertex AI Search",
+              "Retail API",
+              "Vertex AI Feature Store",
+              "BigQuery Data Transfer Service",
+              "Google Cloud Marketplace",
+              "Cloud NAT",
+              "Hybrid Connectivity",
+              "Cloud Vision",
+              "Network Connectivity Center",
+              "Cloud Workstations",
+              "Google Security Operations",
+              "AppSheet",
+              "Gmail",
+              "Google Calendar",
+              "Google Drive",
+              "Google Chat",
+              "Google Voice",
+              "Google Docs",
+              "Google Meet",
+              "Google Cloud Search",
+              "Google Tasks",
+              "Vertex AI Online Prediction",
+              "Google Cloud Dataflow"
+            ],
+            "all_services": false,
+            "list_is_complete": null
+          },
+          "change_at": {
+            "at": "2025-06-12T10:45:00",
+            "quote": "On June 12, 2025 at ~10:45am PDT, a policy change was inserted into the regional Spanner tables that Service Control uses for policies.",
+            "timezone": "PDT",
+            "precision": "approximate",
+            "source_section": "body"
+          },
+          "mechanism": {
+            "label": "crash_on_bad_input",
+            "quote": "This pulled in blank fields for this respective policy change and exercised the code path that hit the null pointer causing the binaries to go into a crash loop.",
+            "description": "Service Control's quota-check code, lacking error handling and feature-flag protection, hit a null pointer when processing the blank policy fields and crashed into a repeating crash loop across all regional deployments, taking down external API serving."
+          },
+          "vendor_org": null,
+          "detected_at": null,
+          "mitigations": [
+            {
+              "date": "2025-06-12",
+              "text": "Bypassed the offending quota check to allow recovery in most regions.",
+              "status": "done"
+            },
+            {
+              "date": "2025-06-12",
+              "text": "Rolled out a 'red-button' to disable the failing policy-serving path in Service Control.",
+              "status": "done"
+            },
+            {
+              "date": "2025-06-12",
+              "text": "Throttled task creation and routed traffic to multi-regional databases to reduce load on us-central1's overloaded infrastructure.",
+              "status": "done"
+            }
+          ],
+          "resolved_at": {
+            "at": "2025-06-12T18:18:00",
+            "quote": "Vertex AI Online Prediction is full recovered as of 18:18 PDT. All the services are fully recovered from the service issue",
+            "timezone": "PDT",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "affected_org": "Google Cloud",
+          "blast_radius": {
+            "qualitative": "Multiple Google Cloud and Google Workspace products experienced increased 503 errors in external API requests, impacting customers; customers had intermittent API and user-interface access issues, though existing streaming and IaaS resources were not impacted.",
+            "quantitative": []
+          },
+          "impact_start": {
+            "at": "2025-06-12T10:51:00",
+            "quote": "beginning at Thursday, 2025-06-12 10:51 PDT",
+            "timezone": "PDT",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "mitigated_at": {
+            "at": "2025-06-12T13:45:00",
+            "quote": "Most of the Google Cloud products are fully recovered as of 13:45 PDT.",
+            "timezone": "PDT",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "remediations": [
+            {
+              "date": "2025-06-12",
+              "text": "Froze all changes to the Service Control stack and manual policy pushes until the system is remediated.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Modularize Service Control's architecture so functionality is isolated and fails open if a check fails.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Audit all systems that consume globally replicated data and propagate data incrementally with time to validate and detect issues.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Enforce that all changes to critical binaries be feature-flag protected and disabled by default.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Improve static analysis and testing practices to correctly handle errors and fail open where needed.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Audit and ensure systems employ randomized exponential backoff.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Improve external communications, automated and human, so customers get information faster.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Ensure monitoring and communication infrastructure remains operational even when Google Cloud and primary monitoring products are down.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Prevent the API management platform from failing due to invalid or corrupt data.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Prevent metadata from propagating globally without appropriate protection, testing and monitoring in place.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Improve system error handling and comprehensive testing for handling of invalid data.",
+              "status": "planned"
+            }
+          ],
+          "title_source": "document_metadata",
+          "publisher_org": "Google Cloud",
+          "detection_quote": "Within 2 minutes, our Site Reliability Engineering team was triaging the incident.",
+          "detection_method": "monitoring",
+          "affected_org_kind": "company",
+          "time_to_detect_text": "Within 2 minutes, our Site Reliability Engineering team was triaging the incident.",
+          "contributing_factors": [
+            {
+              "text": "The May 29 code change adding the new quota policy check did not have appropriate error handling nor was it feature-flag protected, so the faulty code path was never exercised or caught during rollout or staging.",
+              "source_section": "body"
+            },
+            {
+              "text": "Service Control did not have appropriate randomized exponential backoff, so as tasks restarted in larger regions like us-central1 they created a herd effect that overloaded the underlying Spanner infrastructure.",
+              "source_section": "body"
+            },
+            {
+              "text": "The first incident report to Cloud Service Health was delayed about an hour because the Cloud Service Health infrastructure itself was down due to the outage, and some customers' own monitoring on Google Cloud also failed.",
+              "source_section": "body"
+            }
+          ],
+          "time_to_mitigate_text": "which allowed recovery in most regions within 2 hours"
+        },
+        "per_field_confidence": {
+          "title": 0.3,
+          "summary": 0.8,
+          "trigger": 0.75,
+          "affected": 0.55,
+          "change_at": 0.7,
+          "mechanism": 0.8,
+          "vendor_org": 0.7,
+          "detected_at": 0.5,
+          "mitigations": 0.75,
+          "resolved_at": 0.7,
+          "affected_org": 0.85,
+          "blast_radius": 0.6,
+          "impact_start": 0.65,
+          "mitigated_at": 0.55,
+          "remediations": 0.75,
+          "title_source": 0.3,
+          "publisher_org": 0.9,
+          "detection_quote": 0.5,
+          "detection_method": 0.45,
+          "affected_org_kind": 0.85,
+          "time_to_detect_text": 0.7,
+          "contributing_factors": 0.7,
+          "time_to_mitigate_text": 0.55
+        },
+        "derived": {
+          "time_to_detect": null,
+          "time_to_mitigate": {
+            "to": "mitigated_at",
+            "from": "impact_start",
+            "seconds": 10440.0,
+            "precision": "minute"
+          }
+        },
+        "attempt_log": [
+          {
+            "ok": true,
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 7550,
+              "output_tokens": 11440,
+              "cache_read_input_tokens": 5532,
+              "cache_creation_input_tokens": 0
+            },
+            "number": 1,
+            "validation_error": null
+          }
+        ],
+        "created_at": "2026-09-15T06:41:14.289644+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "H",
+      "org": "Slack",
+      "url": "https://slack.engineering/slacks-incident-on-2-22-22/",
+      "manifest_format": "blog_html",
+      "source_id": "f5c03c9b-b45f-455d-b115-c775250ee84b",
+      "jobs": [
+        {
+          "job_id": "32c864ad-61f8-45ae-9209-802491c40b51",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "b32ae9f0-83d0-43f1-a2d2-34d26d3f7b83",
+          "kind": "extract",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": "c72c31ef-70b8-4041-9a1f-d4cdf10c2fa7"
+        }
+      ],
+      "document": {
+        "document_id": "c72c31ef-70b8-4041-9a1f-d4cdf10c2fa7",
+        "final_url": "https://slack.engineering/slacks-incident-on-2-22-22/",
+        "format": "html",
+        "title": "Slack’s Incident on 2-22-22",
+        "text_chars": 16518,
+        "content_hash": "e2aa6fc15ff3c33a7da93f98e6ccfdb0e978bd59ee78c7e1e34e4012ce8dbbb8"
+      },
+      "outcome": "complete",
+      "validation_attempts": 1,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 5067,
+        "cache_read_input_tokens": 5532,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 10599,
+        "output_tokens": 4915
+      },
+      "cost_usd": 0.0603904,
+      "error": null,
+      "extraction": {
+        "extraction_id": "d20681e9-b72a-4b87-9b86-23bfd934fcbd",
+        "status": "complete",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 1,
+        "usage": {
+          "input_tokens": 5067,
+          "output_tokens": 4915,
+          "cache_read_input_tokens": 5532,
+          "cache_creation_input_tokens": 0
+        },
+        "error": null,
+        "error_kind": null,
+        "record": {
+          "title": "Slack’s Incident on 2-22-22",
+          "summary": "On February 22, 2022, a Consul agent upgrade rollout caused sequential restarts of memcached nodes, which Slack's Mcrib control plane replaced with empty cache nodes, driving down cache hit rates. Because an inefficient 'scatter query' for Group Direct Message membership had to query every shard of a user-sharded Vitess keyspace on any cache miss, the resulting cache misses overwhelmed the database, triggering a cascading failure that made client boot (and thus login) fail for many users. Slack mitigated the incident by throttling client boot requests, pausing the Consul rollout, and modifying the query to avoid full-shard scans and to use replicas, eventually restoring cache hit rates and normal service.",
+          "trigger": {
+            "label": "infrastructure_maintenance",
+            "quote": "In the lead-up to this incident, we had been performing maintenance on our Consul agent fleet. We were upgrading the Consul agent, which runs on each instance...",
+            "description": "Slack was performing a percentage-based rollout of a Consul agent upgrade, which involved sequential restarts of the Consul agent across the fleet, including on memcached hosts."
+          },
+          "affected": {
+            "regions": [],
+            "services": [
+              "Slack",
+              "client boot",
+              "Group Direct Messages"
+            ],
+            "all_services": true,
+            "list_is_complete": null
+          },
+          "change_at": {
+            "at": "2022-02-22",
+            "quote": "The PBR step on February 22 updated Consul on 25% of the fleet.",
+            "timezone": null,
+            "precision": "day",
+            "source_section": "body"
+          },
+          "mechanism": {
+            "label": "cascading_overload",
+            "quote": "we hit a tipping point and entered a cascading failure scenario as we hit peak traffic for the day",
+            "description": "Consul agent restarts caused Mcrib to churn the memcached cache ring (flushing and replacing nodes), dropping cache hit rates; combined with an inefficient scatter query that had to hit every shard of a Vitess keyspace on any cache miss, this overwhelmed the database and produced a self-sustaining cascading failure that broke client boot for many users."
+          },
+          "vendor_org": null,
+          "detected_at": {
+            "at": "2022-02-22",
+            "quote": "Just after 6 a.m. Pacific Time, a number of things happened almost simultaneously: we began to receive user tickets about problems connecting to Slack, some internal users experienced problems using Slack, and a number of our engineering teams received pages or alerts about problems.",
+            "timezone": "Pacific Time",
+            "precision": "hour",
+            "source_section": "body"
+          },
+          "mitigations": [
+            {
+              "date": "2022-02-22",
+              "text": "Applied a restrictive throttle on client boot requests to reduce database load",
+              "status": "done"
+            },
+            {
+              "date": "2022-02-22",
+              "text": "Adjusted the client boot rate limit incrementally after an initial increase caused renewed overload",
+              "status": "done"
+            },
+            {
+              "date": "2022-02-22",
+              "text": "Paused the Consul agent restart operation",
+              "status": "done"
+            },
+            {
+              "date": "2022-02-22",
+              "text": "Modified the inefficient query to read from Vitess only the data missing from memcached, instead of scanning every shard on each miss",
+              "status": "done"
+            },
+            {
+              "date": "2022-02-22",
+              "text": "Updated the query to read from Vitess replicas as well as primaries",
+              "status": "done"
+            }
+          ],
+          "resolved_at": null,
+          "affected_org": "Slack",
+          "blast_radius": {
+            "qualitative": "many users were unable to connect to Slack",
+            "quantitative": []
+          },
+          "impact_start": {
+            "at": "2022-02-22",
+            "quote": "Just after 6 a.m. Pacific Time, a number of things happened almost simultaneously",
+            "timezone": "Pacific Time",
+            "precision": "hour",
+            "source_section": "body"
+          },
+          "mitigated_at": null,
+          "remediations": [
+            {
+              "date": null,
+              "text": "Made changes to the process for performing Consul rollouts to avoid triggering this failure mode again",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Rolling out changes to the Mcrib control loop to avoid a similar cascading failure from network partitions",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Modified the problematic scatter query to read from a table sharded by channel instead of by user",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Analyzed other cache-fronted database queries for similar high-volume scatter query risks",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Longer-term projects exploring other ways to increase resilience of the caching tier",
+              "status": "proposed"
+            }
+          ],
+          "title_source": "document_metadata",
+          "publisher_org": "Slack",
+          "detection_quote": "we began to receive user tickets about problems connecting to Slack, some internal users experienced problems using Slack, and a number of our engineering teams received pages or alerts about problems",
+          "detection_method": "ambiguous",
+          "affected_org_kind": "company",
+          "time_to_detect_text": null,
+          "contributing_factors": [
+            {
+              "text": "The GDM membership query was a Vitess 'scatter query' that had to hit every shard of a user-sharded keyspace whenever any relevant data was missing from cache.",
+              "source_section": "body"
+            },
+            {
+              "text": "Read load increased superlinearly as cache miss percentage rose, overwhelming the database.",
+              "source_section": "body"
+            },
+            {
+              "text": "Client retries with exponential backoff and jitter still contributed additional load during the overload.",
+              "source_section": "body"
+            },
+            {
+              "text": "Mcrib was more efficient than the prior mechanism at detecting and replacing downed memcached instances, which increased churn in the cache tier and worsened the incident's severity.",
+              "source_section": "body"
+            },
+            {
+              "text": "The incident occurred as Slack hit peak traffic for the day, tipping the system into a cascading failure state.",
+              "source_section": "body"
+            }
+          ],
+          "time_to_mitigate_text": null
+        },
+        "per_field_confidence": {
+          "title": 0.95,
+          "summary": 0.9,
+          "trigger": 0.85,
+          "affected": 0.6,
+          "change_at": 0.7,
+          "mechanism": 0.85,
+          "vendor_org": 0.55,
+          "detected_at": 0.65,
+          "mitigations": 0.85,
+          "resolved_at": 0.9,
+          "affected_org": 0.98,
+          "blast_radius": 0.7,
+          "impact_start": 0.75,
+          "mitigated_at": 0.9,
+          "remediations": 0.85,
+          "title_source": 0.95,
+          "publisher_org": 0.98,
+          "detection_quote": 0.85,
+          "detection_method": 0.7,
+          "affected_org_kind": 0.95,
+          "time_to_detect_text": 0.9,
+          "contributing_factors": 0.8,
+          "time_to_mitigate_text": 0.9
+        },
+        "derived": {
+          "time_to_detect": null,
+          "time_to_mitigate": null
+        },
+        "attempt_log": [
+          {
+            "ok": true,
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 5067,
+              "output_tokens": 4915,
+              "cache_read_input_tokens": 5532,
+              "cache_creation_input_tokens": 0
+            },
+            "number": 1,
+            "validation_error": null
+          }
+        ],
+        "created_at": "2026-09-15T06:42:59.465167+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "I",
+      "org": "Roblox",
+      "url": "https://blog.roblox.com/2022/01/roblox-return-to-service-10-28-10-31-2021/",
+      "manifest_format": "blog_html",
+      "source_id": "1a486a2b-6079-4055-8b43-88ea3ce8dd6d",
+      "jobs": [
+        {
+          "job_id": "28a75870-54ca-42d7-8303-97261c0b19e0",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "f0b40ec0-b583-4654-8dda-f4381897f607",
+          "kind": "extract",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": "b32ea4d0-53ce-4fa7-b288-882ec9b8f0f7"
+        }
+      ],
+      "document": {
+        "document_id": "b32ea4d0-53ce-4fa7-b288-882ec9b8f0f7",
+        "final_url": "https://about.roblox.com/newsroom/2022/01/roblox-return-to-service-10-28-10-31-2021",
+        "format": "html",
+        "title": "Roblox Return to Service  | Roblox",
+        "text_chars": 31924,
+        "content_hash": "3e0ab89a73f4904223bd2fb3c6f6a284f9496bc08ce5872be1e53989533a9c53"
+      },
+      "outcome": "complete",
+      "validation_attempts": 1,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 9932,
+        "cache_read_input_tokens": 5532,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 15464,
+        "output_tokens": 7160
+      },
+      "cost_usd": 0.0925704,
+      "error": null,
+      "extraction": {
+        "extraction_id": "3e040fb2-ab4f-48b6-ab69-242667903d8f",
+        "status": "complete",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 1,
+        "usage": {
+          "input_tokens": 9932,
+          "output_tokens": 7160,
+          "cache_read_input_tokens": 5532,
+          "cache_creation_input_tokens": 0
+        },
+        "error": null,
+        "error_kind": null,
+        "record": {
+          "title": "Roblox Return to Service  | Roblox",
+          "summary": "A Consul streaming feature enabled on a high-traffic backend service, combined with a 50% increase in nodes for that service, triggered severe lock contention in Consul under Roblox's high read/write load. Because Consul was a single point of failure for service discovery, Nomad, and Vault, this cascaded into a full 73-hour platform outage from October 28 to 31, 2021. A separate, unrelated pathological BoltDB freelist performance issue in Consul's Raft log storage compounded diagnosis difficulty. Roblox and HashiCorp engineers eventually disabled streaming and worked around slow leaders to restore Consul, then rebuilt caches and gradually reopened access to players.",
+          "trigger": {
+            "label": "config_change",
+            "quote": "On October 27th at 14:00, one day before the outage, we enabled this feature on a backend service that is responsible for traffic routing. As part of this rollout... we also increased the number of nodes supporting traffic routing by 50%.",
+            "description": "One day before the outage, Roblox enabled the new Consul streaming feature on a backend traffic-routing service and simultaneously increased that service's node count by 50% ahead of anticipated end-of-year traffic."
+          },
+          "affected": {
+            "regions": [],
+            "services": [
+              "Consul",
+              "Vault",
+              "Nomad",
+              "caching system"
+            ],
+            "all_services": true,
+            "list_is_complete": null
+          },
+          "change_at": {
+            "at": "2021-10-27T14:00:00",
+            "quote": "On October 27th at 14:00, one day before the outage, we enabled this feature on a backend service that is responsible for traffic routing.",
+            "timezone": "PST",
+            "precision": "hour",
+            "source_section": "body"
+          },
+          "mechanism": {
+            "label": "resource_contention",
+            "quote": "the design of streaming exacerbates the amount of contention on a single Go channel, which causes blocking during writes, making it significantly less efficient.",
+            "description": "The Consul streaming feature relied on fewer Go channels for concurrency control than long polling, so under very high simultaneous read and write load it caused severe contention on a single Go channel, blocking writes and driving Consul KV write latency far above normal; since Consul was a single point of failure for service discovery, Nomad, and Vault, this cascaded into a complete platform outage."
+          },
+          "vendor_org": "HashiCorp",
+          "detected_at": {
+            "at": "2021-10-28T13:37:00",
+            "quote": "Initial Detection (10/28 13:37)",
+            "timezone": "PST",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "mitigations": [
+            {
+              "date": "2021-10-28",
+              "text": "Replaced Consul cluster nodes with new, more powerful hardware (twice, including 128-core machines).",
+              "status": "done"
+            },
+            {
+              "date": "2021-10-29",
+              "text": "Shut down the Consul cluster and reset its state from a snapshot, using iptables to control traffic during the reset.",
+              "status": "done"
+            },
+            {
+              "date": "2021-10-29",
+              "text": "Scaled down non-essential Consul usage and reduced health check frequency to systematically reintroduce load.",
+              "status": "done"
+            },
+            {
+              "date": "2021-10-30",
+              "text": "Reverted Consul cluster hardware from 128-core back to 64-core servers.",
+              "status": "done"
+            },
+            {
+              "date": "2021-10-30",
+              "text": "Disabled the Consul streaming feature across all systems, which lowered KV write latency back to normal.",
+              "status": "done"
+            },
+            {
+              "date": "2021-10-30",
+              "text": "Worked around the slow-leader problem by preventing problematic Consul leaders from staying elected.",
+              "status": "done"
+            },
+            {
+              "date": "2021-10-31",
+              "text": "Redeployed and repaired the caching system to restore a healthy state.",
+              "status": "done"
+            },
+            {
+              "date": "2021-10-31",
+              "text": "Used DNS steering to gradually ramp player access back up in roughly 10% increments while monitoring stability.",
+              "status": "done"
+            }
+          ],
+          "resolved_at": {
+            "at": "2021-10-31T16:45:00",
+            "quote": "At 16:45 Sunday, 73 hours after the start of the outage, 100% of players were given access and Roblox was fully operational.",
+            "timezone": "PST",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "affected_org": "Roblox",
+          "blast_radius": {
+            "qualitative": "A 73-hour, largely full-platform outage affecting Roblox's tens of millions of daily players, with online player counts dropping sharply before the system became completely unavailable.",
+            "quantitative": [
+              {
+                "quote": "At 16:35, the number of online players dropped to 50% of normal.",
+                "value": "50% of normal",
+                "metric": "online players"
+              },
+              {
+                "quote": "Starting October 28th and fully resolving on October 31st, Roblox experienced a 73-hour outage.",
+                "value": "73 hours",
+                "metric": "outage duration"
+              },
+              {
+                "quote": "Fifty million players regularly use Roblox every day",
+                "value": "50 million",
+                "metric": "daily active players"
+              }
+            ]
+          },
+          "impact_start": {
+            "at": "2021-10-28T16:35:00",
+            "quote": "At 16:35, the number of online players dropped to 50% of normal.",
+            "timezone": "PST",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "mitigated_at": {
+            "at": "2021-10-31T16:45:00",
+            "quote": "At 16:45 Sunday, 73 hours after the start of the outage, 100% of players were given access and Roblox was fully operational.",
+            "timezone": "PST",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "remediations": [
+            {
+              "date": null,
+              "text": "Removed the circular dependency between telemetry systems and Consul so monitoring works even when Consul is unhealthy.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Extended telemetry systems for better visibility into Consul and BoltDB performance, with targeted alerts for warning signs.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Building out an additional, geographically distinct data center and working toward multiple availability zones.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Split some critical services into their own dedicated Consul clusters to reduce load on the central cluster.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Migrating data stored directly in Consul's KV store to more appropriate storage systems.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Deleted obsolete KV data, improving Consul performance.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Working with HashiCorp to deploy a new Consul version replacing BoltDB with bbolt, to be completed in Q1.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Developing new tools and processes, including redesigned cache deployment mechanisms, to make bootstrapping more automated and less error-prone.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Identified Nomad enhancements with HashiCorp to ease turning up large jobs after long unavailability, to be deployed in the next Nomad upgrade later that month.",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Developed and deployed mechanisms for faster machine configuration changes.",
+              "status": "done"
+            },
+            {
+              "date": null,
+              "text": "Plan to carefully reintroduce the streaming feature once a new implementation has been tested at scale.",
+              "status": "proposed"
+            }
+          ],
+          "title_source": "document_metadata",
+          "publisher_org": "Roblox",
+          "detection_quote": "On the afternoon of October 28th, Vault performance was degraded and a single Consul server had high CPU load. Roblox engineers began to investigate.",
+          "detection_method": "monitoring",
+          "affected_org_kind": "company",
+          "time_to_detect_text": null,
+          "contributing_factors": [
+            {
+              "text": "A single Consul cluster supporting multiple workloads exacerbated the impact of these issues.",
+              "source_section": "summary"
+            },
+            {
+              "text": "Our particular load conditions triggered a pathological performance issue in BoltDB, used within Consul to manage write-ahead-logs for leader election and data replication.",
+              "source_section": "summary"
+            },
+            {
+              "text": "Critical monitoring systems that would have provided better visibility into the cause of the outage relied on affected systems, such as Consul, which severely hampered the triage process.",
+              "source_section": "summary"
+            },
+            {
+              "text": "Higher core-count (128-core) dual-socket NUMA servers worsened contention on shared resources compared to the original hardware.",
+              "source_section": "body"
+            }
+          ],
+          "time_to_mitigate_text": null
+        },
+        "per_field_confidence": {
+          "title": 0.85,
+          "summary": 0.85,
+          "trigger": 0.8,
+          "affected": 0.7,
+          "change_at": 0.85,
+          "mechanism": 0.75,
+          "vendor_org": 0.95,
+          "detected_at": 0.85,
+          "mitigations": 0.8,
+          "resolved_at": 0.8,
+          "affected_org": 0.98,
+          "blast_radius": 0.7,
+          "impact_start": 0.75,
+          "mitigated_at": 0.55,
+          "remediations": 0.8,
+          "title_source": 0.8,
+          "publisher_org": 0.98,
+          "detection_quote": 0.55,
+          "detection_method": 0.5,
+          "affected_org_kind": 0.9,
+          "time_to_detect_text": 0.9,
+          "contributing_factors": 0.75,
+          "time_to_mitigate_text": 0.9
+        },
+        "derived": {
+          "time_to_detect": {
+            "to": "detected_at",
+            "from": "impact_start",
+            "seconds": -10680.0,
+            "precision": "minute"
+          },
+          "time_to_mitigate": {
+            "to": "mitigated_at",
+            "from": "impact_start",
+            "seconds": 259800.0,
+            "precision": "minute"
+          }
+        },
+        "attempt_log": [
+          {
+            "ok": true,
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 9932,
+              "output_tokens": 7160,
+              "cache_read_input_tokens": 5532,
+              "cache_creation_input_tokens": 0
+            },
+            "number": 1,
+            "validation_error": null
+          }
+        ],
+        "created_at": "2026-09-15T06:43:44.242062+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "J",
+      "org": "Kubernetes SIG Testing (test-infra)",
+      "url": "https://raw.githubusercontent.com/kubernetes/test-infra/master/docs/post-mortems/2019-02-08.md",
+      "manifest_format": "markdown_in_repo",
+      "source_id": "998024f8-e3ce-4c0b-be8a-b098c745d72a",
+      "jobs": [
+        {
+          "job_id": "b3d12d32-e319-4b18-8ced-72ba82c96fde",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "5f5c371e-eb87-41dd-be5c-0c2493aad7ad",
+          "kind": "extract",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": "719afa33-56de-4e00-bfcf-be153c5d6ae0"
+        }
+      ],
+      "document": {
+        "document_id": "719afa33-56de-4e00-bfcf-be153c5d6ae0",
+        "final_url": "https://raw.githubusercontent.com/kubernetes/test-infra/master/docs/post-mortems/2019-02-08.md",
+        "format": "markdown",
+        "title": "February 8th, 2019 - Prow responding slow & Partial outage",
+        "text_chars": 15903,
+        "content_hash": "0ec72537c8b79868a18845a3aa69238354db720181de95a7c015a2902f5e907e"
+      },
+      "outcome": "complete",
+      "validation_attempts": 2,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 16396,
+        "cache_read_input_tokens": 11064,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 27460,
+        "output_tokens": 9020
+      },
+      "cost_usd": 0.1252048,
+      "error": null,
+      "extraction": {
+        "extraction_id": "20e58013-84a8-4ae5-b5c6-0171c401080f",
+        "status": "complete",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 2,
+        "usage": {
+          "input_tokens": 16396,
+          "output_tokens": 9020,
+          "cache_read_input_tokens": 11064,
+          "cache_creation_input_tokens": 0
+        },
+        "error": null,
+        "error_kind": null,
+        "record": {
+          "title": "February 8th, 2019 - Prow responding slow & Partial outage",
+          "summary": "An auto-generated Prow bump PR containing a client refactor was merged and deployed on Feb 8, 2019, and the new client code failed to respect a literal 'default' cluster alias defined in the build-cluster secret, causing Prow to schedule most test job workloads onto the service cluster instead of the build cluster. Jobs scheduled on the service cluster could not start due to missing volumes/credentials, and the service cluster became resource-exhausted, making all other Prow controllers extremely slow and largely unusable. Engineers rolled Prow back through several versions, eventually identifying the root cause (an unrespected default cluster alias) with help from an external contributor, applied a targeted fix, cleaned up stuck pods/jobs, and confirmed Prow was healthy again.",
+          "trigger": {
+            "label": "code_deploy",
+            "quote": "Prow's auto-generated bump PR is merged (https://github.com/kubernetes/test-infra/pull/11172), triggering a deploy. And Prow start to schedule workloads onto service cluster.",
+            "description": "Prow's auto-generated bump PR (containing a client refactor) was merged, triggering a deploy that caused Prow to start scheduling workloads onto the service cluster."
+          },
+          "affected": {
+            "regions": [],
+            "services": [
+              "Prow",
+              "prow.k8s.io",
+              "hook",
+              "plank"
+            ],
+            "all_services": false,
+            "list_is_complete": null
+          },
+          "change_at": {
+            "at": "2019-02-08T13:20:00",
+            "quote": "[13:20] Prow's auto-generated bump PR is merged (https://github.com/kubernetes/test-infra/pull/11172), triggering a deploy.",
+            "timezone": "PST",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "mechanism": {
+            "label": "misconfiguration",
+            "quote": "Our build-cluster secret literally defines a \"default\" cluster alias which points to our build cluster, which is not respected by the new client refactor, and by default prow schedules all workloads into the service cluster (which is the default cluster alias).",
+            "description": "The new Prow client refactor did not respect the literal 'default' cluster alias defined in the build-cluster secret, so by default all workloads were scheduled onto the service cluster instead of the build cluster, causing job failures and resource exhaustion that slowed all other Prow controllers."
+          },
+          "vendor_org": null,
+          "detected_at": {
+            "at": "2019-02-08T16:04:00",
+            "quote": "[16:04] @krzyzacy noticed Prow is responding very slow, was suspecting a github issue again, but github reports all normal",
+            "timezone": "PST",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "mitigations": [
+            {
+              "date": "2019-02-08",
+              "text": "Rolled Prow back to v20190206-b01b288, the version before the bump",
+              "status": "done"
+            },
+            {
+              "date": "2019-02-08",
+              "text": "Cleaned up all the pods & prowjobs in the service cluster",
+              "status": "done"
+            },
+            {
+              "date": "2019-02-08",
+              "text": "Manually deployed the revert via kubectl apply",
+              "status": "done"
+            },
+            {
+              "date": "2019-02-08",
+              "text": "Rolled Prow back further to v20190125-2aca69d, before the bug was introduced",
+              "status": "done"
+            },
+            {
+              "date": "2019-02-08",
+              "text": "Cleaned up all wrong pods and prowjobs again and confirmed Prow was healthy",
+              "status": "done"
+            }
+          ],
+          "resolved_at": {
+            "at": "2019-02-08T18:09:00",
+            "quote": "[18:09] @krzyzacy notified k-dev mailing list",
+            "timezone": "PST",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "affected_org": "Kubernetes Prow (test-infra)",
+          "blast_radius": {
+            "qualitative": "All other prow controllers are becoming very slow & unusable (~5min delay for a response from hook)",
+            "quantitative": [
+              {
+                "quote": "All other prow controllers are becoming very slow & unusable (~5min delay for a response from hook)",
+                "value": "~5min",
+                "metric": "response delay from hook"
+              },
+              {
+                "quote": "there are 600 pending pods stuck because of not finding the right secret",
+                "value": "600",
+                "metric": "pending pods stuck"
+              },
+              {
+                "quote": "from GKE console it shows there are 225 unschedulable pods",
+                "value": "225",
+                "metric": "unschedulable pods"
+              },
+              {
+                "quote": "gke-prow-default-pool-116f5d3e-bl6h   4022m        102%      13681Mi         110%",
+                "value": "102%",
+                "metric": "node CPU utilization"
+              }
+            ]
+          },
+          "impact_start": {
+            "at": "2019-02-08T13:46:00",
+            "quote": "The jobs got scheduled onto service cluster was not able to start due to missing volumes. (Between 1:46pm - 5:30pm)",
+            "timezone": "PST",
+            "precision": "minute",
+            "source_section": "body"
+          },
+          "mitigated_at": {
+            "at": "2019-02-08T17:59:00",
+            "quote": "[17:59] @krzyzacy cleaned up all wrong pods and prowjobs again, and confirmed Prow is healthy.",
+            "timezone": "PST",
+            "precision": "minute",
+            "source_section": "timeline"
+          },
+          "remediations": [
+            {
+              "date": "2019-02-08",
+              "text": "Sent out fix PR #11209 to not overwrite a provided literal default client",
+              "status": "planned"
+            },
+            {
+              "date": null,
+              "text": "Be more careful when deploying sweeping prow changes: add more e2e tests or build a real staging Prow",
+              "status": "proposed"
+            }
+          ],
+          "title_source": "document_metadata",
+          "publisher_org": "Kubernetes test-infra",
+          "detection_quote": "@krzyzacy noticed Prow is responding very slow, was suspecting a github issue again, but github reports all normal",
+          "detection_method": "internal_manual",
+          "affected_org_kind": "oss_project",
+          "time_to_detect_text": null,
+          "contributing_factors": [
+            {
+              "text": "It's AGAIN Friday afternoon",
+              "source_section": "body"
+            },
+            {
+              "text": "The behavior is not deterministic",
+              "source_section": "body"
+            },
+            {
+              "text": "We really need a real staging Prow ... each prow has different set ups, like how build cluster is defined, etc",
+              "source_section": "body"
+            }
+          ],
+          "time_to_mitigate_text": null
+        },
+        "per_field_confidence": {
+          "title": 0.95,
+          "summary": 0.85,
+          "trigger": 0.8,
+          "affected": 0.55,
+          "change_at": 0.85,
+          "mechanism": 0.8,
+          "vendor_org": 0.7,
+          "detected_at": 0.75,
+          "mitigations": 0.75,
+          "resolved_at": 0.55,
+          "affected_org": 0.6,
+          "blast_radius": 0.6,
+          "impact_start": 0.7,
+          "mitigated_at": 0.6,
+          "remediations": 0.6,
+          "title_source": 0.95,
+          "publisher_org": 0.6,
+          "detection_quote": 0.6,
+          "detection_method": 0.55,
+          "affected_org_kind": 0.75,
+          "time_to_detect_text": 0.9,
+          "contributing_factors": 0.65,
+          "time_to_mitigate_text": 0.9
+        },
+        "derived": {
+          "time_to_detect": {
+            "to": "detected_at",
+            "from": "impact_start",
+            "seconds": 8280.0,
+            "precision": "minute"
+          },
+          "time_to_mitigate": {
+            "to": "mitigated_at",
+            "from": "impact_start",
+            "seconds": 15180.0,
+            "precision": "minute"
+          }
+        },
+        "attempt_log": [
+          {
+            "ok": false,
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 6954,
+              "output_tokens": 6621,
+              "cache_read_input_tokens": 5532,
+              "cache_creation_input_tokens": 0
+            },
+            "number": 1,
+            "validation_error": "- record.publisher_org_confidence: Extra inputs are not permitted"
+          },
+          {
+            "ok": true,
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 9442,
+              "output_tokens": 2399,
+              "cache_read_input_tokens": 5532,
+              "cache_creation_input_tokens": 0
+            },
+            "number": 2,
+            "validation_error": null
+          }
+        ],
+        "created_at": "2026-09-15T06:44:47.837256+00:00"
+      },
+      "earlier_extraction_rows": []
+    }
+  ]
+}

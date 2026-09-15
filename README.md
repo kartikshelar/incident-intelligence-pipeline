@@ -123,6 +123,26 @@ top-level field, stored in `extractions.per_field_confidence` with
 self-report is a usable confidence source is DERIVE-05 and gets measured in
 M5, not assumed here.
 
+### First real runs (2026-09-15, anthropic / claude-sonnet-5)
+
+`scripts/extraction_run.py` registers the 10 spike documents through the
+API, waits for the jobs, and writes a per-document report (record,
+confidence, derived durations, validation attempts, tokens, cost, error).
+
+| Run | Succeeded | Dead-lettered | Mean validation attempts | Total cost |
+|---|---|---|---|---|
+| [`run_01`](spike/extraction_run_01.json) | 0/10 | 10/10 | 0 | $0 (400 before any tokens) |
+| [`run_02`](spike/extraction_run_02.json) | 10/10 | 0/10 | 1.20 | $0.96 ($0.06–$0.13 per document) |
+
+Run 01 is the grammar-limit failure described above. Run 02, after the
+schema moved into the system block, produced a schema-valid record for
+every document; the two second attempts were both an invented extra key
+(`detected_at_unused`, `publisher_org_confidence`) that the fed-back
+validation error corrected. The prompt was not changed between runs or
+in response to the output. Prompt caching worked: after the first
+document every request read ~5.5k tokens (system prompt + schema) from
+cache.
+
 ### Open — flagged, not decided
 
 - **Trigger / mechanism class values.** ADR-001 fixes the *structure* and
