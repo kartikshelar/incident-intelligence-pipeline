@@ -1,0 +1,1192 @@
+{
+  "rendered_at": "2026-09-15T23:44:40.549287+00:00",
+  "caveats": [
+    "Agreement is with the baseline run, not with ground truth: none of these fields has been scored against a hand label here. A null flip means the arm and the baseline disagree on whether the document states the value; which one is right is not established by this report.",
+    "One run per arm. Validation retries and label choices vary between runs at the same setting, so single-document differences are within run-to-run noise unless they repeat.",
+    "Total output tokens and validation attempts include retries; a retry resends the document and its tokens depend on what failed validation. first_attempt_output_tokens is the comparison with retries removed.",
+    "Schema version differs: baseline ['0.3'] vs arm 'adaptive:low' ['0.4']. Any change to the validation contract between them (app/extract/schema.py changelog) is confounded with the thinking setting in the attempt and total-token comparisons.",
+    "Schema version differs: baseline ['0.3'] vs arm 'disabled' ['0.4']. Any change to the validation contract between them (app/extract/schema.py changelog) is confounded with the thinking setting in the attempt and total-token comparisons."
+  ],
+  "baseline": {
+    "report": "spike/extraction_run_04.json",
+    "run": "extraction_run_04",
+    "started_at": "2026-09-15T09:07:35.053128+00:00",
+    "thinking": [
+      "default (column added by migration 0006 after this run; nothing was sent)"
+    ],
+    "schema_version": [
+      "0.3"
+    ],
+    "aws_trigger": {
+      "label": "operational_delay",
+      "quote": "Right before this event started, one DNS Enactor experienced unusually high delays needing to retry its update on several of the DNS endpoints.",
+      "description": "One DNS Enactor experienced unusually high delays retrying endpoint updates while another Enactor rapidly applied a newer plan, activating a latent race condition."
+    }
+  },
+  "pricing_usd_per_mtok": {
+    "input_tokens": 2.0,
+    "output_tokens": 10.0,
+    "cache_read_input_tokens": 0.2,
+    "cache_creation_input_tokens": 2.5
+  },
+  "arms": [
+    {
+      "report": "spike/extraction_run_05.json",
+      "run": "extraction_run_05",
+      "started_at": "2026-09-15T23:32:59.975306+00:00",
+      "arm": "adaptive:low",
+      "documents_compared": 10,
+      "totals": {
+        "baseline": {
+          "documents": 10,
+          "complete": 10,
+          "output_tokens": 80412,
+          "first_attempt_output_tokens": 69685,
+          "cost_usd": 1.0447331,
+          "cost_usd_per_document": 0.10447331,
+          "output_tokens_per_document": 8041.2,
+          "mean_validation_attempts": 1.4,
+          "validation_attempts_histogram": {
+            "1": 6,
+            "2": 4
+          },
+          "thinking": [],
+          "schema_version": [
+            "0.3"
+          ],
+          "model": [
+            "claude-sonnet-5"
+          ]
+        },
+        "arm": {
+          "documents": 10,
+          "complete": 10,
+          "output_tokens": 36805,
+          "first_attempt_output_tokens": 26313,
+          "cost_usd": 0.6339751,
+          "cost_usd_per_document": 0.06339751,
+          "output_tokens_per_document": 3680.5,
+          "mean_validation_attempts": 1.4,
+          "validation_attempts_histogram": {
+            "1": 6,
+            "2": 4
+          },
+          "thinking": [
+            "adaptive:low"
+          ],
+          "schema_version": [
+            "0.4"
+          ],
+          "model": [
+            "claude-sonnet-5"
+          ]
+        }
+      },
+      "ratios_arm_over_baseline": {
+        "output_tokens": 0.458,
+        "first_attempt_output_tokens": 0.378,
+        "cost_usd": 0.607
+      },
+      "mean_validation_attempts": {
+        "baseline": 1.4,
+        "arm": 1.4
+      },
+      "agreement_with_baseline": {
+        "trigger.label": {
+          "agree": 8,
+          "of": 10,
+          "mismatches": [
+            {
+              "id": "C",
+              "org": "AWS",
+              "baseline": "operational_delay",
+              "arm": null
+            },
+            {
+              "id": "I",
+              "org": "Roblox",
+              "baseline": "feature_rollout",
+              "arm": "config_change"
+            }
+          ]
+        },
+        "mechanism.label": {
+          "agree": 7,
+          "of": 10,
+          "mismatches": [
+            {
+              "id": "D",
+              "org": "Datadog",
+              "baseline": "route_deletion",
+              "arm": "network_route_deletion"
+            },
+            {
+              "id": "I",
+              "org": "Roblox",
+              "baseline": "resource_exhaustion",
+              "arm": "cascading_overload"
+            },
+            {
+              "id": "J",
+              "org": "Kubernetes SIG Testing (test-infra)",
+              "baseline": "misrouting_bug",
+              "arm": "misrouted_scheduling"
+            }
+          ]
+        },
+        "detection_method": {
+          "agree": 9,
+          "of": 10,
+          "mismatches": [
+            {
+              "id": "C",
+              "org": "AWS",
+              "baseline": "unknown",
+              "arm": "internal_manual"
+            }
+          ]
+        }
+      },
+      "null_flips": [
+        {
+          "id": "B",
+          "org": "GitLab",
+          "path": "affected.list_is_complete",
+          "baseline": null,
+          "arm": false
+        },
+        {
+          "id": "B",
+          "org": "GitLab",
+          "path": "mitigations[2].date",
+          "baseline": "2017-02-01",
+          "arm": null
+        },
+        {
+          "id": "B",
+          "org": "GitLab",
+          "path": "mitigations[3].date",
+          "baseline": null,
+          "arm": "2017-02-01"
+        },
+        {
+          "id": "B",
+          "org": "GitLab",
+          "path": "time_to_mitigate_text",
+          "baseline": "GitLab.com was down for about 18 hours.",
+          "arm": null
+        },
+        {
+          "id": "C",
+          "org": "AWS",
+          "path": "detected_at",
+          "baseline": null,
+          "arm": {
+            "at": "2025-10-20T00:38:00"
+          }
+        },
+        {
+          "id": "C",
+          "org": "AWS",
+          "path": "trigger",
+          "baseline": {
+            "label": "operational_delay"
+          },
+          "arm": null
+        },
+        {
+          "id": "E",
+          "org": "GitHub",
+          "path": "affected.list_is_complete",
+          "baseline": null,
+          "arm": false
+        },
+        {
+          "id": "F",
+          "org": "CrowdStrike",
+          "path": "blast_radius.qualitative",
+          "baseline": null,
+          "arm": "Widespread crashes of Windows sensors, causing BSODs on affected systems."
+        },
+        {
+          "id": "F",
+          "org": "CrowdStrike",
+          "path": "remediations[2].date",
+          "baseline": "2024-08-09",
+          "arm": null
+        },
+        {
+          "id": "F",
+          "org": "CrowdStrike",
+          "path": "remediations[3].date",
+          "baseline": null,
+          "arm": "2024-08-19"
+        },
+        {
+          "id": "F",
+          "org": "CrowdStrike",
+          "path": "remediations[4].date",
+          "baseline": "2024-08-19",
+          "arm": null
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "path": "affected.list_is_complete",
+          "baseline": null,
+          "arm": true
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "path": "detected_at",
+          "baseline": null,
+          "arm": {
+            "at": "2025-06-12T10:51:00"
+          }
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "path": "mitigations[0].date",
+          "baseline": null,
+          "arm": "2025-06-12"
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "path": "mitigations[1].date",
+          "baseline": null,
+          "arm": "2025-06-12"
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "path": "mitigations[2].date",
+          "baseline": null,
+          "arm": "2025-06-12"
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "path": "mitigations[3].date",
+          "baseline": null,
+          "arm": "2025-06-12"
+        },
+        {
+          "id": "H",
+          "org": "Slack",
+          "path": "mitigations[0].date",
+          "baseline": "2022-02-22",
+          "arm": null
+        },
+        {
+          "id": "H",
+          "org": "Slack",
+          "path": "mitigations[1].date",
+          "baseline": "2022-02-22",
+          "arm": null
+        },
+        {
+          "id": "H",
+          "org": "Slack",
+          "path": "mitigations[2].date",
+          "baseline": "2022-02-22",
+          "arm": null
+        },
+        {
+          "id": "H",
+          "org": "Slack",
+          "path": "mitigations[3].date",
+          "baseline": "2022-02-22",
+          "arm": null
+        },
+        {
+          "id": "H",
+          "org": "Slack",
+          "path": "vendor_org",
+          "baseline": null,
+          "arm": "HashiCorp Consul"
+        },
+        {
+          "id": "I",
+          "org": "Roblox",
+          "path": "mitigated_at",
+          "baseline": null,
+          "arm": {
+            "at": "2021-10-31T16:45:00"
+          }
+        },
+        {
+          "id": "I",
+          "org": "Roblox",
+          "path": "time_to_mitigate_text",
+          "baseline": "73-hour outage",
+          "arm": null
+        },
+        {
+          "id": "J",
+          "org": "Kubernetes SIG Testing (test-infra)",
+          "path": "affected.list_is_complete",
+          "baseline": null,
+          "arm": false
+        }
+      ],
+      "aws_trigger": {
+        "baseline": {
+          "label": "operational_delay",
+          "quote": "Right before this event started, one DNS Enactor experienced unusually high delays needing to retry its update on several of the DNS endpoints.",
+          "description": "One DNS Enactor experienced unusually high delays retrying endpoint updates while another Enactor rapidly applied a newer plan, activating a latent race condition."
+        },
+        "arm": null,
+        "arm_is_null": true
+      },
+      "per_document": [
+        {
+          "id": "A",
+          "org": "Cloudflare",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 1,
+            "arm": 1
+          },
+          "output_tokens": {
+            "baseline": 4620,
+            "arm": 2600,
+            "delta": -2020
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 4620,
+            "arm": 2600,
+            "delta": -2020
+          },
+          "cost_usd": {
+            "baseline": 0.0712985,
+            "arm": 0.0510985,
+            "delta": -0.0202
+          },
+          "arm_validation_errors": []
+        },
+        {
+          "id": "B",
+          "org": "GitLab",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 1,
+            "arm": 2
+          },
+          "output_tokens": {
+            "baseline": 8191,
+            "arm": 6326,
+            "delta": -1865
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 8191,
+            "arm": 3164,
+            "delta": -5027
+          },
+          "cost_usd": {
+            "baseline": 0.0991682,
+            "arm": 0.1042584,
+            "delta": 0.00509
+          },
+          "arm_validation_errors": [
+            "- record.publisher_org_confidence: Extra inputs are not permitted"
+          ]
+        },
+        {
+          "id": "C",
+          "org": "AWS",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 1,
+            "arm": 2
+          },
+          "output_tokens": {
+            "baseline": 8988,
+            "arm": 4991,
+            "delta": -3997
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 8988,
+            "arm": 2501,
+            "delta": -6487
+          },
+          "cost_usd": {
+            "baseline": 0.1067162,
+            "arm": 0.0887364,
+            "delta": -0.01798
+          },
+          "arm_validation_errors": [
+            "- record.detected_at_evidence: Extra inputs are not permitted"
+          ]
+        },
+        {
+          "id": "D",
+          "org": "Datadog",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 2,
+            "arm": 1
+          },
+          "output_tokens": {
+            "baseline": 8002,
+            "arm": 2500,
+            "delta": -5502
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 5441,
+            "arm": 2500,
+            "delta": -2941
+          },
+          "cost_usd": {
+            "baseline": 0.10266839999999999,
+            "arm": 0.0336762,
+            "delta": -0.068992
+          },
+          "arm_validation_errors": []
+        },
+        {
+          "id": "E",
+          "org": "GitHub",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 2,
+            "arm": 1
+          },
+          "output_tokens": {
+            "baseline": 8539,
+            "arm": 2938,
+            "delta": -5601
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 5757,
+            "arm": 2938,
+            "delta": -2819
+          },
+          "cost_usd": {
+            "baseline": 0.1141624,
+            "arm": 0.040850199999999996,
+            "delta": -0.073312
+          },
+          "arm_validation_errors": []
+        },
+        {
+          "id": "F",
+          "org": "CrowdStrike",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 1,
+            "arm": 2
+          },
+          "output_tokens": {
+            "baseline": 7251,
+            "arm": 4120,
+            "delta": -3131
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 7251,
+            "arm": 2065,
+            "delta": -5186
+          },
+          "cost_usd": {
+            "baseline": 0.09571020000000001,
+            "arm": 0.0918804,
+            "delta": -0.00383
+          },
+          "arm_validation_errors": [
+            "- record.fuzz_testing: Extra inputs are not permitted"
+          ]
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 1,
+            "arm": 1
+          },
+          "output_tokens": {
+            "baseline": 12443,
+            "arm": 2626,
+            "delta": -9817
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 12443,
+            "arm": 2626,
+            "delta": -9817
+          },
+          "cost_usd": {
+            "baseline": 0.1406422,
+            "arm": 0.0424722,
+            "delta": -0.09817
+          },
+          "arm_validation_errors": []
+        },
+        {
+          "id": "H",
+          "org": "Slack",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 2,
+            "arm": 1
+          },
+          "output_tokens": {
+            "baseline": 6080,
+            "arm": 1994,
+            "delta": -4086
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 3983,
+            "arm": 1994,
+            "delta": -1989
+          },
+          "cost_usd": {
+            "baseline": 0.0876624,
+            "arm": 0.0311862,
+            "delta": -0.056476
+          },
+          "arm_validation_errors": []
+        },
+        {
+          "id": "I",
+          "org": "Roblox",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 2,
+            "arm": 2
+          },
+          "output_tokens": {
+            "baseline": 9378,
+            "arm": 6646,
+            "delta": -2732
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 6091,
+            "arm": 3861,
+            "delta": -2230
+          },
+          "cost_usd": {
+            "baseline": 0.1424844,
+            "arm": 0.1141564,
+            "delta": -0.028328
+          },
+          "arm_validation_errors": [
+            "- record.detection_quote_extra: Extra inputs are not permitted"
+          ]
+        },
+        {
+          "id": "J",
+          "org": "Kubernetes SIG Testing (test-infra)",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 1,
+            "arm": 1
+          },
+          "output_tokens": {
+            "baseline": 6920,
+            "arm": 2064,
+            "delta": -4856
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 6920,
+            "arm": 2064,
+            "delta": -4856
+          },
+          "cost_usd": {
+            "baseline": 0.0842202,
+            "arm": 0.035660199999999996,
+            "delta": -0.04856
+          },
+          "arm_validation_errors": []
+        }
+      ]
+    },
+    {
+      "report": "spike/extraction_run_06.json",
+      "run": "extraction_run_06",
+      "started_at": "2026-09-15T23:38:22.461603+00:00",
+      "arm": "disabled",
+      "documents_compared": 10,
+      "totals": {
+        "baseline": {
+          "documents": 10,
+          "complete": 10,
+          "output_tokens": 80412,
+          "first_attempt_output_tokens": 69685,
+          "cost_usd": 1.0447331,
+          "cost_usd_per_document": 0.10447331,
+          "output_tokens_per_document": 8041.2,
+          "mean_validation_attempts": 1.4,
+          "validation_attempts_histogram": {
+            "1": 6,
+            "2": 4
+          },
+          "thinking": [],
+          "schema_version": [
+            "0.3"
+          ],
+          "model": [
+            "claude-sonnet-5"
+          ]
+        },
+        "arm": {
+          "documents": 10,
+          "complete": 10,
+          "output_tokens": 36629,
+          "first_attempt_output_tokens": 31700,
+          "cost_usd": 0.5682247,
+          "cost_usd_per_document": 0.05682247,
+          "output_tokens_per_document": 3662.9,
+          "mean_validation_attempts": 1.1,
+          "validation_attempts_histogram": {
+            "1": 9,
+            "2": 1
+          },
+          "thinking": [
+            "disabled"
+          ],
+          "schema_version": [
+            "0.4"
+          ],
+          "model": [
+            "claude-sonnet-5"
+          ]
+        }
+      },
+      "ratios_arm_over_baseline": {
+        "output_tokens": 0.456,
+        "first_attempt_output_tokens": 0.455,
+        "cost_usd": 0.544
+      },
+      "mean_validation_attempts": {
+        "baseline": 1.4,
+        "arm": 1.1
+      },
+      "agreement_with_baseline": {
+        "trigger.label": {
+          "agree": 7,
+          "of": 10,
+          "mismatches": [
+            {
+              "id": "C",
+              "org": "AWS",
+              "baseline": "operational_delay",
+              "arm": "race_condition"
+            },
+            {
+              "id": "F",
+              "org": "CrowdStrike",
+              "baseline": "content_update",
+              "arm": "config_change"
+            },
+            {
+              "id": "I",
+              "org": "Roblox",
+              "baseline": "feature_rollout",
+              "arm": "config_change"
+            }
+          ]
+        },
+        "mechanism.label": {
+          "agree": 6,
+          "of": 10,
+          "mismatches": [
+            {
+              "id": "C",
+              "org": "AWS",
+              "baseline": "race_condition",
+              "arm": "dns_resolution_failure"
+            },
+            {
+              "id": "D",
+              "org": "Datadog",
+              "baseline": "route_deletion",
+              "arm": "unsafe_failover"
+            },
+            {
+              "id": "F",
+              "org": "CrowdStrike",
+              "baseline": "out_of_bounds_read",
+              "arm": "crash_on_bad_input"
+            },
+            {
+              "id": "J",
+              "org": "Kubernetes SIG Testing (test-infra)",
+              "baseline": "misrouting_bug",
+              "arm": "misrouted_workload_scheduling"
+            }
+          ]
+        },
+        "detection_method": {
+          "agree": 8,
+          "of": 10,
+          "mismatches": [
+            {
+              "id": "C",
+              "org": "AWS",
+              "baseline": "unknown",
+              "arm": "monitoring"
+            },
+            {
+              "id": "I",
+              "org": "Roblox",
+              "baseline": "monitoring",
+              "arm": "internal_manual"
+            }
+          ]
+        }
+      },
+      "null_flips": [
+        {
+          "id": "A",
+          "org": "Cloudflare",
+          "path": "vendor_org",
+          "baseline": null,
+          "arm": "ClickHouse"
+        },
+        {
+          "id": "B",
+          "org": "GitLab",
+          "path": "affected.list_is_complete",
+          "baseline": null,
+          "arm": false
+        },
+        {
+          "id": "B",
+          "org": "GitLab",
+          "path": "mitigations[2].date",
+          "baseline": "2017-02-01",
+          "arm": null
+        },
+        {
+          "id": "B",
+          "org": "GitLab",
+          "path": "mitigations[4].date",
+          "baseline": "2017-02-01",
+          "arm": null
+        },
+        {
+          "id": "B",
+          "org": "GitLab",
+          "path": "time_to_mitigate_text",
+          "baseline": "GitLab.com was down for about 18 hours.",
+          "arm": null
+        },
+        {
+          "id": "C",
+          "org": "AWS",
+          "path": "detected_at",
+          "baseline": null,
+          "arm": {
+            "at": "2025-10-20T00:38:00"
+          }
+        },
+        {
+          "id": "C",
+          "org": "AWS",
+          "path": "remediations[5].date",
+          "baseline": "2025-10-20",
+          "arm": null
+        },
+        {
+          "id": "E",
+          "org": "GitHub",
+          "path": "affected.list_is_complete",
+          "baseline": null,
+          "arm": false
+        },
+        {
+          "id": "F",
+          "org": "CrowdStrike",
+          "path": "blast_radius.qualitative",
+          "baseline": null,
+          "arm": "~99% of Windows sensors online again by July 29 compared to before the conten..."
+        },
+        {
+          "id": "F",
+          "org": "CrowdStrike",
+          "path": "remediations[4].date",
+          "baseline": "2024-08-19",
+          "arm": null
+        },
+        {
+          "id": "F",
+          "org": "CrowdStrike",
+          "path": "remediations[7].date",
+          "baseline": null,
+          "arm": "2024-08-19"
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "path": "affected.list_is_complete",
+          "baseline": null,
+          "arm": false
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "path": "detected_at",
+          "baseline": null,
+          "arm": {
+            "at": "2025-06-12T10:51:00"
+          }
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "path": "mitigations[0].date",
+          "baseline": null,
+          "arm": "2025-06-12"
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "path": "mitigations[1].date",
+          "baseline": null,
+          "arm": "2025-06-12"
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "path": "mitigations[2].date",
+          "baseline": null,
+          "arm": "2025-06-12"
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "path": "mitigations[3].date",
+          "baseline": null,
+          "arm": "2025-06-12"
+        },
+        {
+          "id": "H",
+          "org": "Slack",
+          "path": "affected.list_is_complete",
+          "baseline": null,
+          "arm": false
+        },
+        {
+          "id": "H",
+          "org": "Slack",
+          "path": "mitigations[0].date",
+          "baseline": "2022-02-22",
+          "arm": null
+        },
+        {
+          "id": "H",
+          "org": "Slack",
+          "path": "mitigations[1].date",
+          "baseline": "2022-02-22",
+          "arm": null
+        },
+        {
+          "id": "H",
+          "org": "Slack",
+          "path": "mitigations[2].date",
+          "baseline": "2022-02-22",
+          "arm": null
+        },
+        {
+          "id": "H",
+          "org": "Slack",
+          "path": "mitigations[3].date",
+          "baseline": "2022-02-22",
+          "arm": null
+        },
+        {
+          "id": "I",
+          "org": "Roblox",
+          "path": "mitigated_at",
+          "baseline": null,
+          "arm": {
+            "at": "2021-10-31T16:45:00"
+          }
+        },
+        {
+          "id": "I",
+          "org": "Roblox",
+          "path": "mitigations[0].date",
+          "baseline": "2021-10-28",
+          "arm": null
+        },
+        {
+          "id": "J",
+          "org": "Kubernetes SIG Testing (test-infra)",
+          "path": "affected.list_is_complete",
+          "baseline": null,
+          "arm": false
+        }
+      ],
+      "aws_trigger": {
+        "baseline": {
+          "label": "operational_delay",
+          "quote": "Right before this event started, one DNS Enactor experienced unusually high delays needing to retry its update on several of the DNS endpoints.",
+          "description": "One DNS Enactor experienced unusually high delays retrying endpoint updates while another Enactor rapidly applied a newer plan, activating a latent race condition."
+        },
+        "arm": {
+          "label": "race_condition",
+          "quote": "The race condition involves an unlikely interaction between two of the DNS Enactors.",
+          "description": "An unusually delayed DNS Enactor applied a much older DNS plan to the DynamoDB regional endpoint at the same time another Enactor's cleanup process deleted old plans, overwriting and then deleting the active plan."
+        },
+        "arm_is_null": false
+      },
+      "per_document": [
+        {
+          "id": "A",
+          "org": "Cloudflare",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 1,
+            "arm": 1
+          },
+          "output_tokens": {
+            "baseline": 4620,
+            "arm": 2399,
+            "delta": -2221
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 4620,
+            "arm": 2399,
+            "delta": -2221
+          },
+          "cost_usd": {
+            "baseline": 0.0712985,
+            "arm": 0.0490885,
+            "delta": -0.02221
+          },
+          "arm_validation_errors": []
+        },
+        {
+          "id": "B",
+          "org": "GitLab",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 1,
+            "arm": 1
+          },
+          "output_tokens": {
+            "baseline": 8191,
+            "arm": 3754,
+            "delta": -4437
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 8191,
+            "arm": 3754,
+            "delta": -4437
+          },
+          "cost_usd": {
+            "baseline": 0.0991682,
+            "arm": 0.0547982,
+            "delta": -0.04437
+          },
+          "arm_validation_errors": []
+        },
+        {
+          "id": "C",
+          "org": "AWS",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 1,
+            "arm": 1
+          },
+          "output_tokens": {
+            "baseline": 8988,
+            "arm": 3024,
+            "delta": -5964
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 8988,
+            "arm": 3024,
+            "delta": -5964
+          },
+          "cost_usd": {
+            "baseline": 0.1067162,
+            "arm": 0.0470762,
+            "delta": -0.05964
+          },
+          "arm_validation_errors": []
+        },
+        {
+          "id": "D",
+          "org": "Datadog",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 2,
+            "arm": 1
+          },
+          "output_tokens": {
+            "baseline": 8002,
+            "arm": 3555,
+            "delta": -4447
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 5441,
+            "arm": 3555,
+            "delta": -1886
+          },
+          "cost_usd": {
+            "baseline": 0.10266839999999999,
+            "arm": 0.0442262,
+            "delta": -0.058442
+          },
+          "arm_validation_errors": []
+        },
+        {
+          "id": "E",
+          "org": "GitHub",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 2,
+            "arm": 1
+          },
+          "output_tokens": {
+            "baseline": 8539,
+            "arm": 3263,
+            "delta": -5276
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 5757,
+            "arm": 3263,
+            "delta": -2494
+          },
+          "cost_usd": {
+            "baseline": 0.1141624,
+            "arm": 0.0441002,
+            "delta": -0.070062
+          },
+          "arm_validation_errors": []
+        },
+        {
+          "id": "F",
+          "org": "CrowdStrike",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 1,
+            "arm": 1
+          },
+          "output_tokens": {
+            "baseline": 7251,
+            "arm": 2878,
+            "delta": -4373
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 7251,
+            "arm": 2878,
+            "delta": -4373
+          },
+          "cost_usd": {
+            "baseline": 0.09571020000000001,
+            "arm": 0.0519802,
+            "delta": -0.04373
+          },
+          "arm_validation_errors": []
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 1,
+            "arm": 1
+          },
+          "output_tokens": {
+            "baseline": 12443,
+            "arm": 3963,
+            "delta": -8480
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 12443,
+            "arm": 3963,
+            "delta": -8480
+          },
+          "cost_usd": {
+            "baseline": 0.1406422,
+            "arm": 0.0558422,
+            "delta": -0.0848
+          },
+          "arm_validation_errors": []
+        },
+        {
+          "id": "H",
+          "org": "Slack",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 2,
+            "arm": 1
+          },
+          "output_tokens": {
+            "baseline": 6080,
+            "arm": 2417,
+            "delta": -3663
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 3983,
+            "arm": 2417,
+            "delta": -1566
+          },
+          "cost_usd": {
+            "baseline": 0.0876624,
+            "arm": 0.0354162,
+            "delta": -0.052246
+          },
+          "arm_validation_errors": []
+        },
+        {
+          "id": "I",
+          "org": "Roblox",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 2,
+            "arm": 1
+          },
+          "output_tokens": {
+            "baseline": 9378,
+            "arm": 3572,
+            "delta": -5806
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 6091,
+            "arm": 3572,
+            "delta": -2519
+          },
+          "cost_usd": {
+            "baseline": 0.1424844,
+            "arm": 0.0566962,
+            "delta": -0.085788
+          },
+          "arm_validation_errors": []
+        },
+        {
+          "id": "J",
+          "org": "Kubernetes SIG Testing (test-infra)",
+          "outcome": "complete",
+          "validation_attempts": {
+            "baseline": 1,
+            "arm": 2
+          },
+          "output_tokens": {
+            "baseline": 6920,
+            "arm": 7804,
+            "delta": 884
+          },
+          "first_attempt_output_tokens": {
+            "baseline": 6920,
+            "arm": 2875,
+            "delta": -4045
+          },
+          "cost_usd": {
+            "baseline": 0.0842202,
+            "arm": 0.1290006,
+            "delta": 0.04478
+          },
+          "arm_validation_errors": [
+            "- record.resolved_at_note: Extra inputs are not permitted"
+          ]
+        }
+      ]
+    }
+  ]
+}
