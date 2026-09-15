@@ -74,7 +74,7 @@ in `extractions`.
 
 `app/extract/` — see its `__init__.py` for the module map.
 
-**Schema v0.2** (`app/extract/schema.py`) is PROJECT_BRIEF §6's draft after
+**Schema v0.3** (`app/extract/schema.py`) is PROJECT_BRIEF §6's draft after
 the spike's corrections, each cited in the module docstring:
 
 - `trigger` (nullable: initiating change/event) + `mechanism` (required,
@@ -90,6 +90,12 @@ the spike's corrections, each cited in the module docstring:
   `affected_org` / `vendor_org`; `title_source`; `mitigations` vs
   `remediations` with status; `contributing_factors[].source_section`
   (FINDINGS §4.5–§4.9).
+- the free text the model *writes* — `trigger.description`,
+  `mechanism.description`, each `contributing_factors[].text` — is one
+  sentence of at most 200 characters (v0.3): a field constraint plus a
+  sentence-count validator, so an over-long value fails validation and
+  is retried with the error fed back. `quote` fields are provenance and
+  are never constrained.
 
 **Model call** (`app/extract/llm.py`): Anthropic Messages API. The JSON
 schema is sent as text in the cached system block and the output is
@@ -102,9 +108,12 @@ showed the limit is roughly "the record without its time anchors and
 without confidence"; flattening the anchors to plain fields does not
 help. The tradeoff is recorded in
 [ADR-005](docs/adr/005-structured-output.md). Schema conformance
-therefore rests on the retry loop below. Schema descriptions are capped
-at one sentence (enforced by a test) because they are prompt text on
-every request. Provider and model come from configuration (see above).
+therefore rests on the retry loop below. Schema v0.2 cut the descriptions
+the model reads to one sentence to shrink that cached block; run 03
+measured it as a net loss (mean attempts 1.20 → 1.30, cost $0.96 → $0.99,
+because a retry resends the document and cache reads are the cheapest
+tokens there are), and v0.3 reverted it — see ADR-005 §4. Provider and
+model come from configuration (see above).
 
 **Retry loop** (`app/extract/extractor.py`): on a validation failure the
 model is shown its own output and the validator's errors and asked for the

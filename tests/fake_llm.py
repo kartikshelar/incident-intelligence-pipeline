@@ -121,6 +121,20 @@ def invalid_output_json() -> str:
     return json.dumps(bad)
 
 
+def overlong_description_output_json() -> str:
+    """Otherwise valid, but `mechanism.description` is one sentence well over
+    the v0.3 character cap — the run-03 shape of description that the cap
+    exists to reject."""
+    bad = copy.deepcopy(valid_output())
+    bad["record"]["mechanism"]["description"] = (
+        "The Bot Management feature file, now containing duplicate rows and exceeding a "
+        "hardcoded 200-feature limit, caused the FL2 proxy's Rust code to panic on an "
+        "unhandled error when it tried to load the file, so every request through the "
+        "core proxy returned an HTTP 5xx error until the file was rolled back."
+    )
+    return json.dumps(bad)
+
+
 class FakeLLMClient:
     provider = "fake"
 

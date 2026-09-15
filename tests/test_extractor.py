@@ -11,7 +11,12 @@ from app.extract.errors import (
 )
 from app.extract.extractor import extract
 from app.extract.prompt import SYSTEM_PROMPT
-from tests.fake_llm import FakeLLMClient, invalid_output_json, valid_output_json
+from tests.fake_llm import (
+    FakeLLMClient,
+    invalid_output_json,
+    overlong_description_output_json,
+    valid_output_json,
+)
 
 DOC = "The service was down. A change caused it. Monitoring caught it."
 
@@ -57,6 +62,20 @@ def test_invalid_output_is_retried_with_the_validation_error_fed_back() -> None:
     assert retry_messages[1]["content"] == invalid_output_json()  # the model sees its own output
     assert "record.detection_method" in retry_messages[2]["content"]  # ...and the error
     assert "failed schema validation" in retry_messages[2]["content"]
+
+
+def test_overlong_written_description_is_retried_with_the_cap_fed_back() -> None:
+    """Schema v0.3: a description over the cap is a validation failure like
+    any other — it costs an attempt and the model is told which field and
+    what the limit is."""
+    client = FakeLLMClient([overlong_description_output_json(), valid_output_json()])
+    result = _run(client)
+
+    assert [a.ok for a in result.attempts] == [False, True]
+    error = result.attempts[0].validation_error or ""
+    assert "record.mechanism.description" in error
+    assert "at most 200 characters" in error
+    assert "record.mechanism.description" in client.calls[1]["messages"][2]["content"]
 
 
 def test_non_json_output_is_fed_back_as_a_parse_error() -> None:

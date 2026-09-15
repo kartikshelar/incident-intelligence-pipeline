@@ -62,9 +62,26 @@ says "reduce the number of strict tools".
 - Each validation retry is a full second request (document included);
   the attempt budget bounds the cost.
 - The schema text is prompt input on every request (~4k tokens with
-  descriptions), which is why descriptions are capped at one sentence and
-  the block is cached (`cache_read_input_tokens` ≈ 5.5k per document
-  after the first in run 02).
+  descriptions), so the block is cached (`cache_read_input_tokens` ≈ 5.5k
+  per document after the first in run 02).
+- **Measured negative result (2026-09-15).** Schema v0.2 cut every
+  description the model *reads* to one sentence to shrink that block.
+  Run 03 (same corpus, same prompt, only that change) against run 02:
+
+  | | run 02 (v0.1) | run 03 (v0.2) |
+  |---|---|---|
+  | cached block (tokens) | 5,532 | 5,198 |
+  | mean validation attempts | 1.20 | 1.30 |
+  | output tokens | 75,927 | 76,526 |
+  | total cost | $0.96 | $0.99 |
+
+  The trim saved 334 cache-read tokens per request (cache reads are
+  $0.20/MTok, so under $0.0001 per request) and coincided with one more
+  retry, which resends the whole document. It also targeted the wrong
+  side: output tokens are five times the price of uncached input and
+  were already nearly equal in count. v0.3 reverts the wording to v0.1
+  and constrains the descriptions the model *writes* instead
+  (`app/extract/schema.py` changelog).
 
 ### 5. When I'd switch back
 

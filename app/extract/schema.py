@@ -1,4 +1,4 @@
-"""Incident record schema v0.2 — the extraction contract.
+"""Incident record schema v0.3 — the extraction contract.
 
 This is PROJECT_BRIEF §6's draft schema after the corrections the M0 spike
 demanded. Every departure from the draft cites its source:
@@ -32,19 +32,39 @@ demanded. Every departure from the draft cites its source:
   §4.10     `blast_radius` kept as designed; `quantitative` is a list of
             typed quantities so absent-vs-wrong can be scored separately.
 
-v0.2 (2026-09-15): same shape as v0.1. Every description the model sees
-(field descriptions and the class docstrings Pydantic emits as object
-descriptions) is capped at ONE sentence, because the schema is prompt text
-on every request (ADR-005). Longer notes for humans live in `#` comments.
-Bumped because the text the model is given changed, and the version is
-part of the extraction idempotency key.
+Changelog
+---------
+v0.1 (2026-09-14): first extraction run that produced records (run 02,
+10/10, mean 1.20 validation attempts, 75,927 output tokens, $0.96).
+
+v0.2 (2026-09-15): same shape; every description the model READS (field
+descriptions and the class docstrings Pydantic emits as object
+descriptions) was cut to one sentence to shrink the cached schema block.
+MEASURED NEGATIVE RESULT (run 03, same corpus, same prompt): the cached
+block shrank 5,532 -> 5,198 tokens, mean validation attempts rose
+1.20 -> 1.30, output tokens 75,927 -> 76,526, cost $0.96 -> $0.99. A
+validation retry resends the whole document, so one extra retry costs
+more than the 334 cache-read tokens per request the trim saved. It also
+targeted the cheap side: cache reads are 1/50 the price of output tokens.
+Reverted in v0.3; ADR-005 §4 records it.
+
+v0.3 (2026-09-15): descriptions the model reads are back to the v0.1
+wording. The constraint moved to the text the model WRITES:
+`trigger.description`, `mechanism.description` and each
+`contributing_factors[].text` must be one sentence of at most
+MAX_DESCRIPTION_CHARS characters — a field constraint (max_length) plus a
+sentence-count validator, so an over-long value fails validation and is
+retried with the error fed back. Every `quote` field is untouched: quotes
+are provenance, not prose. Bumped because the validation contract changed
+and the version is part of the extraction idempotency key.
 
 OPEN, deliberately not decided here (FINDINGS §4.11, §4.12): one record per
 DOCUMENT. Nothing in this schema links two documents to one incident, and a
 document describing several impact periods yields one record for the
 primary incident. The `extractions` table keys on `document_id`; there is
 no `incident_id`. Whichever way that is resolved is a schema decision for
-Kartik, not an extraction decision.
+Kartik, not an extraction decision. (Document *identity* — which fetches
+are the same document — is ADR-007 and lives in the ingest layer.)
 
 Confidence: `FieldConfidence` holds one self-reported number per top-level
 record field. It is CAPTURED here and NOT thresholded — routing is M4, and
@@ -56,20 +76,34 @@ Schema-shape rules kept from the structured-output design (ADR-005): every
 object forbids extra keys, every field is required (nullable fields are
 `X | None`, never defaulted), no recursion. Client-side-only constraints
 (min/max length, ranges, patterns) are kept here for validation and
-stripped from the wire schema.
+stripped from the wire schema; where the model needs to know a limit it
+is stated in the field's description text.
 """
 
 from __future__ import annotations
 
 import re
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+)
 
 from app.extract.taxonomy import DetectionMethod, MechanismClass, TriggerClass
 
-SCHEMA_VERSION = "0.2"
+SCHEMA_VERSION = "0.3"
+
+# Upper bound on the free-text descriptions the model writes (v0.3). Run 03
+# medians were ~178 characters with a third over 200; the cap is what "one
+# sentence" is taken to mean, and it is repeated in the wire description
+# because maxLength itself is stripped from the wire schema.
+MAX_DESCRIPTION_CHARS = 200
 
 Precision = Literal["exact", "minute", "hour", "day", "approximate"]
 SourceSection = Literal["summary", "timeline", "body", "appendix", "other"]
@@ -81,20 +115,60 @@ TitleSource = Literal["document_metadata", "synthesized"]
 _LABEL_PATTERN = r"^[a-z][a-z0-9]*(_[a-z0-9]+)*$"
 
 
+# Abbreviations whose trailing period is not a sentence end. Masked before
+# counting so "e.g. HashiCorp", "Nov. 18" and "U.S. East" stay one sentence.
+# Leniency is deliberate: a false split costs a validation retry (a full
+# resend of the document), a missed split costs nothing.
+_ABBREVIATION = re.compile(
+    r"\b(?:e\.g|i\.e|etc|vs|cf|ca|approx|fig|inc|ltd|corp|mr|ms|dr|prof"
+    r"|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|u\.s|a\.m|p\.m)\.",
+    re.IGNORECASE,
+)
+# A sentence ends at . ! or ? (optionally followed by a closing quote or
+# bracket), then whitespace, then a capital letter or digit.
+_SENTENCE_BREAK = re.compile(r"[.!?]+[\"')\]]*\s+(?=[\"'(\[]?[A-Z0-9])")
+
+
+def sentence_count(text: str) -> int:
+    text = text.strip()
+    if not text:
+        return 0
+    masked = _ABBREVIATION.sub(lambda m: m.group(0)[:-1] + "\x00", text)
+    return len(_SENTENCE_BREAK.split(masked))
+
+
+def _one_sentence(value: str) -> str:
+    count = sentence_count(value)
+    if count != 1:
+        raise ValueError(
+            f"must be exactly one sentence (got {count}); shorten it, and put "
+            "supporting evidence in `quote`, not here"
+        )
+    return value
+
+
+# The free-text fields the model writes (v0.3): one sentence, capped. The
+# max_length constraint is checked first; the sentence validator runs only
+# on values that fit, so the model sees one error at a time.
+OneSentence = Annotated[str, AfterValidator(_one_sentence)]
+
+
 class _Strict(BaseModel):
-    # extra="forbid" -> `additionalProperties: false` in the JSON schema.
+    # extra="forbid" -> `additionalProperties: false` in the JSON schema,
+    # which the structured-output API requires on every object.
     model_config = ConfigDict(extra="forbid")
 
 
-# One moment in the incident, as the document states it (FINDINGS §4.1).
-# `at` is an ISO-8601 date ("2025-10-20") or datetime ("2025-10-20T11:20:00"
-# / "...+00:00"); precision `day` means only the date is known and `at`
-# should be date-only. The timezone is the string the author wrote ("UTC",
-# "PST", "+02:00"), not a normalisation — the spike found documents that
-# mix zones, and coercing them is a lossy decision that belongs in
-# analysis, not extraction.
 class TimeAnchor(_Strict):
-    """One moment in the incident, exactly as the document states it."""
+    """One moment in the incident, as the document states it (FINDINGS §4.1).
+
+    `at` is an ISO-8601 date ("2025-10-20") or datetime
+    ("2025-10-20T11:20:00" / "...+00:00"). Precision `day` means only the
+    date is known and `at` should be date-only. The timezone is the string
+    the author wrote ("UTC", "PST", "+02:00"), not a normalisation — the
+    spike found documents that mix zones, and coercing them is a lossy
+    decision that belongs in analysis, not extraction.
+    """
 
     at: str = Field(description="ISO-8601 date or datetime as stated in the document.")
     precision: Precision
@@ -103,8 +177,8 @@ class TimeAnchor(_Strict):
     )
     quote: str | None = Field(description="The document phrase this anchor is taken from.")
     source_section: SourceSection = Field(
-        description="Where in the document the anchor came from, preferring the timeline over "
-        "prose when they disagree."
+        description="Where in the document the anchor came from. Prefer timeline over prose "
+        "when they disagree, and record which one you used."
     )
 
     @field_validator("at")
@@ -129,12 +203,11 @@ def parse_anchor(value: str) -> datetime | date | None:
         return None
 
 
-# ADR-001: the initiating change or event that activated the failing path.
-# Nullable at the record level — AWS's latent DNS race had none. When
-# several changes could count, the one closest to the failure that was
-# necessary to activate it wins (ADR-001 §4).
 class Trigger(_Strict):
-    """The initiating change or event that activated the failing path."""
+    """ADR-001: the initiating change or event that activated the failing
+    path. Nullable at the record level — AWS's latent DNS race had none.
+    When several changes could count, the one closest to the failure that
+    was necessary to activate it wins (ADR-001 §4)."""
 
     label: TriggerClass = Field(
         pattern=_LABEL_PATTERN,
@@ -142,16 +215,19 @@ class Trigger(_Strict):
         "e.g. config_change, code_deploy, os_auto_update, manual_command, "
         "infrastructure_maintenance, external_input.",
     )
-    description: str = Field(
-        min_length=1, description="One sentence: what changed, and who/what did it."
+    description: OneSentence = Field(
+        min_length=1,
+        max_length=MAX_DESCRIPTION_CHARS,
+        description=f"One sentence of at most {MAX_DESCRIPTION_CHARS} characters: "
+        "what changed, and who/what did it.",
     )
     quote: str | None = Field(description="Supporting phrase from the document, or null.")
 
 
-# ADR-001: the immediate failure mechanism — what actually broke. Required
-# and single-valued; further mechanisms go in contributing_factors.
 class Mechanism(_Strict):
-    """The single immediate failure mechanism: what actually broke."""
+    """ADR-001: the immediate failure mechanism — what actually broke.
+    Required and single-valued; further mechanisms go in
+    contributing_factors."""
 
     label: MechanismClass = Field(
         pattern=_LABEL_PATTERN,
@@ -159,20 +235,26 @@ class Mechanism(_Strict):
         "crash_on_bad_input, race_condition, cascading_overload, data_loss, "
         "unsafe_failover.",
     )
-    description: str = Field(min_length=1, description="One sentence: what failed and how.")
+    description: OneSentence = Field(
+        min_length=1,
+        max_length=MAX_DESCRIPTION_CHARS,
+        description=f"One sentence of at most {MAX_DESCRIPTION_CHARS} characters: "
+        "what failed and how.",
+    )
     quote: str | None = Field(description="Supporting phrase from the document, or null.")
 
 
 class ContributingFactor(_Strict):
-    """A factor the author says contributed, with where it was stated."""
-
-    text: str = Field(min_length=1, description="The factor as the author states it.")
+    text: OneSentence = Field(
+        min_length=1,
+        max_length=MAX_DESCRIPTION_CHARS,
+        description=f"One sentence of at most {MAX_DESCRIPTION_CHARS} characters: "
+        "the factor as the author states it.",
+    )
     source_section: SourceSection
 
 
 class Action(_Strict):
-    """One mitigation or remediation action with its status."""
-
     text: str = Field(min_length=1)
     status: ActionStatus = Field(
         description="done = completed (past tense / dated), planned = committed to, "
@@ -189,8 +271,6 @@ class Action(_Strict):
 
 
 class Quantity(_Strict):
-    """One stated number about impact, verbatim."""
-
     metric: str = Field(
         min_length=1, description="What is being counted, e.g. 'projects', 'webhooks dropped'."
     )
@@ -202,19 +282,15 @@ class Quantity(_Strict):
 
 
 class BlastRadius(_Strict):
-    """Impact as the author describes it, qualitatively and in stated numbers."""
-
     qualitative: str | None = Field(
         description="The author's qualitative description of impact, or null."
     )
     quantitative: list[Quantity] = Field(
-        description="Every customer- or infra-facing number the document states (empty if none)."
+        description="Every customer- or infra-facing number the document states. Empty if none."
     )
 
 
 class AffectedScope(_Strict):
-    """What was affected, as the document names it."""
-
     services: list[str] = Field(
         description="Named services/products affected, as the document names them."
     )
@@ -228,13 +304,12 @@ class AffectedScope(_Strict):
     )
 
 
-# One document's primary incident. See module docstring for provenance.
 class IncidentRecord(_Strict):
-    """The primary incident described by one postmortem document."""
+    """One document's primary incident. See module docstring for provenance."""
 
     publisher_org: str = Field(min_length=1, description="Who published the postmortem.")
     affected_org: str = Field(
-        min_length=1, description="Whose service was down (usually the publisher)."
+        min_length=1, description="Whose service was down. Usually the publisher."
     )
     vendor_org: str | None = Field(
         description="Third party whose component failed (e.g. HashiCorp for Consul), or null."
@@ -253,17 +328,18 @@ class IncidentRecord(_Strict):
     )
     mechanism: Mechanism
     contributing_factors: list[ContributingFactor] = Field(
-        description="Factors the author states contributed, never inferred from the "
-        "remediation list."
+        description="Factors the AUTHOR claims contributed. "
+        "Do not infer factors from the remediation list."
     )
     detection_method: DetectionMethod = Field(
-        description="The first signal that caused the organisation to recognise the incident."
+        description="The first signal that caused the organisation to recognise the incident. "
+        "See rules."
     )
     detection_quote: str | None = Field(
         description="Supporting phrase for detection_method, or null."
     )
     change_at: TimeAnchor | None = Field(
-        description="When the triggering change was applied, or null if no trigger or not stated."
+        description="When the triggering change was applied. Null if no trigger or not stated."
     )
     impact_start: TimeAnchor | None = Field(description="When users/customers were first affected.")
     detected_at: TimeAnchor | None = Field(
@@ -292,11 +368,14 @@ class IncidentRecord(_Strict):
 RECORD_FIELDS: tuple[str, ...] = tuple(IncidentRecord.model_fields)
 
 
-# Written out explicitly (rather than generated) so the wire schema is a
-# closed object with every key required. tests/test_extract_schema.py
-# asserts these keys stay equal to IncidentRecord's fields.
 class FieldConfidence(_Strict):
-    """Self-reported confidence per top-level record field, 0 to 1."""
+    """Self-reported confidence per top-level IncidentRecord field, 0..1.
+
+    Written out explicitly (rather than generated) so the wire schema is a
+    closed object with every key required — the API rejects dict-typed
+    `additionalProperties`. tests/test_extract_schema.py asserts these keys
+    stay equal to IncidentRecord's fields.
+    """
 
     publisher_org: float = Field(ge=0.0, le=1.0)
     affected_org: float = Field(ge=0.0, le=1.0)
@@ -373,19 +452,6 @@ def _strip(node: Any) -> Any:
     if isinstance(node, list):
         return [_strip(item) for item in node]
     return node
-
-
-# A sentence ends at . ! or ? followed by whitespace and a capital letter or
-# digit; "e.g. HashiCorp" / "i.e. X" and a trailing ")." do not split.
-# Used by the test that enforces the one-sentence description cap.
-_SENTENCE_BREAK = re.compile(r"(?<!e\.g)(?<!i\.e)[.!?]\s+(?=[A-Z0-9])")
-
-
-def sentence_count(text: str) -> int:
-    text = text.strip()
-    if not text:
-        return 0
-    return len(_SENTENCE_BREAK.split(text))
 
 
 def format_validation_error(exc: ValidationError) -> str:
