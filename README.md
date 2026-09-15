@@ -74,7 +74,7 @@ in `extractions`.
 
 `app/extract/` — see its `__init__.py` for the module map.
 
-**Schema v0.1** (`app/extract/schema.py`) is PROJECT_BRIEF §6's draft after
+**Schema v0.2** (`app/extract/schema.py`) is PROJECT_BRIEF §6's draft after
 the spike's corrections, each cited in the module docstring:
 
 - `trigger` (nullable: initiating change/event) + `mechanism` (required,
@@ -97,10 +97,14 @@ validated client-side by the Pydantic models. It was designed to use the
 API's grammar-constrained structured output (`output_config.format =
 json_schema`), but the first real run
 ([`spike/extraction_run_01.json`](spike/extraction_run_01.json)) had every
-request rejected with `400 The compiled grammar is too large`: the v0.1
-schema exceeds the grammar limit as soon as the five time-anchor objects
-are present. Schema conformance therefore rests on the retry loop below.
-Provider and model come from configuration (see above).
+request rejected with `400 The compiled grammar is too large`. Probing
+showed the limit is roughly "the record without its time anchors and
+without confidence"; flattening the anchors to plain fields does not
+help. The tradeoff is recorded in
+[ADR-005](docs/adr/005-structured-output.md). Schema conformance
+therefore rests on the retry loop below. Schema descriptions are capped
+at one sentence (enforced by a test) because they are prompt text on
+every request. Provider and model come from configuration (see above).
 
 **Retry loop** (`app/extract/extractor.py`): on a validation failure the
 model is shown its own output and the validator's errors and asked for the
@@ -197,14 +201,18 @@ query.
 ```
 pip install -e ".[dev]"
 docker compose up -d postgres
-alembic upgrade head
-export APP_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/incident_intel
 pytest
 ruff check .
 mypy app
 ```
 
-Tests run against real Postgres (no SQLite, per the brief) and truncate
+Tests run against real Postgres (no SQLite, per the brief) but in their
+own database: `tests/__init__.py` forces `APP_DATABASE_URL` to
+`APP_TEST_DATABASE_URL` (default `incident_intel_test` on the compose
+Postgres), conftest creates it if missing and rebuilds the tables from
+the models, and refuses any database whose name does not end in `_test`.
+The worker/API database (`incident_intel`) is never touched by tests, so
+the compose stack can stay up while they run. Tests truncate
 `extractions`/`documents`/`jobs`/`sources` between tests. HTTP fetches are
 mocked with `respx`; the LLM is a scripted fake (`tests/fake_llm.py`) in
 pipeline and worker tests, and the Anthropic adapter is tested through the
@@ -219,6 +227,5 @@ compose Postgres:
 ```
 docker build -f Dockerfile.dev -t incident-intel-dev .
 docker run --rm --network host -v "$PWD:/srv" \
-  -e APP_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/incident_intel \
-  incident-intel-dev sh -c "alembic upgrade head && ruff check . && mypy app && pytest -q"
+  incident-intel-dev sh -c "ruff check . && mypy app && pytest -q"
 ```

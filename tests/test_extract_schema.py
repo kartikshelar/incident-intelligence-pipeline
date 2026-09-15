@@ -13,6 +13,7 @@ from app.extract.schema import (
     FieldConfidence,
     IncidentRecord,
     format_validation_error,
+    sentence_count,
     wire_schema,
 )
 from app.extract.taxonomy import DETECTION_METHODS
@@ -142,6 +143,29 @@ def test_absent_or_day_precision_anchors_give_null_not_a_coerced_number() -> Non
     assert derive_durations(IncidentRecord.model_validate(data))["time_to_detect"] is None
 
 
+def test_detection_before_impact_is_recorded_as_a_negative_duration() -> None:
+    """A latent trigger can be noticed before users are affected (Roblox,
+    run 02). That is a valid, signed duration — not an error, not None,
+    not clamped to zero."""
+    data = valid_output()["record"]
+    data["impact_start"]["at"] = "2025-11-18T11:28:00"
+    data["detected_at"]["at"] = "2025-11-18T08:31:00"  # 2h57m earlier
+    derived = derive_durations(IncidentRecord.model_validate(data))
+    assert derived["time_to_detect"] == {
+        "seconds": -(2 * 3600 + 57 * 60),
+        "precision": "minute",
+        "from": "impact_start",
+        "to": "detected_at",
+    }
+
+
+def test_mitigation_before_impact_is_also_recorded_signed() -> None:
+    data = valid_output()["record"]
+    data["mitigated_at"]["at"] = "2025-11-18T11:00:00"  # 28 min before impact_start
+    derived = derive_durations(IncidentRecord.model_validate(data))
+    assert derived["time_to_mitigate"]["seconds"] == -28 * 60
+
+
 # --- FINDINGS §4.5 / §4.6 / §4.7 / §4.9 -------------------------------------
 
 
@@ -232,3 +256,18 @@ def test_wire_schema_has_no_unsupported_keywords_and_closed_objects() -> None:
             assert set(node.get("required", [])) == set(node.get("properties", {}))
     assert "$defs" in schema
     assert "description" in schema["$defs"]["Trigger"]["properties"]["label"]
+
+
+def test_every_wire_description_is_at_most_one_sentence() -> None:
+    """The schema text is prompt input on every request (ADR-005). Field
+    and object descriptions are capped at one sentence; `quote` fields
+    stay (they are record fields, not descriptions)."""
+    for node in _walk(wire_schema()):
+        description = node.get("description")
+        if not isinstance(description, str):
+            continue
+        assert sentence_count(description) <= 1, description
+    record = wire_schema()["$defs"]["IncidentRecord"]["properties"]
+    assert "detection_quote" in record
+    assert "quote" in wire_schema()["$defs"]["Trigger"]["properties"]
+    assert "quote" in wire_schema()["$defs"]["TimeAnchor"]["properties"]
