@@ -264,8 +264,8 @@ def test_wire_schema_has_no_unsupported_keywords_and_closed_objects() -> None:
 def test_wire_descriptions_are_the_v01_wording_not_the_v02_trim() -> None:
     """v0.2 cut every description the model reads to one sentence and was
     measured to cost more in retries than it saved (schema.py changelog,
-    ADR-005 §4). v0.3 restores the v0.1 wording; this pins the revert."""
-    assert SCHEMA_VERSION == "0.3"
+    ADR-005 §4). v0.3 restored the v0.1 wording; this pins the revert."""
+    assert SCHEMA_VERSION == "0.4"
     defs = wire_schema()["$defs"]
     assert defs["TimeAnchor"]["description"].startswith(
         "One moment in the incident, as the document states it (FINDINGS §4.1)."
@@ -281,7 +281,13 @@ def test_wire_descriptions_are_the_v01_wording_not_the_v02_trim() -> None:
     assert "quote" in defs["TimeAnchor"]["properties"]
 
 
-# --- v0.3: the descriptions the model WRITES are one short sentence --------
+# --- v0.3+: the descriptions the model WRITES are one short sentence -------
+
+
+def test_cap_is_400_after_run_04_measured_200_as_a_net_loss() -> None:
+    """v0.4: the 200-character cap caused 3 of run 04's 4 retries, and a
+    retry resends the document (schema.py changelog)."""
+    assert MAX_DESCRIPTION_CHARS == 400
 
 
 def _written_fields(data: dict) -> list[tuple[dict, str, str]]:
@@ -300,7 +306,9 @@ def _written_fields(data: dict) -> list[tuple[dict, str, str]]:
 def test_written_description_over_the_character_cap_fails_with_its_location(index: int) -> None:
     data = valid_output()
     container, key, loc = _written_fields(data)[index]
-    container[key] = "A " + "very " * 60 + "long single sentence about what broke."
+    container[key] = (
+        "A " + "very " * (MAX_DESCRIPTION_CHARS // 5) + "long single sentence about what broke."
+    )
     assert len(container[key]) > MAX_DESCRIPTION_CHARS
     with pytest.raises(ValidationError) as exc:
         ExtractionOutput.model_validate(data)

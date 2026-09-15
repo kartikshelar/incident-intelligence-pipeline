@@ -103,10 +103,11 @@ the spike's corrections, each cited in the module docstring:
   (FINDINGS §4.5–§4.9).
 - the free text the model *writes* — `trigger.description`,
   `mechanism.description`, each `contributing_factors[].text` — is one
-  sentence of at most 200 characters (v0.3): a field constraint plus a
-  sentence-count validator, so an over-long value fails validation and
-  is retried with the error fed back. `quote` fields are provenance and
-  are never constrained.
+  sentence of at most 400 characters (v0.3 introduced the rule at 200;
+  v0.4 doubled it after run 04 measured the 200 cap causing 3 of its 4
+  retries): a field constraint plus a sentence-count validator, so an
+  over-long value fails validation and is retried with the error fed
+  back. `quote` fields are provenance and are never constrained.
 
 **Model call** (`app/extract/llm.py`): Anthropic Messages API. The JSON
 schema is sent as text in the cached system block and the output is

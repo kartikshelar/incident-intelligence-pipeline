@@ -1,4 +1,4 @@
-"""Incident record schema v0.3 — the extraction contract.
+"""Incident record schema v0.4 — the extraction contract.
 
 This is PROJECT_BRIEF §6's draft schema after the corrections the M0 spike
 demanded. Every departure from the draft cites its source:
@@ -65,6 +65,16 @@ is ~20k tokens per run against ~78k billed output tokens: the rest is
 adaptive thinking (no `thinking` parameter is sent, see llm.py), which no
 schema change can reach.
 
+v0.4 (2026-09-15): MAX_DESCRIPTION_CHARS 200 -> 400. Same one-sentence
+validator, same three fields. The 200-character cap cost more in retries
+than it saved: in run 04 three of the four retries were the cap firing on
+`mechanism.description` (the model's one sentence for a mechanism runs
+200-300 characters when the mechanism has two clauses, e.g. "X exceeded
+Y, so Z panicked"), and each retry resends the whole document, which is
+worth more than every character the cap trimmed. 400 is above every
+over-cap value run 04 produced; the sentence rule still forbids padding
+it out into a paragraph. Bumped because the validation contract changed.
+
 OPEN, deliberately not decided here (FINDINGS §4.11, §4.12): one record per
 DOCUMENT. Nothing in this schema links two documents to one incident, and a
 document describing several impact periods yields one record for the
@@ -104,13 +114,15 @@ from pydantic import (
 
 from app.extract.taxonomy import DetectionMethod, MechanismClass, TriggerClass
 
-SCHEMA_VERSION = "0.3"
+SCHEMA_VERSION = "0.4"
 
-# Upper bound on the free-text descriptions the model writes (v0.3). Run 03
-# medians were ~178 characters with a third over 200; the cap is what "one
-# sentence" is taken to mean, and it is repeated in the wire description
-# because maxLength itself is stripped from the wire schema.
-MAX_DESCRIPTION_CHARS = 200
+# Upper bound on the free-text descriptions the model writes. v0.3 set it at
+# 200 (run 03 medians were ~178 characters with a third over 200) and run 04
+# measured that as a net loss: the cap itself caused 3 of 4 retries. v0.4
+# doubles it; the one-sentence validator is what keeps the field short. It
+# is repeated in the wire description because maxLength itself is stripped
+# from the wire schema.
+MAX_DESCRIPTION_CHARS = 400
 
 Precision = Literal["exact", "minute", "hour", "day", "approximate"]
 SourceSection = Literal["summary", "timeline", "body", "appendix", "other"]
@@ -154,7 +166,7 @@ def _one_sentence(value: str) -> str:
     return value
 
 
-# The free-text fields the model writes (v0.3): one sentence, capped. The
+# The free-text fields the model writes (v0.3+): one sentence, capped. The
 # max_length constraint is checked first; the sentence validator runs only
 # on values that fit, so the model sees one error at a time.
 OneSentence = Annotated[str, AfterValidator(_one_sentence)]

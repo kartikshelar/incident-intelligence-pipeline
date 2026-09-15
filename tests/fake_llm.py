@@ -12,6 +12,7 @@ import json
 from typing import Any
 
 from app.extract.llm import LLMResponse
+from app.extract.schema import MAX_DESCRIPTION_CHARS
 
 
 def valid_output() -> dict[str, Any]:
@@ -123,15 +124,20 @@ def invalid_output_json() -> str:
 
 def overlong_description_output_json() -> str:
     """Otherwise valid, but `mechanism.description` is one sentence well over
-    the v0.3 character cap — the run-03 shape of description that the cap
-    exists to reject."""
+    the character cap (v0.4: 400) — the paragraph-as-one-sentence shape the
+    cap exists to reject."""
     bad = copy.deepcopy(valid_output())
     bad["record"]["mechanism"]["description"] = (
         "The Bot Management feature file, now containing duplicate rows and exceeding a "
         "hardcoded 200-feature limit, caused the FL2 proxy's Rust code to panic on an "
         "unhandled error when it tried to load the file, so every request through the "
-        "core proxy returned an HTTP 5xx error until the file was rolled back."
+        "core proxy returned an HTTP 5xx error until the file was rolled back, which took "
+        "several hours because the file was regenerated every five minutes and each "
+        "regeneration alternately produced a good and a bad file depending on which "
+        "ClickHouse node served the query, so the symptoms fluctuated and were first "
+        "mistaken for a large-scale DDoS attack against the network."
     )
+    assert len(bad["record"]["mechanism"]["description"]) > MAX_DESCRIPTION_CHARS
     return json.dumps(bad)
 
 

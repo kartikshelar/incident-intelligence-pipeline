@@ -11,6 +11,7 @@ from app.extract.errors import (
 )
 from app.extract.extractor import extract
 from app.extract.prompt import SYSTEM_PROMPT
+from app.extract.schema import MAX_DESCRIPTION_CHARS
 from tests.fake_llm import (
     FakeLLMClient,
     invalid_output_json,
@@ -65,7 +66,7 @@ def test_invalid_output_is_retried_with_the_validation_error_fed_back() -> None:
 
 
 def test_overlong_written_description_is_retried_with_the_cap_fed_back() -> None:
-    """Schema v0.3: a description over the cap is a validation failure like
+    """Schema v0.3+: a description over the cap is a validation failure like
     any other — it costs an attempt and the model is told which field and
     what the limit is."""
     client = FakeLLMClient([overlong_description_output_json(), valid_output_json()])
@@ -74,7 +75,7 @@ def test_overlong_written_description_is_retried_with_the_cap_fed_back() -> None
     assert [a.ok for a in result.attempts] == [False, True]
     error = result.attempts[0].validation_error or ""
     assert "record.mechanism.description" in error
-    assert "at most 200 characters" in error
+    assert f"at most {MAX_DESCRIPTION_CHARS} characters" in error
     assert "record.mechanism.description" in client.calls[1]["messages"][2]["content"]
 
 
