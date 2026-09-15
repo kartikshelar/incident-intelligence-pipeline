@@ -64,7 +64,7 @@ def _extract(engine: Engine, document_id: uuid.UUID, client: FakeLLMClient, max_
     with engine.begin() as conn:
         try:
             return extract_document(
-                conn, document_id=document_id, client=client, model=MODEL, max_attempts=max_attempts
+                conn, document_id=document_id, client=client, max_attempts=max_attempts
             )
         except Exception as exc:  # noqa: BLE001 - re-raised below, after commit
             failure = exc
@@ -82,6 +82,7 @@ def test_complete_extraction_is_persisted_with_confidence_and_derived(engine: En
     row = rows[0]
     assert row["status"] == "complete"
     assert row["schema_version"] == SCHEMA_VERSION
+    assert row["provider"] == "fake"  # from the client, not a caller argument
     assert row["model"] == MODEL
     assert row["record"]["mechanism"]["label"] == "crash_on_bad_input"
     assert row["record"]["trigger"]["label"] == "config_change"
@@ -141,6 +142,7 @@ def test_validation_exhausted_is_recorded_as_failed_and_reraised(engine: Engine)
     row = rows[0]
     assert row["status"] == "failed"
     assert row["record"] is None
+    assert (row["provider"], row["model"]) == ("fake", MODEL)  # recorded on failures too
     assert row["error_kind"] == "permanent"
     assert "SchemaValidationExhaustedError" in row["error"]
     assert row["attempts"] == 3
@@ -192,22 +194,37 @@ def test_complete_extraction_is_idempotent(engine: Engine) -> None:
     assert len(_rows(engine, document_id)) == 1
 
 
-def test_unique_index_enforces_one_complete_row_per_document_schema_model(engine: Engine) -> None:
+def test_unique_index_enforces_one_complete_row_per_document_schema_provider_model(
+    engine: Engine,
+) -> None:
     document_id = _insert_document(engine)
     _extract(engine, document_id, FakeLLMClient([valid_output_json()]))
     with engine.begin() as conn, pytest.raises(Exception, match="ux_extractions_complete"):
         conn.execute(
             text(
-                "INSERT INTO extractions (id, document_id, schema_version, model, status, "
-                "record, attempts, attempt_log, usage) "
-                "VALUES (:id, :d, :v, :m, 'complete', '{}', 1, '[]', '{}')"
+                "INSERT INTO extractions (id, document_id, schema_version, provider, model, "
+                "status, record, attempts, attempt_log, usage) "
+                "VALUES (:id, :d, :v, 'fake', :m, 'complete', '{}', 1, '[]', '{}')"
             ),
             {"id": uuid.uuid4(), "d": document_id, "v": SCHEMA_VERSION, "m": MODEL},
         )
 
 
+def test_same_model_on_another_provider_is_a_separate_extraction(engine: Engine) -> None:
+    """The idempotency key includes the provider: a second provider serving
+    the same model string gets its own complete row, not a no-op."""
+    document_id = _insert_document(engine)
+    _extract(engine, document_id, FakeLLMClient([valid_output_json()]))
+
+    other = FakeLLMClient([valid_output_json()])
+    other.provider = "other"
+    outcome = _extract(engine, document_id, other)
+
+    assert outcome.was_duplicate is False
+    assert len(other.calls) == 1
+    assert sorted(r["provider"] for r in _rows(engine, document_id)) == ["fake", "other"]
+
+
 def test_missing_document_is_an_error(engine: Engine) -> None:
     with engine.begin() as conn, pytest.raises(DocumentNotFoundError):
-        extract_document(
-            conn, document_id=uuid.uuid4(), client=FakeLLMClient([]), model=MODEL, max_attempts=1
-        )
+        extract_document(conn, document_id=uuid.uuid4(), client=FakeLLMClient([]), max_attempts=1)

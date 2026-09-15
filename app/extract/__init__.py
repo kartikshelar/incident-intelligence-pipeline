@@ -5,7 +5,8 @@ Layout:
   taxonomy.py   enum values: detection_method (ADR-002) and the still-open
                 trigger/mechanism class lists (ADR-001 defers them to 01b)
   prompt.py     system prompt + per-document user message + retry feedback
-  llm.py        narrow LLM client interface and the Anthropic implementation
+  llm.py        narrow LLM client interface, provider registry, Anthropic
+                implementation (provider/model/key come from app.settings)
   extractor.py  the validate-and-retry loop (no database)
   derive.py     values computed from the record, not extracted (durations)
   pipeline.py   load document -> extract -> persist `extractions` row

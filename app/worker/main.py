@@ -20,7 +20,7 @@ from sqlalchemy import Connection, text
 
 from app.db.engine import get_engine
 from app.errors import PermanentJobError, TransientJobError
-from app.extract.llm import AnthropicClient, LLMClient
+from app.extract.llm import LLMClient, build_llm_client
 from app.extract.pipeline import extract_document
 from app.ingest.pipeline import ingest_source
 from app.queue import Job, claim_one, enqueue, mark_failed, mark_succeeded
@@ -32,11 +32,10 @@ logger = logging.getLogger("worker")
 
 @lru_cache
 def get_llm_client() -> LLMClient:
-    """One SDK client per process. Raises PermanentExtractionError if the
-    SDK has no credentials — surfaced per job, on the extractions row."""
-    return AnthropicClient(
-        model=settings.extraction_model, max_tokens=settings.extraction_max_tokens
-    )
+    """One client per process, for whichever provider/model is configured.
+    Raises PermanentExtractionError if provider, model, or credentials are
+    missing — surfaced per job, on the extractions row."""
+    return build_llm_client(settings)
 
 
 def process_ingest(conn: Connection, job: Job) -> None:
@@ -76,7 +75,6 @@ def process_extract(conn: Connection, job: Job) -> None:
         conn,
         document_id=job.document_id,
         client=get_llm_client(),
-        model=settings.extraction_model,
         max_attempts=settings.extraction_max_attempts,
     )
     if outcome.was_duplicate:

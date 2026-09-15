@@ -12,9 +12,14 @@ app.worker.main.run_once does) and commit. Letting it escape
 `engine.begin()` rolls the failed row back along with everything else.
 
 Idempotent under at-least-once delivery (ADR-003 §4): a document that
-already has a `complete` row for this schema version and model is a no-op.
-Failed rows never block a retry; they accumulate, one per attempt-set,
-which is the audit trail.
+already has a `complete` row for this schema version, provider and model
+is a no-op. Failed rows never block a retry; they accumulate, one per
+attempt-set, which is the audit trail.
+
+Provider and model are taken from the client (`client.provider`,
+`client.model`) — the configured identity, so idempotency keys on what
+was asked for, not on whatever string the API echoes back (that is kept
+per attempt in `attempt_log`).
 
 Title (FINDINGS §4.7): if the parser found a metadata title, it wins over
 whatever the model wrote, and title_source says so.
@@ -52,17 +57,22 @@ def extract_document(
     *,
     document_id: uuid.UUID,
     client: LLMClient,
-    model: str,
     max_attempts: int,
 ) -> ExtractOutcome:
+    provider, model = client.provider, client.model
     existing = (
         conn.execute(
             text(
                 "SELECT id, attempts FROM extractions "
                 "WHERE document_id = :document_id AND schema_version = :schema_version "
-                "AND model = :model AND status = 'complete'"
+                "AND provider = :provider AND model = :model AND status = 'complete'"
             ),
-            {"document_id": document_id, "schema_version": SCHEMA_VERSION, "model": model},
+            {
+                "document_id": document_id,
+                "schema_version": SCHEMA_VERSION,
+                "provider": provider,
+                "model": model,
+            },
         )
         .mappings()
         .fetchone()
@@ -99,6 +109,7 @@ def extract_document(
         _insert_failed(
             conn,
             document_id=document_id,
+            provider=provider,
             model=model,
             error=exc,
             error_kind=kind,
@@ -109,6 +120,7 @@ def extract_document(
         _insert_failed(
             conn,
             document_id=document_id,
+            provider=provider,
             model=model,
             error=exc,
             error_kind="unexpected",
@@ -127,11 +139,11 @@ def extract_document(
         text(
             """
             INSERT INTO extractions
-                (id, document_id, schema_version, model, status, record,
+                (id, document_id, schema_version, provider, model, status, record,
                  per_field_confidence, confidence_source, derived, attempts,
                  attempt_log, usage, error, error_kind)
             VALUES
-                (:id, :document_id, :schema_version, :model, 'complete', :record,
+                (:id, :document_id, :schema_version, :provider, :model, 'complete', :record,
                  :per_field_confidence, 'self_report', :derived, :attempts,
                  :attempt_log, :usage, NULL, NULL)
             """
@@ -140,7 +152,8 @@ def extract_document(
             "id": extraction_id,
             "document_id": document_id,
             "schema_version": SCHEMA_VERSION,
-            "model": result.model or model,
+            "provider": provider,
+            "model": model,
             "record": record.model_dump_json(),
             "per_field_confidence": result.output.confidence.model_dump_json(),
             "derived": json.dumps(derive_durations(record)),
@@ -161,6 +174,7 @@ def _insert_failed(
     conn: Connection,
     *,
     document_id: uuid.UUID,
+    provider: str,
     model: str,
     error: BaseException,
     error_kind: str,
@@ -174,11 +188,11 @@ def _insert_failed(
         text(
             """
             INSERT INTO extractions
-                (id, document_id, schema_version, model, status, record,
+                (id, document_id, schema_version, provider, model, status, record,
                  per_field_confidence, confidence_source, derived, attempts,
                  attempt_log, usage, error, error_kind)
             VALUES
-                (:id, :document_id, :schema_version, :model, 'failed', NULL,
+                (:id, :document_id, :schema_version, :provider, :model, 'failed', NULL,
                  NULL, 'self_report', NULL, :attempts,
                  :attempt_log, :usage, :error, :error_kind)
             """
@@ -187,6 +201,7 @@ def _insert_failed(
             "id": uuid.uuid4(),
             "document_id": document_id,
             "schema_version": SCHEMA_VERSION,
+            "provider": provider,
             "model": model,
             "attempts": len(attempts),
             "attempt_log": _attempt_log_json(attempts),

@@ -1,10 +1,21 @@
-"""Narrow LLM client interface and its Anthropic implementation.
+"""Narrow LLM client interface, the provider registry, and the Anthropic
+implementation.
 
-Only this module imports the `anthropic` SDK. The extractor talks to an
-`LLMClient` (a Protocol) so tests inject a fake and the retry loop is
-exercised without network, credentials, or cost. The Anthropic adapter's
-job is: build the structured-output request, and map SDK failures onto
-Transient/PermanentExtractionError per shared/error-codes.md:
+Only this module imports the `anthropic` SDK. The extractor and pipeline
+talk to an `LLMClient` (a Protocol) so tests inject a fake and the retry
+loop is exercised without network, credentials, or cost. Every client
+carries its own identity — `provider` and `model` — and the pipeline
+stores both on the `extractions` row; nothing outside this module needs
+to know which provider class is in use.
+
+Adding a provider later: implement `LLMClient`, add a constructor to
+`_PROVIDERS`, set APP_LLM_PROVIDER. Callers of `build_llm_client` do not
+change.
+
+Provider, model, and key are configuration (app.settings), never
+constants here. The Anthropic adapter's job is: build the structured-
+output request, and map SDK failures onto Transient/PermanentExtractionError
+per shared/error-codes.md:
 
   429, >=500 (incl. 529 overloaded), connection error, timeout -> transient
   400/401/403/404/413 -> permanent (our request/credentials are wrong;
@@ -13,18 +24,22 @@ Transient/PermanentExtractionError per shared/error-codes.md:
   stop_reason == "max_tokens" -> permanent (output truncated; the same
                                  request would truncate again)
 
-Model choice: `claude-opus-5` by default (settings.extraction_model).
-Thinking is adaptive by default on this model, so no `thinking` parameter
-is sent. Non-streaming with max_tokens=16000 stays under the SDK's 10-minute
-timeout for the largest document in the spike corpus.
+No `thinking` parameter is sent: on current models omitting it runs
+adaptive thinking. Non-streaming with the configured max_tokens (default
+16000) stays under the SDK's 10-minute timeout for the largest document
+in the spike corpus.
 """
 
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Callable
 from typing import Any, Protocol
 
 from app.extract.errors import PermanentExtractionError, TransientExtractionError
+from app.settings import Settings
+
+ANTHROPIC = "anthropic"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -47,13 +62,20 @@ class LLMResponse:
 
 
 class LLMClient(Protocol):
-    """One structured-output completion.
+    """One structured-output completion, plus the identity of what serves it.
+
+    `provider` / `model` are what the pipeline records on each extraction
+    row and keys idempotency on: the *configured* model string, not
+    whatever the API echoes back (that goes in the attempt log).
 
     `messages` is the conversation so far (user/assistant alternation);
     `schema` is the JSON schema the response must satisfy. Raises
     TransientExtractionError / PermanentExtractionError; never returns a
     response whose text is not intended to be the JSON object.
     """
+
+    provider: str
+    model: str
 
     def complete(
         self, *, system: str, messages: list[dict[str, Any]], schema: dict[str, Any]
@@ -63,21 +85,31 @@ class LLMClient(Protocol):
 class AnthropicClient:
     """LLMClient backed by the Anthropic Messages API."""
 
-    def __init__(self, *, model: str, max_tokens: int = 16000, client: Any | None = None) -> None:
+    provider = ANTHROPIC
+
+    def __init__(
+        self,
+        *,
+        model: str,
+        max_tokens: int = 16000,
+        api_key: str | None = None,
+        client: Any | None = None,
+    ) -> None:
         self.model = model
         self.max_tokens = max_tokens
         if client is None:
             import anthropic
 
             try:
-                client = anthropic.Anthropic()
+                # api_key=None lets the SDK fall back to its own resolution
+                # (ANTHROPIC_AUTH_TOKEN, `ant auth login` profile).
+                client = anthropic.Anthropic(api_key=api_key)
             except anthropic.AnthropicError as exc:
-                # No API key / profile: a configuration failure, not a
-                # retryable one. Recorded on the extraction row so it's
-                # visible where it happened rather than logged and lost.
+                # A configuration failure, not a retryable one. Recorded on
+                # the extraction row so it's visible where it happened.
                 raise PermanentExtractionError(f"anthropic client not configured: {exc}") from exc
-        # Deliberately untyped: tests substitute a stub with the same
-        # `.messages.create` surface.
+        # Deliberately untyped: tests pass a real SDK client wired to a
+        # mock HTTP transport.
         self._client: Any = client
 
     def complete(
@@ -144,3 +176,43 @@ def response_to_llm_response(response: Any) -> LLMResponse:
             f"output truncated at max_tokens ({result.output_tokens} output tokens)"
         )
     return result
+
+
+def _build_anthropic(settings: Settings, model: str) -> LLMClient:
+    key = settings.anthropic_api_key
+    return AnthropicClient(
+        model=model,
+        max_tokens=settings.extraction_max_tokens,
+        api_key=key.get_secret_value() if key is not None else None,
+    )
+
+
+# Provider name (APP_LLM_PROVIDER) -> constructor. The only place a
+# provider is named; add a second entry here to add a second provider.
+_PROVIDERS: dict[str, Callable[[Settings, str], LLMClient]] = {
+    ANTHROPIC: _build_anthropic,
+}
+
+SUPPORTED_PROVIDERS: tuple[str, ...] = tuple(_PROVIDERS)
+
+
+def build_llm_client(settings: Settings) -> LLMClient:
+    """Construct the configured provider's client.
+
+    Raises PermanentExtractionError for any configuration gap — unset or
+    unknown provider, unset model, unusable credentials — so the worker
+    records the reason on the extraction row and dead-letters the job.
+    """
+    if settings.llm_provider is None:
+        raise PermanentExtractionError(
+            f"APP_LLM_PROVIDER is not set (supported: {', '.join(SUPPORTED_PROVIDERS)})"
+        )
+    factory = _PROVIDERS.get(settings.llm_provider.lower())
+    if factory is None:
+        raise PermanentExtractionError(
+            f"unknown LLM provider {settings.llm_provider!r} "
+            f"(supported: {', '.join(SUPPORTED_PROVIDERS)})"
+        )
+    if settings.extraction_model is None:
+        raise PermanentExtractionError("APP_EXTRACTION_MODEL is not set")
+    return factory(settings, settings.extraction_model)

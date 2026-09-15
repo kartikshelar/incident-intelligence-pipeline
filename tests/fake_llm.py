@@ -122,6 +122,8 @@ def invalid_output_json() -> str:
 
 
 class FakeLLMClient:
+    provider = "fake"
+
     def __init__(self, script: list[str | BaseException], *, model: str = "fake-model") -> None:
         self.script = list(script)
         self.model = model

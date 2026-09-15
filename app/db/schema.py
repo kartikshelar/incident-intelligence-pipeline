@@ -139,6 +139,9 @@ extractions = Table(
     Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
     Column("document_id", UUID(as_uuid=True), nullable=False),
     Column("schema_version", String, nullable=False),
+    # Which app.extract.llm provider produced the row (APP_LLM_PROVIDER)
+    # and the configured model string (APP_EXTRACTION_MODEL), verbatim.
+    Column("provider", String, nullable=False),
     Column("model", String, nullable=False),
     Column("status", String, nullable=False),
     # IncidentRecord as JSON. NULL iff status = 'failed'.
@@ -166,11 +169,12 @@ extractions = Table(
     ),
     # At-least-once delivery (ADR-003 §4) means two workers can run the same
     # extract job; the pipeline checks first, and this makes the check
-    # race-proof: one complete row per (document, schema, model).
+    # race-proof: one complete row per (document, schema, provider, model).
     Index(
         "ux_extractions_complete",
         "document_id",
         "schema_version",
+        "provider",
         "model",
         unique=True,
         postgresql_where=text("status = 'complete'"),

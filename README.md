@@ -18,13 +18,31 @@ row, not a log line. Per-field confidence is captured but not yet
 thresholded (that's M4).
 
 ```
-ANTHROPIC_API_KEY=sk-ant-... docker compose up
+cp .env.example .env   # set ANTHROPIC_API_KEY; provider and model are preset
+docker compose up
 ```
 
 runs cold on a clean machine: Postgres starts, a one-shot `migrate`
 service applies Alembic migrations, then the API and worker start. Without
-an API key, ingestion still works and each extract job dead-letters with a
-recorded "client not configured" error.
+a provider, model, or key, ingestion still works and each extract job
+dead-letters with a recorded "not configured" error.
+
+## Configuration
+
+Provider, model, and API key are configuration, never constants in app
+code (`app/settings.py`; `.env` is read if present and is git-ignored):
+
+| Variable | Meaning |
+|---|---|
+| `APP_LLM_PROVIDER` | which `app/extract/llm.py` implementation to use (`anthropic`) |
+| `APP_EXTRACTION_MODEL` | model string passed to the provider verbatim; the project default, `claude-sonnet-5`, lives in `.env.example` and `docker-compose.yml`, not in code |
+| `ANTHROPIC_API_KEY` | the provider's key, under the SDK's own name |
+| `APP_EXTRACTION_MAX_TOKENS`, `APP_EXTRACTION_MAX_ATTEMPTS` | 16000 / 3 |
+
+Both `provider` and `model` are stored on every `extractions` row and are
+part of its idempotency key. `build_llm_client` is the only place a
+provider is chosen; a second provider is a new entry in that registry and
+no change to the worker or pipeline.
 
 Register a source:
 
@@ -77,8 +95,8 @@ the spike's corrections, each cited in the module docstring:
 structured output (`output_config.format = json_schema`) so the response is
 schema-shaped at the source; the JSON is then validated client-side by the
 Pydantic models, which carry the constraints the API can't express
-(ranges, patterns, ISO dates). Default model `claude-opus-5`
-(`APP_EXTRACTION_MODEL`). The system prompt is frozen and cached.
+(ranges, patterns, ISO dates). Provider and model come from configuration
+(see above). The system prompt is frozen and cached.
 
 **Retry loop** (`app/extract/extractor.py`): on a validation failure the
 model is shown its own output and the validator's errors and asked for the
@@ -91,8 +109,8 @@ attempt — raw text, validation error, token usage — is kept in
 permanent (dead letter). Either way an `extractions` row with
 `status='failed'`, the error, and the attempt log is committed in the same
 transaction as the job's state change. Failed rows never block a later
-success; one `complete` row per (document, schema version, model) is
-enforced by a partial unique index, which is what makes the extract job
+success; one `complete` row per (document, schema version, provider,
+model) is enforced by a partial unique index, which is what makes the extract job
 idempotent under at-least-once delivery.
 
 **Confidence**: `FieldConfidence` is one self-reported number per
@@ -164,8 +182,11 @@ mypy app
 
 Tests run against real Postgres (no SQLite, per the brief) and truncate
 `extractions`/`documents`/`jobs`/`sources` between tests. HTTP fetches are
-mocked with `respx`; the LLM is a scripted fake (`tests/fake_llm.py`), so
-no test needs an API key or makes a network call. `tests/test_parse.py`
+mocked with `respx`; the LLM is a scripted fake (`tests/fake_llm.py`) in
+pipeline and worker tests, and the Anthropic adapter is tested through the
+real SDK over an in-process mocked HTTP transport
+(`tests/test_extract_llm.py`), so no test needs an API key or makes a
+network call. `tests/test_parse.py`
 reads real bytes from `spike/raw/` but performs no network I/O itself.
 
 Without a local Python 3.12, the same checks run in a container against the

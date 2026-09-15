@@ -42,11 +42,15 @@ services:
         condition: service_completed_successfully
     environment:
       APP_DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/incident_intel
-      # Extraction (M3) needs an Anthropic API key. Without one, ingest
-      # still works and each extract job dead-letters with a recorded
-      # "client not configured" error — see README.
+      # Extraction (M3) needs a provider, a model, and that provider's
+      # key. Compose reads them from the shell or from ./.env (see
+      # .env.example). Without them, ingest still works and each extract
+      # job dead-letters with a recorded "not configured" error — see
+      # README. The model default lives here and in .env.example, not in
+      # app code.
+      APP_LLM_PROVIDER: ${APP_LLM_PROVIDER:-anthropic}
+      APP_EXTRACTION_MODEL: ${APP_EXTRACTION_MODEL:-claude-sonnet-5}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      APP_EXTRACTION_MODEL: ${APP_EXTRACTION_MODEL:-claude-opus-5}
     command: ["python", "-m", "app.worker.main"]
 
 volumes:
