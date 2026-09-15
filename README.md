@@ -137,6 +137,7 @@ confidence, derived durations, validation attempts, tokens, cost, error).
 |---|---|---|---|---|
 | [`run_01`](spike/extraction_run_01.json) | 0/10 | 10/10 | 0 | $0 (400 before any tokens) |
 | [`run_02`](spike/extraction_run_02.json) | 10/10 | 0/10 | 1.20 | $0.96 ($0.06–$0.13 per document) |
+| [`run_03`](spike/extraction_run_03.json) (schema v0.2) | 10/10 | 0/10 | 1.30 | $0.99 ($0.07–$0.15 per document) |
 
 Run 01 is the grammar-limit failure described above. Run 02, after the
 schema moved into the system block, produced a schema-valid record for
@@ -146,6 +147,18 @@ validation error corrected. The prompt was not changed between runs or
 in response to the output. Prompt caching worked: after the first
 document every request read ~5.5k tokens (system prompt + schema) from
 cache.
+
+Run 03 is the same corpus under schema v0.2 (one-sentence descriptions;
+no other change). The cached block shrank from 5,532 to 5,198 tokens;
+total cost is within noise of run 02 because per-document cost is
+dominated by whether a validation retry happens (a retry resends the
+document). Its three retries were an empty-string key in `record`
+(twice) and `"Q1"` in an ISO date field. Two sources (AWS, Google Cloud)
+came back with a different content hash but byte-identical text length,
+so they were re-ingested as new documents — the DERIVE-07 case
+(re-ingest semantics) showing up on the second day. Roblox again derives
+a negative `time_to_detect` (detection 2h58m before impact), now
+recorded as a signed value by design.
 
 ### Open — flagged, not decided
 

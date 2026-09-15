@@ -12,6 +12,13 @@ touches the prompt; it only reports what the worker did.
     TIMEOUT_SECONDS    give up waiting after this (default 3600)
     PRICE_*_USD_PER_MTOK  input / output / cache_read / cache_write prices
                        for the configured model; cost is null if unset.
+    REPORT_ONLY        path of an earlier report: re-render it from the
+                       database (same sources, same start time) without
+                       registering anything or waiting.
+
+Tokens and cost are attributed to THIS run only: extraction rows created
+before the run started (an earlier run's rows for the same document) are
+listed under `earlier_extraction_rows` but not summed.
 
 Usage: python -m scripts.extraction_run
 """
@@ -24,7 +31,7 @@ import statistics
 import sys
 import time
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -169,32 +176,46 @@ def main() -> int:
     manifest_path = Path(os.environ.get("MANIFEST", "spike/corpus_manifest.json"))
     out_path = Path(os.environ.get("OUT", "spike/extraction_run_01.json"))
     timeout_seconds = float(os.environ.get("TIMEOUT_SECONDS", "3600"))
+    report_only = os.environ.get("REPORT_ONLY")
     pricing = _pricing()
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     docs = manifest["documents"]
-    started = datetime.now(UTC)
 
-    registered: dict[str, tuple[uuid.UUID, uuid.UUID]] = {}
-    for doc in docs:
-        source_id, job_id = register(api_url, doc["url"])
-        registered[doc["id"]] = (source_id, job_id)
-        print(f"registered {doc['id']} {doc['org']}: source={source_id} job={job_id}", flush=True)
+    registered: dict[str, uuid.UUID] = {}
+    if report_only:
+        earlier = json.loads(Path(report_only).read_text(encoding="utf-8"))
+        started = datetime.fromisoformat(earlier["started_at"])
+        registered = {d["id"]: uuid.UUID(d["source_id"]) for d in earlier["documents"]}
+        finished = True
+        print(f"re-rendering {report_only} (started {started.isoformat()})", flush=True)
+    else:
+        started = datetime.now(UTC)
+        for doc in docs:
+            source_id, job_id = register(api_url, doc["url"])
+            registered[doc["id"]] = source_id
+            print(
+                f"registered {doc['id']} {doc['org']}: source={source_id} job={job_id}", flush=True
+            )
+        finished = wait_for_jobs(list(registered.values()), timeout_seconds)
+        if not finished:
+            print(f"TIMEOUT after {timeout_seconds}s; reporting whatever is terminal", flush=True)
 
-    finished = wait_for_jobs([s for s, _ in registered.values()], timeout_seconds)
-    if not finished:
-        print(f"TIMEOUT after {timeout_seconds}s; reporting whatever is terminal", flush=True)
+    # Rows older than this belong to an earlier run of the same document.
+    cutoff = (started - timedelta(minutes=1)).isoformat()
 
     engine = get_engine()
     per_doc: list[dict[str, Any]] = []
     with engine.connect() as conn:
         for doc in docs:
-            source_id, _ = registered[doc["id"]]
+            source_id = registered[doc["id"]]
             jobs = _jobs(conn, source_id)
             ingest = next((j for j in jobs if j["kind"] == "ingest"), None)
             extract = next((j for j in jobs if j["kind"] == "extract"), None)
             document = _document(conn, extract["document_id"]) if extract else None
-            rows = _extractions(conn, extract["document_id"]) if extract else []
+            all_rows = _extractions(conn, extract["document_id"]) if extract else []
+            earlier_rows = [r for r in all_rows if r["created_at"] < cutoff]
+            rows = [r for r in all_rows if r["created_at"] >= cutoff]
             final = rows[-1] if rows else None
             usage = _sum_usage(rows)
             error = None
@@ -234,7 +255,11 @@ def main() -> int:
                     "cost_usd": _cost(usage, pricing),
                     "error": error,
                     "extraction": final,
-                    "earlier_extraction_rows": rows[:-1],
+                    # This run's non-final rows (e.g. a transient failure
+                    # then success) count toward tokens; earlier runs' rows
+                    # for the same document are listed but not counted.
+                    "this_run_extraction_rows": rows[:-1],
+                    "earlier_extraction_rows": earlier_rows,
                 }
             )
 
@@ -256,14 +281,17 @@ def main() -> int:
             str(n): attempts.count(n) for n in sorted(set(attempts))
         },
         "total_tokens": _sum_usage([d["extraction"] for d in per_doc if d["extraction"]]
-                                   + [r for d in per_doc for r in d["earlier_extraction_rows"]]),
+                                   + [r for d in per_doc for r in d["this_run_extraction_rows"]]),
         "total_cost_usd": total_cost,
         "provider_model": [f"{p}/{m}" for p, m in providers_models],
     }
     report = {
         "run": out_path.stem,
         "started_at": started.isoformat(),
-        "finished_at": datetime.now(UTC).isoformat(),
+        "finished_at": (
+            earlier["finished_at"] if report_only else datetime.now(UTC).isoformat()
+        ),
+        "rendered_at": datetime.now(UTC).isoformat(),
         "manifest": str(manifest_path),
         "pricing_usd_per_mtok": pricing,
         "summary": summary,
