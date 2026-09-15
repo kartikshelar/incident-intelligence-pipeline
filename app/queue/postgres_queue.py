@@ -10,10 +10,13 @@ choosing this queue over a dedicated broker.
 import dataclasses
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from sqlalchemy import Connection, text
 
 from app.settings import settings
+
+JobKind = Literal["ingest", "extract"]
 
 # Verbatim from docs/adr/003-queue.md §4. Do not "clean up" the formatting
 # without checking it still matches the ADR — the ADR is the spec here.
@@ -38,6 +41,8 @@ _CLAIM_SQL = text(
 class Job:
     id: uuid.UUID
     source_id: uuid.UUID
+    kind: str
+    document_id: uuid.UUID | None
     status: str
     attempts: int
     created_at: datetime
@@ -46,20 +51,30 @@ class Job:
     last_error: str | None
 
 
-def enqueue(conn: Connection, source_id: uuid.UUID) -> uuid.UUID:
+def enqueue(
+    conn: Connection,
+    source_id: uuid.UUID,
+    *,
+    kind: JobKind = "ingest",
+    document_id: uuid.UUID | None = None,
+) -> uuid.UUID:
     """Insert a queued job for `source_id`.
 
-    Callers are responsible for running this in the same transaction as the
-    write that created `source_id`, per ADR-003 §2 ("the job row and the
-    incident record can be committed in the same Postgres transaction").
+    `kind="extract"` requires `document_id` (the table's check constraint
+    enforces it). Callers are responsible for running this in the same
+    transaction as the write that created `source_id` / `document_id`, per
+    ADR-003 §2 ("the job row and the incident record can be committed in
+    the same Postgres transaction").
     """
+    if (kind == "extract") != (document_id is not None):
+        raise ValueError("document_id is required for extract jobs and forbidden otherwise")
     job_id = uuid.uuid4()
     conn.execute(
         text(
-            "INSERT INTO jobs (id, source_id, status, attempts) "
-            "VALUES (:id, :source_id, 'queued', 0)"
+            "INSERT INTO jobs (id, source_id, kind, document_id, status, attempts) "
+            "VALUES (:id, :source_id, :kind, :document_id, 'queued', 0)"
         ),
-        {"id": job_id, "source_id": source_id},
+        {"id": job_id, "source_id": source_id, "kind": kind, "document_id": document_id},
     )
     return job_id
 
@@ -74,10 +89,14 @@ def claim_one(conn: Connection) -> Job | None:
     holding the transaction open is what keeps the row locked from other
     workers until this worker finishes with it or crashes.
     """
-    row = conn.execute(
-        _CLAIM_SQL,
-        {"visibility_timeout_seconds": settings.job_visibility_timeout_seconds},
-    ).mappings().fetchone()
+    row = (
+        conn.execute(
+            _CLAIM_SQL,
+            {"visibility_timeout_seconds": settings.job_visibility_timeout_seconds},
+        )
+        .mappings()
+        .fetchone()
+    )
     if row is None:
         return None
     return Job(**dict(row))
@@ -106,9 +125,11 @@ def mark_failed(conn: Connection, job_id: uuid.UUID, *, error: str, permanent: b
         )
         return
 
-    row = conn.execute(
-        text("SELECT attempts FROM jobs WHERE id=:id"), {"id": job_id}
-    ).mappings().fetchone()
+    row = (
+        conn.execute(text("SELECT attempts FROM jobs WHERE id=:id"), {"id": job_id})
+        .mappings()
+        .fetchone()
+    )
     attempts = row["attempts"] if row else 0
 
     next_status = "dead_letter" if attempts >= settings.job_max_attempts else "queued"

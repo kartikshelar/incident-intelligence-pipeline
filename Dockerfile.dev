@@ -6,13 +6,17 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends libpq5 gcc \
     && rm -rf /var/lib/apt/lists/*
 
+# Install dependencies in their own layer so editing app/ or tests/ does not
+# reinstall every wheel. `pip install -e` needs the package dir to exist for
+# setuptools' package discovery, hence the placeholder `app/` that is
+# overwritten by the real COPY below.
 COPY pyproject.toml ./
+RUN mkdir -p app && pip install --no-cache-dir -e ".[dev]"
+
 COPY app ./app
 COPY migrations ./migrations
 COPY tests ./tests
 COPY spike ./spike
 COPY alembic.ini ./
-
-RUN pip install --no-cache-dir -e ".[dev]"
 
 CMD ["pytest", "-v"]

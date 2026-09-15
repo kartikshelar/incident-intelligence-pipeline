@@ -42,6 +42,11 @@ services:
         condition: service_completed_successfully
     environment:
       APP_DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/incident_intel
+      # Extraction (M3) needs an Anthropic API key. Without one, ingest
+      # still works and each extract job dead-letters with a recorded
+      # "client not configured" error — see README.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      APP_EXTRACTION_MODEL: ${APP_EXTRACTION_MODEL:-claude-opus-5}
     command: ["python", "-m", "app.worker.main"]
 
 volumes:

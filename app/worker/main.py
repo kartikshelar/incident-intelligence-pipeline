@@ -1,34 +1,45 @@
-"""Worker: claim a job, ingest the source it points to, mark it succeeded.
+"""Worker: claim a job, run the stage it names, mark it succeeded or failed.
 
-M2 replaces M1's no-op `process_job` with a real fetch -> parse -> persist
-step (app.ingest.pipeline.ingest_source). No extraction, no LLM calls —
-that's M3. `process_job` stays a separate function so *that* swap will
-again be a one-function change, not a rewrite of claim/commit/retry.
+Two job kinds (M3):
+  ingest   fetch -> parse -> `documents` row, then enqueue an `extract`
+           job for that document in the same transaction (ADR-003 §2).
+  extract  `documents` row -> LLM -> validated `extractions` row.
+
+Failure routing is stage-agnostic: every stage raises a subclass of
+app.errors.TransientJobError (requeue) or PermanentJobError (dead_letter),
+and `run_once` maps those onto ADR-003's state machine. Anything else is
+treated as transient — retry rather than silently give up on an unexpected
+bug — and is logged with a traceback.
 """
 
 import logging
 import time
+from functools import lru_cache
 
 from sqlalchemy import Connection, text
 
 from app.db.engine import get_engine
-from app.ingest.errors import PermanentIngestError, TransientIngestError
+from app.errors import PermanentJobError, TransientJobError
+from app.extract.llm import AnthropicClient, LLMClient
+from app.extract.pipeline import extract_document
 from app.ingest.pipeline import ingest_source
-from app.queue import Job, claim_one, mark_failed, mark_succeeded
+from app.queue import Job, claim_one, enqueue, mark_failed, mark_succeeded
 from app.settings import settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("worker")
 
 
-def process_job(conn: Connection, job: Job) -> None:
-    """Ingest the source this job points to.
+@lru_cache
+def get_llm_client() -> LLMClient:
+    """One SDK client per process. Raises PermanentExtractionError if the
+    SDK has no credentials — surfaced per job, on the extractions row."""
+    return AnthropicClient(
+        model=settings.extraction_model, max_tokens=settings.extraction_max_tokens
+    )
 
-    Raises `TransientIngestError` / `PermanentIngestError` on failure;
-    `run_once` maps those onto ADR-003's `queued` vs `dead_letter` retry
-    semantics. Any other exception is treated as transient (conservative
-    default: retry rather than silently give up on an unexpected bug).
-    """
+
+def process_ingest(conn: Connection, job: Job) -> None:
     source_url = conn.execute(
         text("SELECT url FROM sources WHERE id = :id"), {"id": job.source_id}
     ).scalar_one()
@@ -51,6 +62,48 @@ def process_job(conn: Connection, job: Job) -> None:
             result.title,
         )
 
+    # Always enqueue, even for a duplicate document: extract_document is
+    # itself idempotent, so this costs one no-op job at most, and it means
+    # a document whose earlier extraction dead-lettered gets another go
+    # when its source is re-registered.
+    extract_job_id = enqueue(conn, job.source_id, kind="extract", document_id=result.document_id)
+    logger.info("job %s: enqueued extract job %s", job.id, extract_job_id)
+
+
+def process_extract(conn: Connection, job: Job) -> None:
+    assert job.document_id is not None  # guaranteed by jobs_extract_has_document
+    outcome = extract_document(
+        conn,
+        document_id=job.document_id,
+        client=get_llm_client(),
+        model=settings.extraction_model,
+        max_attempts=settings.extraction_max_attempts,
+    )
+    if outcome.was_duplicate:
+        logger.info(
+            "job %s: document %s already has extraction %s (idempotent no-op)",
+            job.id,
+            job.document_id,
+            outcome.extraction_id,
+        )
+    else:
+        logger.info(
+            "job %s: extraction %s complete for document %s in %d attempt(s)",
+            job.id,
+            outcome.extraction_id,
+            job.document_id,
+            outcome.attempts,
+        )
+
+
+def process_job(conn: Connection, job: Job) -> None:
+    if job.kind == "ingest":
+        process_ingest(conn, job)
+    elif job.kind == "extract":
+        process_extract(conn, job)
+    else:  # unreachable given jobs_kind_valid; fail loudly rather than succeed silently
+        raise PermanentJobError(f"unknown job kind {job.kind!r}")
+
 
 def run_once() -> bool:
     """Claim and process a single job. Returns True if a job was claimed."""
@@ -60,14 +113,14 @@ def run_once() -> bool:
         if job is None:
             return False
 
-        logger.info("claimed job %s (attempt %d)", job.id, job.attempts)
+        logger.info("claimed %s job %s (attempt %d)", job.kind, job.id, job.attempts)
         try:
             process_job(conn, job)
-        except PermanentIngestError as exc:
+        except PermanentJobError as exc:
             logger.warning("job %s permanently failed: %s", job.id, exc)
             mark_failed(conn, job.id, error=str(exc), permanent=True)
             return True
-        except TransientIngestError as exc:
+        except TransientJobError as exc:
             logger.warning("job %s transiently failed: %s", job.id, exc)
             mark_failed(conn, job.id, error=str(exc), permanent=False)
             return True

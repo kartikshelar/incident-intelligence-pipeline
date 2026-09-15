@@ -8,21 +8,23 @@ See [`PROJECT_BRIEF.md`](PROJECT_BRIEF.md) for the full contract, milestone
 plan, and open [DERIVE] decisions. Architectural decisions are recorded in
 [`docs/adr/`](docs/adr/).
 
-## Status: M2 — Ingest & parse
+## Status: M3 — Extraction v0
 
-Still no extraction and no LLM calls — that's M3. A registered source URL
-is now actually fetched and normalized: the worker downloads it, detects
-whether it's markdown, HTML, or a PDF, converts it to plain text with
-provenance (source URL, fetch time, content hash), and writes a
-`documents` row. Re-ingesting content that hasn't changed is a no-op, not
-a duplicate.
+A registered source URL is fetched and normalized (M2), then a second job
+sends the text to Claude and stores one validated incident record per
+document in `extractions`. Output is validated against the schema; invalid
+output is retried with the validation error fed back; every failure is a
+row, not a log line. Per-field confidence is captured but not yet
+thresholded (that's M4).
 
 ```
-docker compose up
+ANTHROPIC_API_KEY=sk-ant-... docker compose up
 ```
 
 runs cold on a clean machine: Postgres starts, a one-shot `migrate`
-service applies Alembic migrations, then the API and worker start.
+service applies Alembic migrations, then the API and worker start. Without
+an API key, ingestion still works and each extract job dead-letters with a
+recorded "client not configured" error.
 
 Register a source:
 
@@ -45,6 +47,72 @@ doesn't exist); a timeout or 5xx requeues it. An extraction that produces
 empty text is treated as a **hard failure** (`dead_letter`, no `documents`
 row written) rather than a partial record — see
 [`spike/FINDINGS.md`](spike/FINDINGS.md) §2 item 1.
+
+On success the ingest job enqueues an `extract` job (`jobs.kind`) for the
+document in the same transaction. That job's success is a `complete` row
+in `extractions`.
+
+## Extraction
+
+`app/extract/` — see its `__init__.py` for the module map.
+
+**Schema v0.1** (`app/extract/schema.py`) is PROJECT_BRIEF §6's draft after
+the spike's corrections, each cited in the module docstring:
+
+- `trigger` (nullable: initiating change/event) + `mechanism` (required,
+  single-valued: what failed), per [ADR-001](docs/adr/001-trigger-taxonomy.md).
+  `change_induced` is gone — it is `trigger is not null`.
+- `detection_method` ∈ monitoring | customer_report | internal_manual |
+  operator | ambiguous | unknown, per [ADR-002](docs/adr/002-detection-method.md).
+- five typed time anchors with precision + original timezone string
+  instead of `occurred_at`; durations are *derived* from anchors
+  (`app/extract/derive.py`) and name the anchor pair they used, never
+  extracted (FINDINGS §4.1, §4.2).
+- `affected` with `list_is_complete` / `all_services`; `publisher_org` /
+  `affected_org` / `vendor_org`; `title_source`; `mitigations` vs
+  `remediations` with status; `contributing_factors[].source_section`
+  (FINDINGS §4.5–§4.9).
+
+**Model call** (`app/extract/llm.py`): Anthropic Messages API with
+structured output (`output_config.format = json_schema`) so the response is
+schema-shaped at the source; the JSON is then validated client-side by the
+Pydantic models, which carry the constraints the API can't express
+(ranges, patterns, ISO dates). Default model `claude-opus-5`
+(`APP_EXTRACTION_MODEL`). The system prompt is frozen and cached.
+
+**Retry loop** (`app/extract/extractor.py`): on a validation failure the
+model is shown its own output and the validator's errors and asked for the
+corrected object, up to `APP_EXTRACTION_MAX_ATTEMPTS` (default 3). Every
+attempt — raw text, validation error, token usage — is kept in
+`extractions.attempt_log`.
+
+**Failures** (`app/extract/errors.py`): 429 / 5xx / network → transient
+(job requeued); 4xx / refusal / truncated output / validation exhausted →
+permanent (dead letter). Either way an `extractions` row with
+`status='failed'`, the error, and the attempt log is committed in the same
+transaction as the job's state change. Failed rows never block a later
+success; one `complete` row per (document, schema version, model) is
+enforced by a partial unique index, which is what makes the extract job
+idempotent under at-least-once delivery.
+
+**Confidence**: `FieldConfidence` is one self-reported number per
+top-level field, stored in `extractions.per_field_confidence` with
+`confidence_source='self_report'`. Nothing reads it yet. Whether
+self-report is a usable confidence source is DERIVE-05 and gets measured in
+M5, not assumed here.
+
+### Open — flagged, not decided
+
+- **Trigger / mechanism class values.** ADR-001 fixes the *structure* and
+  defers the class lists to "01b", which does not exist yet. Until it does
+  the two labels are open snake_case strings (`app/extract/taxonomy.py`),
+  stored verbatim; swapping in a `Literal[...]` is a one-line change there.
+- **Document ≠ incident** (FINDINGS §4.11, §4.12). `extractions` keys on
+  `document_id`; there is no `incident_id`, and a multi-period document
+  yields one record for its primary incident. Needs a schema decision.
+- **Partial records** (DERIVE-03). `extractions.status` is `complete |
+  failed` only; the draft's `partial` is not implemented until the ADR
+  says what it means.
 
 ## Parsing
 
@@ -95,6 +163,17 @@ mypy app
 ```
 
 Tests run against real Postgres (no SQLite, per the brief) and truncate
-`documents`/`jobs`/`sources` between tests. HTTP fetches are mocked with
-`respx` in unit/integration tests; `tests/test_parse.py` reads real bytes
-from `spike/raw/` but performs no network I/O itself.
+`extractions`/`documents`/`jobs`/`sources` between tests. HTTP fetches are
+mocked with `respx`; the LLM is a scripted fake (`tests/fake_llm.py`), so
+no test needs an API key or makes a network call. `tests/test_parse.py`
+reads real bytes from `spike/raw/` but performs no network I/O itself.
+
+Without a local Python 3.12, the same checks run in a container against the
+compose Postgres:
+
+```
+docker build -f Dockerfile.dev -t incident-intel-dev .
+docker run --rm --network host -v "$PWD:/srv" \
+  -e APP_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/incident_intel \
+  incident-intel-dev sh -c "alembic upgrade head && ruff check . && mypy app && pytest -q"
+```

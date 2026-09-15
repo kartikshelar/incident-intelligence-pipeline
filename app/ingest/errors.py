@@ -5,18 +5,24 @@ straight to `dead_letter` (e.g. a 404), `TransientIngestError` requeues it
 (e.g. a fetch timeout). `EmptyExtractionError` is always permanent — per
 PROJECT_BRIEF's M2 instruction, a silent empty extraction is a HARD FAILURE,
 not a `partial` record, so it must never be retried into looking fine.
+
+The transient/permanent split is declared by inheriting from
+app.errors.TransientJobError / PermanentJobError so the worker can route
+ingest and extraction failures with the same two `except` clauses.
 """
 
+from app.errors import JobError, PermanentJobError, TransientJobError
 
-class IngestError(Exception):
+
+class IngestError(JobError):
     """Base class. Never raised directly."""
 
 
-class TransientIngestError(IngestError):
+class TransientIngestError(IngestError, TransientJobError):
     """Retryable: network timeout, connection reset, 5xx response."""
 
 
-class PermanentIngestError(IngestError):
+class PermanentIngestError(IngestError, PermanentJobError):
     """Not retryable: 404/410, unsupported content type, DNS failure."""
 
 

@@ -11,10 +11,11 @@ delayed jobs, multiple priority classes), only this module changes.
 
 from app.queue.postgres_queue import (
     Job,
+    JobKind,
     claim_one,
     enqueue,
     mark_failed,
     mark_succeeded,
 )
 
-__all__ = ["Job", "claim_one", "enqueue", "mark_failed", "mark_succeeded"]
+__all__ = ["Job", "JobKind", "claim_one", "enqueue", "mark_failed", "mark_succeeded"]

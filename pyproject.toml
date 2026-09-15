@@ -1,7 +1,7 @@
 [project]
 name = "incident-intel"
 version = "0.1.0"
-description = "Incident Intelligence Pipeline — M1 skeleton"
+description = "Incident Intelligence Pipeline"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
@@ -15,6 +15,7 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "lxml>=5.0",
     "pypdf>=5.0",
+    "anthropic>=1.0,<2",
 ]
 
 [project.optional-dependencies]
