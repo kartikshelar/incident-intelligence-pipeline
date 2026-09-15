@@ -91,12 +91,16 @@ the spike's corrections, each cited in the module docstring:
   `remediations` with status; `contributing_factors[].source_section`
   (FINDINGS §4.5–§4.9).
 
-**Model call** (`app/extract/llm.py`): Anthropic Messages API with
-structured output (`output_config.format = json_schema`) so the response is
-schema-shaped at the source; the JSON is then validated client-side by the
-Pydantic models, which carry the constraints the API can't express
-(ranges, patterns, ISO dates). Provider and model come from configuration
-(see above). The system prompt is frozen and cached.
+**Model call** (`app/extract/llm.py`): Anthropic Messages API. The JSON
+schema is sent as text in the cached system block and the output is
+validated client-side by the Pydantic models. It was designed to use the
+API's grammar-constrained structured output (`output_config.format =
+json_schema`), but the first real run
+([`spike/extraction_run_01.json`](spike/extraction_run_01.json)) had every
+request rejected with `400 The compiled grammar is too large`: the v0.1
+schema exceeds the grammar limit as soon as the five time-anchor objects
+are present. Schema conformance therefore rests on the retry loop below.
+Provider and model come from configuration (see above).
 
 **Retry loop** (`app/extract/extractor.py`): on a validation failure the
 model is shown its own output and the validator's errors and asked for the

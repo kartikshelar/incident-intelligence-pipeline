@@ -24,6 +24,16 @@ per shared/error-codes.md:
   stop_reason == "max_tokens" -> permanent (output truncated; the same
                                  request would truncate again)
 
+How the schema reaches the model: as text, appended to the cached system
+block — NOT as `output_config.format = json_schema`. The first real run
+(spike/extraction_run_01.json, 2026-09-15) had every request rejected with
+400 "The compiled grammar is too large"; probing showed the v0.1 record
+schema exceeds the grammar limit as soon as the five TimeAnchor fields
+are present, with or without the confidence object. So the API's grammar
+guarantee is unavailable for this schema, and schema conformance rests on
+app.extract.extractor's validate-and-retry loop, which was built for
+exactly that. The schema is static, so it caches with the system prompt.
+
 No `thinking` parameter is sent: on current models omitting it runs
 adaptive thinking. Non-streaming with the configured max_tokens (default
 16000) stays under the SDK's 10-minute timeout for the largest document
@@ -33,6 +43,7 @@ in the spike corpus.
 from __future__ import annotations
 
 import dataclasses
+import json
 from collections.abc import Callable
 from typing import Any, Protocol
 
@@ -121,11 +132,16 @@ class AnthropicClient:
             response = self._client.messages.create(
                 model=self.model,
                 max_tokens=self.max_tokens,
-                # Frozen system prompt first, cached; the per-document
-                # message follows — see shared/prompt-caching.md.
-                system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+                # Frozen system prompt + static schema first, cached; the
+                # per-document message follows — see shared/prompt-caching.md.
+                system=[
+                    {
+                        "type": "text",
+                        "text": system_with_schema(system, schema),
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
                 messages=messages,
-                output_config={"format": {"type": "json_schema", "schema": schema}},
             )
         except anthropic.RateLimitError as exc:
             raise TransientExtractionError(f"rate limited (429): {exc.message}") from exc
@@ -147,6 +163,18 @@ class AnthropicClient:
             raise PermanentExtractionError(f"anthropic client error: {exc}") from exc
 
         return response_to_llm_response(response)
+
+
+def system_with_schema(system: str, schema: dict[str, Any]) -> str:
+    """The frozen system prompt followed by the JSON schema the output must
+    satisfy. Deterministic serialisation (sorted keys) so the cached
+    prefix is byte-identical across requests."""
+    return (
+        f"{system}\n\n"
+        "The JSON schema your output must satisfy (return exactly one JSON object, "
+        "no prose, no code fence):\n"
+        f"{json.dumps(schema, sort_keys=True)}"
+    )
 
 
 def response_to_llm_response(response: Any) -> LLMResponse:

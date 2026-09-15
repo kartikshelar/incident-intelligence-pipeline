@@ -67,6 +67,21 @@ def test_non_json_output_is_fed_back_as_a_parse_error() -> None:
     assert "not valid JSON" in client.calls[1]["messages"][2]["content"]
 
 
+@pytest.mark.parametrize(
+    "wrapped",
+    [
+        "```json\n{body}\n```",
+        "```\n{body}\n```",
+        "  ```json\n{body}\n```  \n",
+    ],
+)
+def test_code_fenced_output_is_accepted_without_spending_an_attempt(wrapped: str) -> None:
+    client = FakeLLMClient([wrapped.format(body=valid_output_json())])
+    result = _run(client)
+    assert len(result.attempts) == 1
+    assert result.attempts[0].ok is True
+
+
 def test_exhausting_attempts_is_a_permanent_error_carrying_every_attempt() -> None:
     client = FakeLLMClient([invalid_output_json()] * 3)
     with pytest.raises(SchemaValidationExhaustedError) as exc:

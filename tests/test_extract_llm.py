@@ -15,7 +15,7 @@ import pytest
 from anthropic import DefaultHttpxClient
 
 from app.extract.errors import PermanentExtractionError, TransientExtractionError
-from app.extract.llm import AnthropicClient, response_to_llm_response
+from app.extract.llm import AnthropicClient, response_to_llm_response, system_with_schema
 
 MODEL = "some-configured-model"
 Handler = Callable[[httpx2.Request], httpx2.Response]
@@ -102,12 +102,22 @@ def test_request_wire_format_and_response_parsing() -> None:
     body = transport.last_body()
     assert body["model"] == MODEL  # the configured string, verbatim
     assert body["max_tokens"] == 1234
-    assert body["output_config"] == {"format": {"type": "json_schema", "schema": schema}}
-    assert body["system"] == [
-        {"type": "text", "text": "SYSTEM", "cache_control": {"type": "ephemeral"}}
-    ]
+    # The schema travels as text in the cached system block, not as a
+    # grammar: the v0.1 schema exceeds the API's grammar limit (run 01).
+    assert "output_config" not in body
+    (system_block,) = body["system"]
+    assert system_block["cache_control"] == {"type": "ephemeral"}
+    assert system_block["text"] == system_with_schema("SYSTEM", schema)
+    assert system_block["text"].startswith("SYSTEM\n\n")
+    assert json.dumps(schema, sort_keys=True) in system_block["text"]
     assert body["messages"] == [{"role": "user", "content": "hi"}]
     assert "thinking" not in body  # adaptive by default; nothing sent
+
+
+def test_system_with_schema_is_byte_stable_for_caching() -> None:
+    a = system_with_schema("S", {"b": 1, "a": {"y": 2, "x": 1}})
+    b = system_with_schema("S", {"a": {"x": 1, "y": 2}, "b": 1})
+    assert a == b
 
 
 def test_client_identity_is_provider_and_configured_model() -> None:

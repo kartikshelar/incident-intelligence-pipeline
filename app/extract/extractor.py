@@ -60,9 +60,22 @@ class ExtractionResult:
         return totals
 
 
+def _strip_code_fence(raw: str) -> str:
+    """Tolerate a ```json ... ``` wrapper. Without grammar-constrained output
+    (see app.extract.llm) the model may fence the object; that is a
+    transport artefact, not a schema violation worth an attempt."""
+    text = raw.strip()
+    if text.startswith("```"):
+        first_newline = text.find("\n")
+        text = text[first_newline + 1 :] if first_newline != -1 else text[3:]
+        if text.rstrip().endswith("```"):
+            text = text.rstrip()[:-3]
+    return text.strip()
+
+
 def _validate(raw: str) -> tuple[ExtractionOutput | None, str | None]:
     try:
-        data = json.loads(raw)
+        data = json.loads(_strip_code_fence(raw))
     except json.JSONDecodeError as exc:
         return None, f"- <root>: output is not valid JSON ({exc.msg} at char {exc.pos})"
     try:

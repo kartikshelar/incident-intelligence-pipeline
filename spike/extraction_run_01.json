@@ -1,0 +1,649 @@
+{
+  "run": "extraction_run_01",
+  "started_at": "2026-09-15T06:27:10.721837+00:00",
+  "finished_at": "2026-09-15T06:27:26.878200+00:00",
+  "manifest": "spike/corpus_manifest.json",
+  "pricing_usd_per_mtok": {
+    "input_tokens": 2.0,
+    "output_tokens": 10.0,
+    "cache_read_input_tokens": 0.2,
+    "cache_creation_input_tokens": 2.5
+  },
+  "summary": {
+    "documents": 10,
+    "succeeded": 0,
+    "dead_lettered": 10,
+    "not_terminal": 0,
+    "mean_validation_attempts": 0,
+    "validation_attempts_histogram": {
+      "0": 10
+    },
+    "total_tokens": {},
+    "total_cost_usd": 0.0,
+    "provider_model": [
+      "anthropic/claude-sonnet-5"
+    ]
+  },
+  "documents": [
+    {
+      "id": "A",
+      "org": "Cloudflare",
+      "url": "https://blog.cloudflare.com/18-november-2025-outage/",
+      "manifest_format": "blog_html",
+      "source_id": "789f3be3-a13a-4cb1-a052-79cdff0db06c",
+      "jobs": [
+        {
+          "job_id": "d88295af-13ae-4dec-b7a9-94af14960760",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "8dfd7fc1-f76f-43e7-9808-5e90673c84ef",
+          "kind": "extract",
+          "status": "dead_letter",
+          "attempts": 1,
+          "last_error": "request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUSvrtCLr4YgZgxcHT'}",
+          "document_id": "47878bb1-ab0b-4212-848e-367bdd04ad53"
+        }
+      ],
+      "document": {
+        "document_id": "47878bb1-ab0b-4212-848e-367bdd04ad53",
+        "final_url": "https://blog.cloudflare.com/18-november-2025-outage/",
+        "format": "html",
+        "title": "Cloudflare outage on November 18, 2025",
+        "text_chars": 18114,
+        "content_hash": "fb0c5218ebb4c3694829cc04a4d23e40c73af8571384967aec078a9036e0e8eb"
+      },
+      "outcome": "dead_letter",
+      "validation_attempts": 0,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 0,
+        "output_tokens": 0
+      },
+      "cost_usd": 0.0,
+      "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUSvrtCLr4YgZgxcHT'}",
+      "extraction": {
+        "extraction_id": "2a3b7dbd-610c-4b24-9088-a62469f8d03a",
+        "status": "failed",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 0,
+        "usage": {},
+        "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUSvrtCLr4YgZgxcHT'}",
+        "error_kind": "permanent",
+        "record": null,
+        "per_field_confidence": null,
+        "derived": null,
+        "attempt_log": [],
+        "created_at": "2026-09-15T06:27:16.399916+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "B",
+      "org": "GitLab",
+      "url": "https://about.gitlab.com/blog/postmortem-of-database-outage-of-january-31/",
+      "manifest_format": "blog_html",
+      "source_id": "4591dcaa-851a-421b-afe7-4d2e357cf6a4",
+      "jobs": [
+        {
+          "job_id": "df5d30f8-4adf-4304-a75f-9016f9a30205",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "7396c14c-869d-4540-9bd2-78bc194555df",
+          "kind": "extract",
+          "status": "dead_letter",
+          "attempts": 1,
+          "last_error": "request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUUmVTuXxgqv5jGcU9'}",
+          "document_id": "b125ce05-4f2d-4701-9c9b-5791735e630c"
+        }
+      ],
+      "document": {
+        "document_id": "b125ce05-4f2d-4701-9c9b-5791735e630c",
+        "final_url": "https://about.gitlab.com/blog/postmortem-of-database-outage-of-january-31/",
+        "format": "html",
+        "title": "Postmortem of database outage of January 31",
+        "text_chars": 24216,
+        "content_hash": "755e13b43aefa03a1f6031006dd075f4afdf900435d235946fb1111a11f572e3"
+      },
+      "outcome": "dead_letter",
+      "validation_attempts": 0,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 0,
+        "output_tokens": 0
+      },
+      "cost_usd": 0.0,
+      "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUUmVTuXxgqv5jGcU9'}",
+      "extraction": {
+        "extraction_id": "731d8273-146f-465a-9321-da8a189f4fe4",
+        "status": "failed",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 0,
+        "usage": {},
+        "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUUmVTuXxgqv5jGcU9'}",
+        "error_kind": "permanent",
+        "record": null,
+        "per_field_confidence": null,
+        "derived": null,
+        "attempt_log": [],
+        "created_at": "2026-09-15T06:27:18.451583+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "C",
+      "org": "AWS",
+      "url": "https://aws.amazon.com/message/101925/",
+      "manifest_format": "vendor_post_event_summary_html",
+      "source_id": "5e7154ec-32fa-4d16-bc09-83da88eb9860",
+      "jobs": [
+        {
+          "job_id": "5ca02bb3-35f7-4c59-96fe-bf2355673f2d",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "bf4c5e95-aa5d-47b3-aa0b-23d6c81ccf99",
+          "kind": "extract",
+          "status": "dead_letter",
+          "attempts": 1,
+          "last_error": "request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUWHmN4sUxYM11Lz2U'}",
+          "document_id": "10fccb44-c413-436c-8931-871026901fc7"
+        }
+      ],
+      "document": {
+        "document_id": "10fccb44-c413-436c-8931-871026901fc7",
+        "final_url": "https://aws.amazon.com/message/101925/",
+        "format": "html",
+        "title": "Summary of the Amazon DynamoDB Service Disruption in the Northern Virginia (US-EAST-1) Region",
+        "text_chars": 24080,
+        "content_hash": "ea1084b01b24e723c5378af5855e8a70079e3a0b8bebe0d4f000b526ad606fc8"
+      },
+      "outcome": "dead_letter",
+      "validation_attempts": 0,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 0,
+        "output_tokens": 0
+      },
+      "cost_usd": 0.0,
+      "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUWHmN4sUxYM11Lz2U'}",
+      "extraction": {
+        "extraction_id": "d096395a-0c08-4778-9cc8-588974047b3a",
+        "status": "failed",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 0,
+        "usage": {},
+        "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUWHmN4sUxYM11Lz2U'}",
+        "error_kind": "permanent",
+        "record": null,
+        "per_field_confidence": null,
+        "derived": null,
+        "attempt_log": [],
+        "created_at": "2026-09-15T06:27:18.795272+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "D",
+      "org": "Datadog",
+      "url": "https://www.datadoghq.com/blog/2023-03-08-multiregion-infrastructure-connectivity-issue/",
+      "manifest_format": "blog_html",
+      "source_id": "68583645-8b16-470d-ba45-a3e648db1767",
+      "jobs": [
+        {
+          "job_id": "a65b1582-f9e1-47f4-8c35-fd609ddf6db8",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "7af6be50-8d85-4c59-a879-f91dec2a3fd4",
+          "kind": "extract",
+          "status": "dead_letter",
+          "attempts": 1,
+          "last_error": "request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUXr2bA7tCpTssk4NM'}",
+          "document_id": "cbde8303-f1b3-47d5-ae51-b1494b8f9123"
+        }
+      ],
+      "document": {
+        "document_id": "cbde8303-f1b3-47d5-ae51-b1494b8f9123",
+        "final_url": "https://www.datadoghq.com/blog/2023-03-08-multiregion-infrastructure-connectivity-issue/",
+        "format": "html",
+        "title": "2023-03-08 Incident: Infrastructure connectivity issue affecting multiple regions | Datadog",
+        "text_chars": 12091,
+        "content_hash": "e6800c32a40bd24a3845a1003d76c0ac017d9e2b06fb21ab3412637fbeebf947"
+      },
+      "outcome": "dead_letter",
+      "validation_attempts": 0,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 0,
+        "output_tokens": 0
+      },
+      "cost_usd": 0.0,
+      "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUXr2bA7tCpTssk4NM'}",
+      "extraction": {
+        "extraction_id": "f5f89b27-32cc-4efe-b081-da705f00b31a",
+        "status": "failed",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 0,
+        "usage": {},
+        "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUXr2bA7tCpTssk4NM'}",
+        "error_kind": "permanent",
+        "record": null,
+        "per_field_confidence": null,
+        "derived": null,
+        "attempt_log": [],
+        "created_at": "2026-09-15T06:27:19.171863+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "E",
+      "org": "GitHub",
+      "url": "https://github.blog/news-insights/company-news/oct21-post-incident-analysis/",
+      "manifest_format": "blog_html",
+      "source_id": "840a4966-c5d3-4e81-afff-57da22daea22",
+      "jobs": [
+        {
+          "job_id": "2569d95a-2518-4560-addc-fa9b7fa68535",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "433e1eb2-d151-4d2c-92dc-b2cb9d11e812",
+          "kind": "extract",
+          "status": "dead_letter",
+          "attempts": 1,
+          "last_error": "request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUZQYbnFbieugapnzL'}",
+          "document_id": "e5adac77-ac54-4827-95f1-b304cc14adb2"
+        }
+      ],
+      "document": {
+        "document_id": "e5adac77-ac54-4827-95f1-b304cc14adb2",
+        "final_url": "https://github.blog/news-insights/company-news/oct21-post-incident-analysis/",
+        "format": "html",
+        "title": "October 21 post-incident analysis",
+        "text_chars": 17483,
+        "content_hash": "885850d39a7de519c1a54413d73509837d834e7c624ad8f464d3d082b2d19885"
+      },
+      "outcome": "dead_letter",
+      "validation_attempts": 0,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 0,
+        "output_tokens": 0
+      },
+      "cost_usd": 0.0,
+      "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUZQYbnFbieugapnzL'}",
+      "extraction": {
+        "extraction_id": "44e35e1d-6386-49cd-8b79-7cc75377032c",
+        "status": "failed",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 0,
+        "usage": {},
+        "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUZQYbnFbieugapnzL'}",
+        "error_kind": "permanent",
+        "record": null,
+        "per_field_confidence": null,
+        "derived": null,
+        "attempt_log": [],
+        "created_at": "2026-09-15T06:27:19.486152+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "F",
+      "org": "CrowdStrike",
+      "url": "https://www.crowdstrike.com/wp-content/uploads/2024/08/Channel-File-291-Incident-Root-Cause-Analysis-08.06.2024.pdf",
+      "manifest_format": "pdf",
+      "source_id": "2f9d8a37-b8f6-4852-92a6-125b72856ce6",
+      "jobs": [
+        {
+          "job_id": "0f77a014-6ef2-48ba-8b18-1fb60392da55",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "5fc2dfc2-b55f-4a5c-b84f-31343463b67f",
+          "kind": "extract",
+          "status": "dead_letter",
+          "attempts": 1,
+          "last_error": "request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUbUZQhLjaydsqPeZm'}",
+          "document_id": "ccd165b7-3ad6-4052-bfe6-0865e4183d76"
+        }
+      ],
+      "document": {
+        "document_id": "ccd165b7-3ad6-4052-bfe6-0865e4183d76",
+        "final_url": "https://www.crowdstrike.com/wp-content/uploads/2024/08/Channel-File-291-Incident-Root-Cause-Analysis-08.06.2024.pdf",
+        "format": "pdf",
+        "title": null,
+        "text_chars": 29027,
+        "content_hash": "740e8428c6db97a42d38975492712e4714173d2cdbe920942fa7907dc5a68a23"
+      },
+      "outcome": "dead_letter",
+      "validation_attempts": 0,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 0,
+        "output_tokens": 0
+      },
+      "cost_usd": 0.0,
+      "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUbUZQhLjaydsqPeZm'}",
+      "extraction": {
+        "extraction_id": "0dc82fb4-3f18-4783-b4da-3bc32d9ea27f",
+        "status": "failed",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 0,
+        "usage": {},
+        "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUbUZQhLjaydsqPeZm'}",
+        "error_kind": "permanent",
+        "record": null,
+        "per_field_confidence": null,
+        "derived": null,
+        "attempt_log": [],
+        "created_at": "2026-09-15T06:27:20.004652+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "G",
+      "org": "Google Cloud",
+      "url": "https://status.cloud.google.com/incidents/ow5i3PPK96RduMcb1SsW",
+      "manifest_format": "status_page_html",
+      "source_id": "59448f8e-725f-4054-872d-f600a0274670",
+      "jobs": [
+        {
+          "job_id": "a57c9d62-6d8c-4203-a98d-b9db5035c891",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "017a754a-952b-4b24-9529-dcf9558560de",
+          "kind": "extract",
+          "status": "dead_letter",
+          "attempts": 1,
+          "last_error": "request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUdCk4gjw2GH5iwAfG'}",
+          "document_id": "5408e932-acf9-491d-8911-32694a2b3bf1"
+        }
+      ],
+      "document": {
+        "document_id": "5408e932-acf9-491d-8911-32694a2b3bf1",
+        "final_url": "https://status.cloud.google.com/incidents/ow5i3PPK96RduMcb1SsW",
+        "format": "html",
+        "title": "Incident details",
+        "text_chars": 20855,
+        "content_hash": "ea1ea19dc9c0c7bf18db0cc5b6a56c3f067521db8693ed79c226b6a5ced9c369"
+      },
+      "outcome": "dead_letter",
+      "validation_attempts": 0,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 0,
+        "output_tokens": 0
+      },
+      "cost_usd": 0.0,
+      "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUdCk4gjw2GH5iwAfG'}",
+      "extraction": {
+        "extraction_id": "4164f994-988b-4917-81bf-bf4c43fb74c5",
+        "status": "failed",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 0,
+        "usage": {},
+        "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUdCk4gjw2GH5iwAfG'}",
+        "error_kind": "permanent",
+        "record": null,
+        "per_field_confidence": null,
+        "derived": null,
+        "attempt_log": [],
+        "created_at": "2026-09-15T06:27:20.379844+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "H",
+      "org": "Slack",
+      "url": "https://slack.engineering/slacks-incident-on-2-22-22/",
+      "manifest_format": "blog_html",
+      "source_id": "330fe7af-f005-428b-aa15-ba1609728413",
+      "jobs": [
+        {
+          "job_id": "e358f86e-130f-42ef-bcb0-a243b290f132",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "b22a6b48-9917-4e06-83a1-79c2dbce61f5",
+          "kind": "extract",
+          "status": "dead_letter",
+          "attempts": 1,
+          "last_error": "request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUerTqo79YaKj7FLxv'}",
+          "document_id": "60156411-71ed-4254-b335-344aa32552ab"
+        }
+      ],
+      "document": {
+        "document_id": "60156411-71ed-4254-b335-344aa32552ab",
+        "final_url": "https://slack.engineering/slacks-incident-on-2-22-22/",
+        "format": "html",
+        "title": "Slack’s Incident on 2-22-22",
+        "text_chars": 16518,
+        "content_hash": "e2aa6fc15ff3c33a7da93f98e6ccfdb0e978bd59ee78c7e1e34e4012ce8dbbb8"
+      },
+      "outcome": "dead_letter",
+      "validation_attempts": 0,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 0,
+        "output_tokens": 0
+      },
+      "cost_usd": 0.0,
+      "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUerTqo79YaKj7FLxv'}",
+      "extraction": {
+        "extraction_id": "d0862dd5-d805-4fac-889a-82a4285cf733",
+        "status": "failed",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 0,
+        "usage": {},
+        "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUerTqo79YaKj7FLxv'}",
+        "error_kind": "permanent",
+        "record": null,
+        "per_field_confidence": null,
+        "derived": null,
+        "attempt_log": [],
+        "created_at": "2026-09-15T06:27:20.791551+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "I",
+      "org": "Roblox",
+      "url": "https://blog.roblox.com/2022/01/roblox-return-to-service-10-28-10-31-2021/",
+      "manifest_format": "blog_html",
+      "source_id": "a3cb6584-4fad-4fb9-a01f-afc6c700ba73",
+      "jobs": [
+        {
+          "job_id": "f0e90b42-faf1-43a7-ac27-ab66159393be",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "b2bdc75f-6ac7-46ed-a615-ef2b6b0d4ae1",
+          "kind": "extract",
+          "status": "dead_letter",
+          "attempts": 1,
+          "last_error": "request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUgUSj4qiSwoVJp3aZ'}",
+          "document_id": "8b392ba7-0952-4dce-878e-4c0a5d7ca7d1"
+        }
+      ],
+      "document": {
+        "document_id": "8b392ba7-0952-4dce-878e-4c0a5d7ca7d1",
+        "final_url": "https://about.roblox.com/newsroom/2022/01/roblox-return-to-service-10-28-10-31-2021",
+        "format": "html",
+        "title": "Roblox Return to Service  | Roblox",
+        "text_chars": 31924,
+        "content_hash": "3e0ab89a73f4904223bd2fb3c6f6a284f9496bc08ce5872be1e53989533a9c53"
+      },
+      "outcome": "dead_letter",
+      "validation_attempts": 0,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 0,
+        "output_tokens": 0
+      },
+      "cost_usd": 0.0,
+      "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUgUSj4qiSwoVJp3aZ'}",
+      "extraction": {
+        "extraction_id": "3a1709dc-0009-471b-84dc-77d780c84457",
+        "status": "failed",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 0,
+        "usage": {},
+        "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUgUSj4qiSwoVJp3aZ'}",
+        "error_kind": "permanent",
+        "record": null,
+        "per_field_confidence": null,
+        "derived": null,
+        "attempt_log": [],
+        "created_at": "2026-09-15T06:27:21.187411+00:00"
+      },
+      "earlier_extraction_rows": []
+    },
+    {
+      "id": "J",
+      "org": "Kubernetes SIG Testing (test-infra)",
+      "url": "https://raw.githubusercontent.com/kubernetes/test-infra/master/docs/post-mortems/2019-02-08.md",
+      "manifest_format": "markdown_in_repo",
+      "source_id": "3394a822-4126-4ff2-a56e-a6947954215f",
+      "jobs": [
+        {
+          "job_id": "af39e80e-7247-4f4e-8a70-9b9c5437b4f4",
+          "kind": "ingest",
+          "status": "succeeded",
+          "attempts": 1,
+          "last_error": null,
+          "document_id": null
+        },
+        {
+          "job_id": "0177b948-9b7c-4729-b2c3-28e42f92e7e3",
+          "kind": "extract",
+          "status": "dead_letter",
+          "attempts": 1,
+          "last_error": "request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUhwzxQGSEb57BXLVk'}",
+          "document_id": "631634e6-a67b-4b2b-91e4-23ddce70baf3"
+        }
+      ],
+      "document": {
+        "document_id": "631634e6-a67b-4b2b-91e4-23ddce70baf3",
+        "final_url": "https://raw.githubusercontent.com/kubernetes/test-infra/master/docs/post-mortems/2019-02-08.md",
+        "format": "markdown",
+        "title": "February 8th, 2019 - Prow responding slow & Partial outage",
+        "text_chars": 15903,
+        "content_hash": "0ec72537c8b79868a18845a3aa69238354db720181de95a7c015a2902f5e907e"
+      },
+      "outcome": "dead_letter",
+      "validation_attempts": 0,
+      "extraction_rows": 1,
+      "tokens": {
+        "input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "total_input_tokens": 0,
+        "output_tokens": 0
+      },
+      "cost_usd": 0.0,
+      "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUhwzxQGSEb57BXLVk'}",
+      "extraction": {
+        "extraction_id": "c59c9246-02ee-4f9f-a69a-d5a82f3aba51",
+        "status": "failed",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "schema_version": "0.1",
+        "validation_attempts": 0,
+        "usage": {},
+        "error": "PermanentExtractionError: request rejected (400 invalid_request_error): Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.'}, 'request_id': 'req_011Cf4kUhwzxQGSEb57BXLVk'}",
+        "error_kind": "permanent",
+        "record": null,
+        "per_field_confidence": null,
+        "derived": null,
+        "attempt_log": [],
+        "created_at": "2026-09-15T06:27:21.529243+00:00"
+      },
+      "earlier_extraction_rows": []
+    }
+  ]
+}
