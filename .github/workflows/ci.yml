@@ -13,7 +13,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: incident_intel
+          POSTGRES_DB: incident_intel_test
         ports:
           - 5432:5432
         options: >-
@@ -23,7 +23,10 @@ jobs:
           --health-retries 20
 
     env:
-      APP_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/incident_intel
+      # Migrations are exercised against the test database; tests then
+      # rebuild it from the models (tests/conftest.py).
+      APP_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/incident_intel_test
+      APP_TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/incident_intel_test
 
     steps:
       - uses: actions/checkout@v4

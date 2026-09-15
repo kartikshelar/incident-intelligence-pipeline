@@ -6,6 +6,13 @@ subtracted. So they are derived here from the typed anchors, and the
 derivation names the pair it used. Absent anchors give None, not a coerced
 number; day-precision anchors give None too (a difference of dates is not
 a duration anyone should compare across orgs).
+
+Negative durations are valid and are recorded as-is. `detected_at` before
+`impact_start` is a real shape, not an extraction error: a latent trigger
+can be noticed (an alert, an operator seeing a command go wrong) before
+users are affected — Roblox in run 02 detected at 16:39 with impact from
+19:37 the same day. Refusing or clamping the value would hide exactly the
+cases worth looking at; consumers get the sign and decide.
 """
 
 from __future__ import annotations
@@ -31,7 +38,7 @@ def _seconds_between(start: TimeAnchor | None, end: TimeAnchor | None) -> dict[s
         # One aware, one naive: not comparable without a timezone decision
         # this module refuses to make (FINDINGS §2.8).
         return None
-    seconds = (b - a).total_seconds()
+    seconds = (b - a).total_seconds()  # may be negative; see module docstring
     coarser = max(start.precision, end.precision, key=_ORDER.index)
     return {"seconds": seconds, "precision": coarser}
 
@@ -39,9 +46,10 @@ def _seconds_between(start: TimeAnchor | None, end: TimeAnchor | None) -> dict[s
 def derive_durations(record: IncidentRecord) -> dict[str, Any]:
     """Return {"time_to_detect": {...}|None, "time_to_mitigate": {...}|None}.
 
-    Each present value carries `seconds`, the `precision` of the coarser
-    anchor, and the anchor pair (`from`, `to`) it was computed from, so a
-    consumer can tell "24 h from change" from "0 s from impact" (Roblox).
+    Each present value carries `seconds` (signed), the `precision` of the
+    coarser anchor, and the anchor pair (`from`, `to`) it was computed
+    from, so a consumer can tell "24 h from change" from "0 s from impact"
+    (Roblox) — or "detected 3 h before impact" from a typo.
     """
     ttd = _seconds_between(record.impact_start, record.detected_at)
     if ttd is not None:
