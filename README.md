@@ -257,6 +257,14 @@ the gold set is what measures quality.
   defers the class lists to "01b", which does not exist yet. Until it does
   the two labels are open snake_case strings (`app/extract/taxonomy.py`),
   stored verbatim; swapping in a `Literal[...]` is a one-line change there.
+  How unstable the open strings are is measured in
+  [`spike/label_stability.json`](spike/label_stability.json)
+  (`scripts/label_stability.py`, runs 02/04/05/06): trigger labels are one
+  string in every run for 7 of 10 documents, mechanism labels for 4 of 10;
+  of the 18 mechanism pairs that co-occur on one document, 4 are one
+  concept in different words (`route_deletion` /
+  `network_route_deletion`, the three `misrouting_*` spellings) and 3 more
+  are borderline. Evidence for 01b, not a class list.
 - **What counts as an initiating "event".** The AWS trigger flips between
   null and a value across runs on identical read-side text; the prompt's
   "change or event" lets an anomalous delay qualify, and ADR-001 does not

@@ -1,0 +1,834 @@
+{
+  "rendered_at": "2026-09-16T00:19:17.653188+00:00",
+  "runs": [
+    {
+      "run": "extraction_run_02",
+      "report": "spike/extraction_run_02.json",
+      "schema_version": null,
+      "thinking": null
+    },
+    {
+      "run": "extraction_run_04",
+      "report": "spike/extraction_run_04.json",
+      "schema_version": null,
+      "thinking": null
+    },
+    {
+      "run": "extraction_run_05",
+      "report": "spike/extraction_run_05.json",
+      "schema_version": [
+        "0.4"
+      ],
+      "thinking": [
+        "adaptive:low"
+      ]
+    },
+    {
+      "run": "extraction_run_06",
+      "report": "spike/extraction_run_06.json",
+      "schema_version": [
+        "0.4"
+      ],
+      "thinking": [
+        "disabled"
+      ]
+    }
+  ],
+  "caveats": [
+    "Stability is agreement of a run with other runs on the same document, not with a hand label; a label that is stable can still be wrong.",
+    "The class values are open (ADR-001 defers them to 01b), so the model chooses wording freely each run; that is what this measures.",
+    "same_concept / borderline are hand judgements on the label strings (scripts/label_stability.py); the strict count is same_concept only.",
+    "Runs differ in schema version and thinking setting as listed in `runs`; no run is repeated at one setting, so run-to-run noise at a fixed setting is not separated from the effect of the setting."
+  ],
+  "fields": {
+    "trigger.label": {
+      "documents": 10,
+      "documents_with_one_string": 7,
+      "distinct_strings_histogram": {
+        "1": 7,
+        "2": 3
+      },
+      "distinct_strings_total": 9,
+      "co_occurring_pairs_total": 3,
+      "same_concept_pairs": 0,
+      "borderline_pairs": 2,
+      "different_pairs": 1,
+      "pairs": {
+        "same_concept": [],
+        "borderline": [
+          {
+            "pair": [
+              "config_change",
+              "content_update"
+            ],
+            "judgement": "borderline",
+            "why": "a content/definition-file update is a kind of config change; same question",
+            "documents": [
+              "F"
+            ]
+          },
+          {
+            "pair": [
+              "config_change",
+              "feature_rollout"
+            ],
+            "judgement": "borderline",
+            "why": "enabling a feature is a kind of config change; whether rollouts are their own class is a 01b question",
+            "documents": [
+              "I"
+            ]
+          }
+        ],
+        "different": [
+          {
+            "pair": [
+              "operational_delay",
+              "race_condition"
+            ],
+            "judgement": "different",
+            "why": null,
+            "documents": [
+              "C"
+            ]
+          }
+        ]
+      },
+      "per_document": [
+        {
+          "id": "A",
+          "org": "Cloudflare",
+          "labels_by_run": {
+            "extraction_run_02": "config_change",
+            "extraction_run_04": "config_change",
+            "extraction_run_05": "config_change",
+            "extraction_run_06": "config_change"
+          },
+          "distinct_strings": 1,
+          "null_count": 0,
+          "strings": [
+            "config_change"
+          ],
+          "co_occurring_pairs": []
+        },
+        {
+          "id": "B",
+          "org": "GitLab",
+          "labels_by_run": {
+            "extraction_run_02": "manual_command",
+            "extraction_run_04": "manual_command",
+            "extraction_run_05": "manual_command",
+            "extraction_run_06": "manual_command"
+          },
+          "distinct_strings": 1,
+          "null_count": 0,
+          "strings": [
+            "manual_command"
+          ],
+          "co_occurring_pairs": []
+        },
+        {
+          "id": "C",
+          "org": "AWS",
+          "labels_by_run": {
+            "extraction_run_02": null,
+            "extraction_run_04": "operational_delay",
+            "extraction_run_05": null,
+            "extraction_run_06": "race_condition"
+          },
+          "distinct_strings": 2,
+          "null_count": 2,
+          "strings": [
+            "operational_delay",
+            "race_condition"
+          ],
+          "co_occurring_pairs": [
+            {
+              "pair": [
+                "operational_delay",
+                "race_condition"
+              ],
+              "judgement": "different",
+              "why": null
+            }
+          ]
+        },
+        {
+          "id": "D",
+          "org": "Datadog",
+          "labels_by_run": {
+            "extraction_run_02": "os_auto_update",
+            "extraction_run_04": "os_auto_update",
+            "extraction_run_05": "os_auto_update",
+            "extraction_run_06": "os_auto_update"
+          },
+          "distinct_strings": 1,
+          "null_count": 0,
+          "strings": [
+            "os_auto_update"
+          ],
+          "co_occurring_pairs": []
+        },
+        {
+          "id": "E",
+          "org": "GitHub",
+          "labels_by_run": {
+            "extraction_run_02": "infrastructure_maintenance",
+            "extraction_run_04": "infrastructure_maintenance",
+            "extraction_run_05": "infrastructure_maintenance",
+            "extraction_run_06": "infrastructure_maintenance"
+          },
+          "distinct_strings": 1,
+          "null_count": 0,
+          "strings": [
+            "infrastructure_maintenance"
+          ],
+          "co_occurring_pairs": []
+        },
+        {
+          "id": "F",
+          "org": "CrowdStrike",
+          "labels_by_run": {
+            "extraction_run_02": "config_change",
+            "extraction_run_04": "content_update",
+            "extraction_run_05": "content_update",
+            "extraction_run_06": "config_change"
+          },
+          "distinct_strings": 2,
+          "null_count": 0,
+          "strings": [
+            "config_change",
+            "content_update"
+          ],
+          "co_occurring_pairs": [
+            {
+              "pair": [
+                "config_change",
+                "content_update"
+              ],
+              "judgement": "borderline",
+              "why": "a content/definition-file update is a kind of config change; same question"
+            }
+          ]
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "labels_by_run": {
+            "extraction_run_02": "config_change",
+            "extraction_run_04": "config_change",
+            "extraction_run_05": "config_change",
+            "extraction_run_06": "config_change"
+          },
+          "distinct_strings": 1,
+          "null_count": 0,
+          "strings": [
+            "config_change"
+          ],
+          "co_occurring_pairs": []
+        },
+        {
+          "id": "H",
+          "org": "Slack",
+          "labels_by_run": {
+            "extraction_run_02": "infrastructure_maintenance",
+            "extraction_run_04": "infrastructure_maintenance",
+            "extraction_run_05": "infrastructure_maintenance",
+            "extraction_run_06": "infrastructure_maintenance"
+          },
+          "distinct_strings": 1,
+          "null_count": 0,
+          "strings": [
+            "infrastructure_maintenance"
+          ],
+          "co_occurring_pairs": []
+        },
+        {
+          "id": "I",
+          "org": "Roblox",
+          "labels_by_run": {
+            "extraction_run_02": "config_change",
+            "extraction_run_04": "feature_rollout",
+            "extraction_run_05": "config_change",
+            "extraction_run_06": "config_change"
+          },
+          "distinct_strings": 2,
+          "null_count": 0,
+          "strings": [
+            "config_change",
+            "feature_rollout"
+          ],
+          "co_occurring_pairs": [
+            {
+              "pair": [
+                "config_change",
+                "feature_rollout"
+              ],
+              "judgement": "borderline",
+              "why": "enabling a feature is a kind of config change; whether rollouts are their own class is a 01b question"
+            }
+          ]
+        },
+        {
+          "id": "J",
+          "org": "Kubernetes SIG Testing (test-infra)",
+          "labels_by_run": {
+            "extraction_run_02": "code_deploy",
+            "extraction_run_04": "code_deploy",
+            "extraction_run_05": "code_deploy",
+            "extraction_run_06": "code_deploy"
+          },
+          "distinct_strings": 1,
+          "null_count": 0,
+          "strings": [
+            "code_deploy"
+          ],
+          "co_occurring_pairs": []
+        }
+      ]
+    },
+    "mechanism.label": {
+      "documents": 10,
+      "documents_with_one_string": 4,
+      "distinct_strings_histogram": {
+        "1": 4,
+        "2": 3,
+        "3": 1,
+        "4": 2
+      },
+      "distinct_strings_total": 16,
+      "co_occurring_pairs_total": 18,
+      "same_concept_pairs": 4,
+      "borderline_pairs": 3,
+      "different_pairs": 11,
+      "pairs": {
+        "same_concept": [
+          {
+            "pair": [
+              "misrouted_scheduling",
+              "misrouted_workload_scheduling"
+            ],
+            "judgement": "same_concept",
+            "why": "identical apart from the `workload_` qualifier",
+            "documents": [
+              "J"
+            ]
+          },
+          {
+            "pair": [
+              "misrouted_scheduling",
+              "misrouting_bug"
+            ],
+            "judgement": "same_concept",
+            "why": "both name misrouting; `_bug` vs `_scheduling` says what kind of thing misrouted, not a different failure",
+            "documents": [
+              "J"
+            ]
+          },
+          {
+            "pair": [
+              "misrouted_workload_scheduling",
+              "misrouting_bug"
+            ],
+            "judgement": "same_concept",
+            "why": "as above, with `workload_` as a further qualifier",
+            "documents": [
+              "J"
+            ]
+          },
+          {
+            "pair": [
+              "network_route_deletion",
+              "route_deletion"
+            ],
+            "judgement": "same_concept",
+            "why": "identical head noun; `network_` is a qualifier",
+            "documents": [
+              "D"
+            ]
+          }
+        ],
+        "borderline": [
+          {
+            "pair": [
+              "accidental_data_deletion",
+              "data_loss"
+            ],
+            "judgement": "borderline",
+            "why": "effect (loss) vs the action that caused it (deletion)",
+            "documents": [
+              "B"
+            ]
+          },
+          {
+            "pair": [
+              "crash_on_bad_input",
+              "out_of_bounds_read"
+            ],
+            "judgement": "borderline",
+            "why": "specific fault vs the general failure it produced",
+            "documents": [
+              "F"
+            ]
+          },
+          {
+            "pair": [
+              "resource_contention",
+              "resource_exhaustion"
+            ],
+            "judgement": "borderline",
+            "why": "contention (waiting on a resource) vs exhaustion (running out of it); the document describes both",
+            "documents": [
+              "I"
+            ]
+          }
+        ],
+        "different": [
+          {
+            "pair": [
+              "cascading_overload",
+              "resource_contention"
+            ],
+            "judgement": "different",
+            "why": null,
+            "documents": [
+              "I"
+            ]
+          },
+          {
+            "pair": [
+              "cascading_overload",
+              "resource_exhaustion"
+            ],
+            "judgement": "different",
+            "why": null,
+            "documents": [
+              "I"
+            ]
+          },
+          {
+            "pair": [
+              "dns_resolution_failure",
+              "race_condition"
+            ],
+            "judgement": "different",
+            "why": null,
+            "documents": [
+              "C"
+            ]
+          },
+          {
+            "pair": [
+              "misconfiguration",
+              "misrouted_scheduling"
+            ],
+            "judgement": "different",
+            "why": null,
+            "documents": [
+              "J"
+            ]
+          },
+          {
+            "pair": [
+              "misconfiguration",
+              "misrouted_workload_scheduling"
+            ],
+            "judgement": "different",
+            "why": null,
+            "documents": [
+              "J"
+            ]
+          },
+          {
+            "pair": [
+              "misconfiguration",
+              "misrouting_bug"
+            ],
+            "judgement": "different",
+            "why": null,
+            "documents": [
+              "J"
+            ]
+          },
+          {
+            "pair": [
+              "network_route_deletion",
+              "race_condition"
+            ],
+            "judgement": "different",
+            "why": null,
+            "documents": [
+              "D"
+            ]
+          },
+          {
+            "pair": [
+              "network_route_deletion",
+              "unsafe_failover"
+            ],
+            "judgement": "different",
+            "why": null,
+            "documents": [
+              "D"
+            ]
+          },
+          {
+            "pair": [
+              "race_condition",
+              "route_deletion"
+            ],
+            "judgement": "different",
+            "why": null,
+            "documents": [
+              "D"
+            ]
+          },
+          {
+            "pair": [
+              "race_condition",
+              "unsafe_failover"
+            ],
+            "judgement": "different",
+            "why": null,
+            "documents": [
+              "D"
+            ]
+          },
+          {
+            "pair": [
+              "route_deletion",
+              "unsafe_failover"
+            ],
+            "judgement": "different",
+            "why": null,
+            "documents": [
+              "D"
+            ]
+          }
+        ]
+      },
+      "per_document": [
+        {
+          "id": "A",
+          "org": "Cloudflare",
+          "labels_by_run": {
+            "extraction_run_02": "crash_on_bad_input",
+            "extraction_run_04": "crash_on_bad_input",
+            "extraction_run_05": "crash_on_bad_input",
+            "extraction_run_06": "crash_on_bad_input"
+          },
+          "distinct_strings": 1,
+          "null_count": 0,
+          "strings": [
+            "crash_on_bad_input"
+          ],
+          "co_occurring_pairs": []
+        },
+        {
+          "id": "B",
+          "org": "GitLab",
+          "labels_by_run": {
+            "extraction_run_02": "data_loss",
+            "extraction_run_04": "accidental_data_deletion",
+            "extraction_run_05": "accidental_data_deletion",
+            "extraction_run_06": "accidental_data_deletion"
+          },
+          "distinct_strings": 2,
+          "null_count": 0,
+          "strings": [
+            "accidental_data_deletion",
+            "data_loss"
+          ],
+          "co_occurring_pairs": [
+            {
+              "pair": [
+                "accidental_data_deletion",
+                "data_loss"
+              ],
+              "judgement": "borderline",
+              "why": "effect (loss) vs the action that caused it (deletion)"
+            }
+          ]
+        },
+        {
+          "id": "C",
+          "org": "AWS",
+          "labels_by_run": {
+            "extraction_run_02": "race_condition",
+            "extraction_run_04": "race_condition",
+            "extraction_run_05": "race_condition",
+            "extraction_run_06": "dns_resolution_failure"
+          },
+          "distinct_strings": 2,
+          "null_count": 0,
+          "strings": [
+            "dns_resolution_failure",
+            "race_condition"
+          ],
+          "co_occurring_pairs": [
+            {
+              "pair": [
+                "dns_resolution_failure",
+                "race_condition"
+              ],
+              "judgement": "different",
+              "why": null
+            }
+          ]
+        },
+        {
+          "id": "D",
+          "org": "Datadog",
+          "labels_by_run": {
+            "extraction_run_02": "race_condition",
+            "extraction_run_04": "route_deletion",
+            "extraction_run_05": "network_route_deletion",
+            "extraction_run_06": "unsafe_failover"
+          },
+          "distinct_strings": 4,
+          "null_count": 0,
+          "strings": [
+            "network_route_deletion",
+            "race_condition",
+            "route_deletion",
+            "unsafe_failover"
+          ],
+          "co_occurring_pairs": [
+            {
+              "pair": [
+                "network_route_deletion",
+                "race_condition"
+              ],
+              "judgement": "different",
+              "why": null
+            },
+            {
+              "pair": [
+                "network_route_deletion",
+                "route_deletion"
+              ],
+              "judgement": "same_concept",
+              "why": "identical head noun; `network_` is a qualifier"
+            },
+            {
+              "pair": [
+                "network_route_deletion",
+                "unsafe_failover"
+              ],
+              "judgement": "different",
+              "why": null
+            },
+            {
+              "pair": [
+                "race_condition",
+                "route_deletion"
+              ],
+              "judgement": "different",
+              "why": null
+            },
+            {
+              "pair": [
+                "race_condition",
+                "unsafe_failover"
+              ],
+              "judgement": "different",
+              "why": null
+            },
+            {
+              "pair": [
+                "route_deletion",
+                "unsafe_failover"
+              ],
+              "judgement": "different",
+              "why": null
+            }
+          ]
+        },
+        {
+          "id": "E",
+          "org": "GitHub",
+          "labels_by_run": {
+            "extraction_run_02": "unsafe_failover",
+            "extraction_run_04": "unsafe_failover",
+            "extraction_run_05": "unsafe_failover",
+            "extraction_run_06": "unsafe_failover"
+          },
+          "distinct_strings": 1,
+          "null_count": 0,
+          "strings": [
+            "unsafe_failover"
+          ],
+          "co_occurring_pairs": []
+        },
+        {
+          "id": "F",
+          "org": "CrowdStrike",
+          "labels_by_run": {
+            "extraction_run_02": "out_of_bounds_read",
+            "extraction_run_04": "out_of_bounds_read",
+            "extraction_run_05": "out_of_bounds_read",
+            "extraction_run_06": "crash_on_bad_input"
+          },
+          "distinct_strings": 2,
+          "null_count": 0,
+          "strings": [
+            "crash_on_bad_input",
+            "out_of_bounds_read"
+          ],
+          "co_occurring_pairs": [
+            {
+              "pair": [
+                "crash_on_bad_input",
+                "out_of_bounds_read"
+              ],
+              "judgement": "borderline",
+              "why": "specific fault vs the general failure it produced"
+            }
+          ]
+        },
+        {
+          "id": "G",
+          "org": "Google Cloud",
+          "labels_by_run": {
+            "extraction_run_02": "crash_on_bad_input",
+            "extraction_run_04": "crash_on_bad_input",
+            "extraction_run_05": "crash_on_bad_input",
+            "extraction_run_06": "crash_on_bad_input"
+          },
+          "distinct_strings": 1,
+          "null_count": 0,
+          "strings": [
+            "crash_on_bad_input"
+          ],
+          "co_occurring_pairs": []
+        },
+        {
+          "id": "H",
+          "org": "Slack",
+          "labels_by_run": {
+            "extraction_run_02": "cascading_overload",
+            "extraction_run_04": "cascading_overload",
+            "extraction_run_05": "cascading_overload",
+            "extraction_run_06": "cascading_overload"
+          },
+          "distinct_strings": 1,
+          "null_count": 0,
+          "strings": [
+            "cascading_overload"
+          ],
+          "co_occurring_pairs": []
+        },
+        {
+          "id": "I",
+          "org": "Roblox",
+          "labels_by_run": {
+            "extraction_run_02": "resource_contention",
+            "extraction_run_04": "resource_exhaustion",
+            "extraction_run_05": "cascading_overload",
+            "extraction_run_06": "resource_exhaustion"
+          },
+          "distinct_strings": 3,
+          "null_count": 0,
+          "strings": [
+            "cascading_overload",
+            "resource_contention",
+            "resource_exhaustion"
+          ],
+          "co_occurring_pairs": [
+            {
+              "pair": [
+                "cascading_overload",
+                "resource_contention"
+              ],
+              "judgement": "different",
+              "why": null
+            },
+            {
+              "pair": [
+                "cascading_overload",
+                "resource_exhaustion"
+              ],
+              "judgement": "different",
+              "why": null
+            },
+            {
+              "pair": [
+                "resource_contention",
+                "resource_exhaustion"
+              ],
+              "judgement": "borderline",
+              "why": "contention (waiting on a resource) vs exhaustion (running out of it); the document describes both"
+            }
+          ]
+        },
+        {
+          "id": "J",
+          "org": "Kubernetes SIG Testing (test-infra)",
+          "labels_by_run": {
+            "extraction_run_02": "misconfiguration",
+            "extraction_run_04": "misrouting_bug",
+            "extraction_run_05": "misrouted_scheduling",
+            "extraction_run_06": "misrouted_workload_scheduling"
+          },
+          "distinct_strings": 4,
+          "null_count": 0,
+          "strings": [
+            "misconfiguration",
+            "misrouted_scheduling",
+            "misrouted_workload_scheduling",
+            "misrouting_bug"
+          ],
+          "co_occurring_pairs": [
+            {
+              "pair": [
+                "misconfiguration",
+                "misrouted_scheduling"
+              ],
+              "judgement": "different",
+              "why": null
+            },
+            {
+              "pair": [
+                "misconfiguration",
+                "misrouted_workload_scheduling"
+              ],
+              "judgement": "different",
+              "why": null
+            },
+            {
+              "pair": [
+                "misconfiguration",
+                "misrouting_bug"
+              ],
+              "judgement": "different",
+              "why": null
+            },
+            {
+              "pair": [
+                "misrouted_scheduling",
+                "misrouted_workload_scheduling"
+              ],
+              "judgement": "same_concept",
+              "why": "identical apart from the `workload_` qualifier"
+            },
+            {
+              "pair": [
+                "misrouted_scheduling",
+                "misrouting_bug"
+              ],
+              "judgement": "same_concept",
+              "why": "both name misrouting; `_bug` vs `_scheduling` says what kind of thing misrouted, not a different failure"
+            },
+            {
+              "pair": [
+                "misrouted_workload_scheduling",
+                "misrouting_bug"
+              ],
+              "judgement": "same_concept",
+              "why": "as above, with `workload_` as a further qualifier"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
