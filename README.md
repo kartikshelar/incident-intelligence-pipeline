@@ -89,7 +89,7 @@ documents that already shared a text.
 
 `app/extract/` — see its `__init__.py` for the module map.
 
-**Schema v0.3** (`app/extract/schema.py`) is PROJECT_BRIEF §6's draft after
+**Schema v0.4** (`app/extract/schema.py`) is PROJECT_BRIEF §6's draft after
 the spike's corrections, each cited in the module docstring:
 
 - `trigger` (nullable: initiating change/event) + `mechanism` (required,
@@ -166,6 +166,7 @@ confidence, derived durations, validation attempts, tokens, cost, error).
 | [`run_04`](spike/extraction_run_04.json) (schema v0.3) | 10/10 | 0/10 | 1.40 | $1.04 ($0.07–$0.14 per document) |
 | [`run_05`](spike/extraction_run_05.json) (v0.4, thinking `adaptive:low`) | 10/10 | 0/10 | 1.40 | $0.63 ($0.03–$0.11 per document) |
 | [`run_06`](spike/extraction_run_06.json) (v0.4, thinking `disabled`) | 10/10 | 0/10 | 1.10 | $0.57 ($0.04–$0.13 per document) |
+| [`run_07`](spike/extraction_run_07.json) (v0.4, thinking `default`) | 10/10 | 0/10 | 1.40 | $1.01 ($0.07–$0.15 per document) |
 
 | Run | Uncached input | Cache read | Output | Written-description chars | Mean attempts | Cost / document |
 |---|---|---|---|---|---|---|
@@ -174,6 +175,7 @@ confidence, derived durations, validation attempts, tokens, cost, error).
 | run_04 (v0.3) | 106,126 | 72,293 | 80,412 | 8,713 | 1.40 | $0.104 |
 | run_05 (v0.4, `adaptive:low`) | 118,782 | 72,293 | 36,805 | 8,905 | 1.40 | $0.063 |
 | run_06 (v0.4, `disabled`) | 87,899 | 61,171 | 36,629 | 11,342 | 1.10 | $0.057 |
+| run_07 (v0.4, `default`) | 106,797 | 72,293 | 76,938 | 11,324 | 1.40 | $0.101 |
 
 Run 01 is the grammar-limit failure described above. Run 02, after the
 schema moved into the system block, produced a schema-valid record for
@@ -216,33 +218,38 @@ came back with new nonces a third time and were matched on `text_hash`:
 provenance updated, no new documents, 10 rows in `documents` (down from
 12 after migration 0005 merged the run-03 duplicates).
 
-**Thinking experiment (runs 05 and 06).** The same 10 documents and the
-same prompt, at `APP_EXTRACTION_THINKING=adaptive:low` (run 05) and
-`disabled` (run 06), compared document by document against run 04 in
+**Thinking experiment (runs 05, 06, 07).** The same 10 documents and the
+same prompt at schema v0.4: `APP_EXTRACTION_THINKING=adaptive:low`
+(run 05), `disabled` (run 06) and `default` (run 07, the baseline),
+compared document by document in
 [`spike/thinking_experiment.json`](spike/thinking_experiment.json)
-(rendered by `scripts/thinking_experiment.py`). Both arms ran on schema
-v0.4 (description cap 400) while run 04 was v0.3 (cap 200), so the
-attempt counts are confounded with that change; the first-attempt token
-numbers are not. Output tokens fell to 0.46× of run 04 in both arms
-(80,412 → 36,805 / 36,629); on first attempts only, 0.38× at
-`adaptive:low` and 0.46× at `disabled`. Cost per document $0.104 →
-$0.063 / $0.057. Mean attempts 1.40 / 1.10; none of the five retries
-across both arms was the description cap (all five were an invented
-extra key, the failure runs 02–04 also had). Exact-match agreement with
-run 04 on `trigger.label` / `mechanism.label` / `detection_method`:
-8 / 7 / 9 of 10 at `adaptive:low`, 7 / 6 / 8 at `disabled`, mostly
-different spellings of the same idea (`route_deletion` vs
-`network_route_deletion`) since the class values are still open. Each arm
-has 25 value↔null flips against run 04, mostly `mitigations[].date` and
-`affected.list_is_complete`; on several of them the two arms agree with
-each other against run 04 (Google Cloud `detected_at`, Roblox
-`mitigated_at`, four `list_is_complete` values), so run 04 is not a fixed
-reference either. The AWS trigger, which ADR-001 uses as its example of a
-null trigger, was null in runs 02 and 03, `operational_delay` in run 04,
-null again at `adaptive:low`, and `race_condition` at `disabled`.
-Agreement here is with run 04, not with ground truth; nothing was tuned
-on this result, and which setting to run is for M5's eval against the
-gold set to decide.
+(rendered by `scripts/thinking_experiment.py`). Run 07 exists to
+deconfound the comparison: the arms were first compared against run 04,
+which was schema v0.3 (description cap 200), so the cap change was mixed
+into the attempt counts; all three runs now share one schema. Output
+tokens fell to 0.48× of the baseline in both arms (76,938 → 36,805 /
+36,629); on first attempts only, 0.40× at `adaptive:low` and 0.49× at
+`disabled`. Cost per document $0.101 → $0.063 / $0.057. Mean attempts
+1.40 (baseline) / 1.40 / 1.10; run 07's four retries were three invented
+extra keys and one malformed JSON object (the first non-schema validation
+failure in seven runs), none the description cap. Exact-match agreement
+with run 07 on `trigger.label` / `mechanism.label` / `detection_method`:
+10 / 7 / 9 of 10 at `adaptive:low`, 8 / 5 / 8 at `disabled`. Most of the
+mechanism mismatches in both arms are different wording for one idea
+(`race_condition` vs `network_route_deletion` for Datadog is not; the
+class values are still open). The exception that matters is AWS at
+`disabled`: trigger became `race_condition` and mechanism
+`dns_resolution_failure`, so the mechanism moved into the trigger slot
+and the symptom into the mechanism slot, which is the two-field
+distinction ADR-001 exists to keep; `adaptive:low` kept the trigger null.
+Each arm has 28 value↔null flips against run 07, 22 of them shared by
+both arms (GitLab and Slack `mitigations[].date`, `list_is_complete` on
+three documents, Google Cloud `detected_at`, CrowdStrike's anchors), so
+the baseline is not a fixed reference either. The AWS trigger, which
+ADR-001 uses as its example of a null trigger, is null in runs 02, 03, 05
+and 07, `operational_delay` in run 04 and `race_condition` in run 06.
+Agreement here is with run 07, not with ground truth; M5's eval against
+the gold set is what measures quality.
 
 ### Open — flagged, not decided
 
