@@ -46,7 +46,11 @@ def _load_raw(doc_id: str) -> tuple[bytes, str, str]:
     return raw_bytes, _FORMAT_MAP[doc["format"]], doc["url"]
 
 
-ALL_DOC_IDS = [d["id"] for d in MANIFEST["documents"]]
+# The M0 spike saved raw bytes under spike/raw/ for its ten documents. The
+# 2026-09-16 corpus expansion did not (its bytes live in documents.raw_bytes
+# after ingest), so only manifest entries with a raw_file are parsed here.
+ALL_DOC_IDS = [d["id"] for d in MANIFEST["documents"] if d.get("raw_file")]
+assert len(ALL_DOC_IDS) == 10
 
 
 @pytest.mark.parametrize("doc_id", ALL_DOC_IDS)

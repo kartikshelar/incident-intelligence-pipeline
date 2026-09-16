@@ -20,6 +20,14 @@ Tokens and cost are attributed to THIS run only: extraction rows created
 before the run started (an earlier run's rows for the same document) are
 listed under `earlier_extraction_rows` but not summed.
 
+A document whose extract job succeeded without writing a new row was a
+duplicate (app/extract/pipeline.py: a complete row for the same schema
+version, provider, model and thinking already existed). Its record is
+reported from that earlier row, marked `reused_from_earlier_run`, with no
+tokens or cost attributed to this run and no validation attempts counted
+in the mean, so a run over a corpus that grew since the last run still
+reports every document.
+
 Usage: python -m scripts.extraction_run
 """
 
@@ -223,6 +231,12 @@ def main() -> int:
             earlier_rows = [r for r in all_rows if r["created_at"] < cutoff]
             rows = [r for r in all_rows if r["created_at"] >= cutoff]
             final = rows[-1] if rows else None
+            reused = False
+            if final is None and extract is not None and extract["status"] == "succeeded":
+                earlier_complete = [r for r in earlier_rows if r["status"] == "complete"]
+                if earlier_complete:
+                    final = earlier_complete[-1]
+                    reused = True
             usage = _sum_usage(rows)
             error = None
             if final is not None and final["status"] != "complete":
@@ -247,7 +261,10 @@ def main() -> int:
                         if (extract or ingest or {}).get("status") == "dead_letter"
                         else "not_terminal"
                     ),
-                    "validation_attempts": final["validation_attempts"] if final else None,
+                    "validation_attempts": (
+                        final["validation_attempts"] if final and not reused else None
+                    ),
+                    "reused_from_earlier_run": reused,
                     "extraction_rows": len(rows),
                     "tokens": {
                         "input_tokens": usage.get("input_tokens", 0),
@@ -270,6 +287,7 @@ def main() -> int:
             )
 
     succeeded = [d for d in per_doc if d["outcome"] == "complete"]
+    reused_docs = [d for d in succeeded if d["reused_from_earlier_run"]]
     dead = [d for d in per_doc if d["outcome"] == "dead_letter"]
     attempts = [d["validation_attempts"] for d in per_doc if d["validation_attempts"] is not None]
     costs = [d["cost_usd"] for d in per_doc if d["cost_usd"] is not None]
@@ -283,6 +301,10 @@ def main() -> int:
     summary = {
         "documents": len(per_doc),
         "succeeded": len(succeeded),
+        # Of the succeeded: reported from an earlier run's complete row at
+        # the same (schema, provider, model, thinking); nothing billed here.
+        "reused_from_earlier_runs": len(reused_docs),
+        "extracted_this_run": len(succeeded) - len(reused_docs),
         "dead_lettered": len(dead),
         "not_terminal": len(per_doc) - len(succeeded) - len(dead),
         "mean_validation_attempts": statistics.mean(attempts) if attempts else None,
@@ -312,7 +334,9 @@ def main() -> int:
 
     print()
     print(f"wrote {out_path}")
-    print(f"documents succeeded:     {summary['succeeded']}/{summary['documents']}")
+    print(f"documents succeeded:     {summary['succeeded']}/{summary['documents']}"
+          + (f" ({summary['reused_from_earlier_runs']} reused from earlier runs)"
+             if summary["reused_from_earlier_runs"] else ""))
     print(f"documents dead-lettered: {summary['dead_lettered']}/{summary['documents']}")
     if summary["not_terminal"]:
         print(f"documents not terminal:  {summary['not_terminal']}")
@@ -323,7 +347,9 @@ def main() -> int:
     print(f"total cost: ${total_cost:.4f}" if total_cost is not None else
           "total cost: n/a (no PRICE_* env)")
     for d in per_doc:
-        print(f"  {d['id']} {d['org']:<40} {d['outcome']:<12} attempts={d['validation_attempts']} "
+        print(f"  {d['id']:<3}{d['org'][:40]:<40} "
+              f"{(d['outcome'] + ('*' if d['reused_from_earlier_run'] else '')):<12} "
+              f"attempts={d['validation_attempts']} "
               f"cost={d['cost_usd'] if d['cost_usd'] is None else round(d['cost_usd'], 4)}"
               + (f"  error={d['error'][:100]}" if d["error"] else ""))
     return 0 if finished else 1

@@ -178,6 +178,7 @@ confidence, derived durations, validation attempts, tokens, cost, error).
 | [`run_06`](spike/extraction_run_06.json) (v0.4, thinking `disabled`) | 10/10 | 0/10 | 1.10 | $0.57 ($0.04–$0.13 per document) |
 | [`run_07`](spike/extraction_run_07.json) (v0.4, thinking `default`) | 10/10 | 0/10 | 1.40 | $1.01 ($0.07–$0.15 per document) |
 | [`run_08`](spike/extraction_run_08.json) (v0.5, thinking `adaptive:low`) | 10/10 | 0/10 | 1.50 | $0.65 ($0.04–$0.10 per document) |
+| [`run_09`](spike/extraction_run_09.json) (v0.5, `adaptive:low`, corpus of 30: 20 new + 10 reused from run 08) | 30/30 | 0/30 | 1.45 (20 new) | $1.06 ($0.02–$0.12 per new document) |
 
 | Run | Uncached input | Cache read | Output | Written-description chars | Mean attempts | Cost / document |
 |---|---|---|---|---|---|---|
@@ -188,6 +189,7 @@ confidence, derived durations, validation attempts, tokens, cost, error).
 | run_06 (v0.4, `disabled`) | 87,899 | 61,171 | 36,629 | 11,342 | 1.10 | $0.057 |
 | run_07 (v0.4, `default`) | 106,797 | 72,293 | 76,938 | 11,324 | 1.40 | $0.101 |
 | run_08 (v0.5, `adaptive:low`) | 115,835 | 90,790 | 38,849 | 8,421 | 1.50 | $0.065 |
+| run_09 (v0.5, `adaptive:low`, 20 new documents) | 308,579 | 272,370 | 100,876 | 14,483 | 1.45 | $0.053 |
 
 Run 01 is the grammar-limit failure described above. Run 02, after the
 schema moved into the system block, produced a schema-valid record for
@@ -283,6 +285,71 @@ description; noted, not concluded. Cost $0.65, within noise of run 05's
 $0.63. ADR-006 §8's pre-registered checks (a second `adaptive:low` run
 agreeing on 9 of 10 mechanism labels, and 8 of 10 agreement with the M0
 blind labels on a re-label pass) have not been run yet.
+
+**Corpus expansion to 30 and run 09 (2026-09-16).** The mechanism enum
+was derived from documents A–J, which are all large infrastructure
+vendors. Twenty documents it was not built from were added to
+[`spike/corpus_manifest.json`](spike/corpus_manifest.json) (selection
+filter recorded there: at most 5 large vendors, at least 8 smaller
+companies or individual blogs, at least 4 where users noticed first,
+markdown/HTML/PDF kept, no incident already in the corpus): 3 large
+vendors, 2 mid-size companies, 6 small companies, 3 individual blogs, 4
+open-source projects, 2 non-software organisations (a university's
+external storage-outage review and an air-accident report on an
+airline's load-sheet software); 16 HTML, 2 markdown, 2 PDF. Run 09
+extracted the 20 at v0.5 / `adaptive:low` and reports A–J from their
+run-08 rows (same schema, provider, model and thinking, so the pipeline
+treats them as duplicates; the report marks them `reused_from_earlier_run`
+and bills nothing for them). Findings, reported and not acted on:
+
+- **`other`: 7 of 30 (23%), all seven among the new 20 (35%).** ADR-006
+  §8 set 20% as the ceiling above which the class list is too narrow.
+  Four of the seven are software defects that crash, hang, or compute a
+  wrong answer without being a null dereference, a limit breach, or an
+  out-of-bounds read (incident.io's poison-pill panic, Firefox's infinite
+  loop on an unexpected header, Boskos's crash loop on a latent startup
+  bug, the load-sheet system mis-weighting passengers titled "Miss"); one
+  is a supply-chain compromise (ESLint); one is a storage-firmware flaw
+  that lost data during a hardware replacement (King's College London);
+  one is a Postgres sequence gap after failover (incident.io) that
+  produced no outage at all. The retired `crash_on_bad_input` would have
+  covered the first group. Self-reported mechanism confidence on the
+  seven is 0.50–0.60. Every one of the twelve classes was used at least
+  once across the 30.
+- **Trigger collisions.** One confirmed same-concept/different-string
+  pair appeared: `internal_config_change` (LaunchDarkly) against
+  `config_change` (Cloudflare, Google Cloud, Cloudflare 2019). Borderline:
+  `infrastructure_config_change` (Firefox: an external provider's default
+  change), `infrastructure_downgrade` (Buildkite: an instance-size
+  change), and Twilio's on-call host restart labelled
+  `infrastructure_maintenance` where GitLab's and Facebook's operator
+  actions are `manual_command`. ADR-006 §1 said to revisit the open
+  trigger vocabulary if confirmed collisions appeared. Also, the
+  Kubernetes 1.15 code-freeze load is labelled `traffic_spike`, which
+  ADR-006 §5 classes as an anomalous condition; the description names
+  the code freeze it is attributable to, so the label sits on the wrong
+  side of the rule while the description sits on the right one. Trigger
+  was null on 4 of 30 (AWS, Honeycomb, incident.io's poison pill,
+  PythonAnywhere).
+- **`customer_report` fired for the first time: 6 of 30**, all in the new
+  20 (Atlassian, incident.io, Buildkite, Turso, and both new Kubernetes
+  test-infra postmortems). Distribution across 30: monitoring 10,
+  internal_manual 7, customer_report 6, unknown 4, operator 2,
+  ambiguous 1. The absence in runs 02–08 was the corpus, not the schema.
+- **Attempts and cost.** Mean 1.45 over the 20 new documents (9 retries).
+  The extra-key pattern on the trigger and mechanism objects persisted
+  and grew: 7 of the 9 retries added an invented key there
+  (`quote_source` three times, `source_section` twice, `quote2`,
+  `label_alt`, `trigger_at`, `quote_ok`, a nested `trigger`), against 3
+  of 5 in run 08 and 0 in runs 05–07. Three runs now point the same way;
+  the v0.5 label description is the likely cause and is worth a measured
+  fix. The other two retries were one malformed JSON object and one
+  record-level extra key. $1.06 for the 20 ($0.053 per document; the
+  51k-character Atlassian review cost $0.12).
+- **Reproducibility of A–J was not re-measured**: their run-09 rows are
+  run-08's rows. ADR-006 §8's two-run agreement check still needs a
+  second `adaptive:low` run, which the unique index on complete rows
+  prevents at the same schema version without a deliberate re-run path.
 
 ### Open — flagged, not decided
 
