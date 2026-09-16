@@ -106,6 +106,10 @@ the validation contract changed and the version is part of the extraction
 idempotency key. No database migration: `record` is JSONB with no
 constraint on its contents, and every v0.4 row keeps its v0.4 label under
 its own `schema_version`; the enum applies to rows written at v0.5.
+Also in v0.5 (ADR-006 §6): the `Trigger` description no longer names the
+corpus document that exemplified a null trigger; it describes the case
+instead. tests/test_extract_schema.py asserts that no corpus org or title
+appears in anything the model reads.
 
 OPEN, deliberately not decided here (FINDINGS §4.11, §4.12): one record per
 DOCUMENT. Nothing in this schema links two documents to one incident, and a
@@ -261,9 +265,12 @@ def parse_anchor(value: str) -> datetime | date | None:
 
 class Trigger(_Strict):
     """ADR-001: the initiating change or event that activated the failing
-    path. Nullable at the record level — AWS's latent DNS race had none.
-    When several changes could count, the one closest to the failure that
-    was necessary to activate it wins (ADR-001 §4)."""
+    path. Nullable at the record level — for example, a service whose
+    outage came from a long-standing defect that surfaced under ordinary
+    operation, with no deploy, configuration change, command, maintenance
+    or external event that activated it, has none. When several changes
+    could count, the one closest to the failure that was necessary to
+    activate it wins (ADR-001 §4)."""
 
     label: TriggerClass = Field(
         pattern=_LABEL_PATTERN,

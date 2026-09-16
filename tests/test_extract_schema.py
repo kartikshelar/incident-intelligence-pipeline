@@ -3,11 +3,15 @@ rule that M3 was asked to implement, asserted by name, the v0.3 constraint
 on the descriptions the model writes, and ADR-006's closed mechanism enum."""
 
 import json
+import re
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from app.extract.derive import derive_durations
+from app.extract.llm import system_with_schema
+from app.extract.prompt import SYSTEM_PROMPT
 from app.extract.schema import (
     MAX_DESCRIPTION_CHARS,
     RECORD_FIELDS,
@@ -348,6 +352,44 @@ def test_wire_descriptions_are_the_v01_wording_not_the_v02_trim() -> None:
     assert "detection_quote" in record
     assert "quote" in defs["Trigger"]["properties"]
     assert "quote" in defs["TimeAnchor"]["properties"]
+
+
+_SPIKE = Path(__file__).resolve().parent.parent / "spike"
+
+
+def _corpus_names() -> list[str]:
+    """Every org in the corpus manifest (plus the first word of multi-word
+    orgs, so "Google" and "Kubernetes" count) and every document title the
+    parser recorded in any run report."""
+    manifest = json.loads((_SPIKE / "corpus_manifest.json").read_text(encoding="utf-8"))
+    names: set[str] = set()
+    for doc in manifest["documents"]:
+        org = doc["org"]
+        names.add(org)
+        first, *rest = org.split()
+        if rest:
+            names.add(first)
+    for report_path in sorted(_SPIKE.glob("extraction_run_*.json")):
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        for doc in report["documents"]:
+            title = (doc.get("document") or {}).get("title")
+            if title:
+                names.add(title.strip())
+    assert len(names) >= 10
+    return sorted(names)
+
+
+def test_no_corpus_document_org_or_title_appears_in_the_text_the_model_reads() -> None:
+    """ADR-006 §6: the wire schema used to name AWS as the null-trigger
+    example, and AWS is in the evaluation corpus. Nothing the model reads
+    (system prompt + wire schema) may name a corpus document."""
+    read_text = system_with_schema(SYSTEM_PROMPT, wire_schema())
+    leaks = [
+        name
+        for name in _corpus_names()
+        if re.search(rf"(?<![A-Za-z0-9]){re.escape(name)}(?![A-Za-z0-9])", read_text, re.I)
+    ]
+    assert leaks == []
 
 
 # --- v0.3+: the descriptions the model WRITES are one short sentence -------
