@@ -257,6 +257,11 @@ the gold set is what measures quality.
   defers the class lists to "01b", which does not exist yet. Until it does
   the two labels are open snake_case strings (`app/extract/taxonomy.py`),
   stored verbatim; swapping in a `Literal[...]` is a one-line change there.
+- **What counts as an initiating "event".** The AWS trigger flips between
+  null and a value across runs on identical read-side text; the prompt's
+  "change or event" lets an anomalous delay qualify, and ADR-001 does not
+  say whether it should. Investigated, not fixed:
+  [`spike/nullable_trigger_regression.md`](spike/nullable_trigger_regression.md).
 - **Document ≠ incident** (FINDINGS §4.11, §4.12). `extractions` keys on
   `document_id`; there is no `incident_id`, and a multi-period document
   yields one record for its primary incident. Needs a schema decision.
