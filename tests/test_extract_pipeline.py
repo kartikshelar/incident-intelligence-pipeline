@@ -184,11 +184,15 @@ def test_failed_rows_do_not_block_a_later_success(engine: Engine) -> None:
 
 
 def test_complete_extraction_is_idempotent(engine: Engine) -> None:
-    """At-least-once delivery (ADR-003 §4): a second run for the same
-    document/schema/model is a no-op that calls no model."""
+    """At-least-once delivery (ADR-003 §4): a redelivered job for the same
+    document/schema/model/thinking/run is a no-op that calls no model. Two
+    claims of one job share a run_id because they share the worker
+    process's one LLMClient (get_llm_client is @lru_cache'd)."""
     document_id = _insert_document(engine)
-    first = _extract(engine, document_id, FakeLLMClient([valid_output_json()]))
+    client = FakeLLMClient([valid_output_json()])
+    first = _extract(engine, document_id, client)
     second_client = FakeLLMClient([])
+    second_client.run_id = client.run_id  # same client identity, as within one process
     second = _extract(engine, document_id, second_client)
 
     assert second.was_duplicate is True
@@ -197,20 +201,49 @@ def test_complete_extraction_is_idempotent(engine: Engine) -> None:
     assert len(_rows(engine, document_id)) == 1
 
 
-def test_unique_index_enforces_one_complete_row_per_document_schema_provider_model_thinking(
+def test_two_runs_at_identical_settings_each_get_a_complete_row(engine: Engine) -> None:
+    """ADR-006 §8 needs two independent runs at identical
+    document/schema/provider/model/thinking to each leave a measurable
+    complete row — a second run must call the model again, not no-op
+    against the first run's row."""
+    document_id = _insert_document(engine)
+    first_client = FakeLLMClient([valid_output_json()])
+    first = _extract(engine, document_id, first_client)
+
+    second_client = FakeLLMClient([valid_output_json()])
+    assert second_client.run_id != first_client.run_id  # distinct by construction
+    second = _extract(engine, document_id, second_client)
+
+    assert second.was_duplicate is False
+    assert second.extraction_id != first.extraction_id
+    assert len(second_client.calls) == 1
+    rows = _rows(engine, document_id)
+    assert len(rows) == 2
+    assert {r["run_id"] for r in rows} == {first_client.run_id, second_client.run_id}
+    assert all(r["status"] == "complete" for r in rows)
+
+
+def test_unique_index_enforces_one_complete_row_per_document_schema_provider_model_thinking_run(
     engine: Engine,
 ) -> None:
     document_id = _insert_document(engine)
-    _extract(engine, document_id, FakeLLMClient([valid_output_json()]))
+    client = FakeLLMClient([valid_output_json()])
+    _extract(engine, document_id, client)
     with engine.begin() as conn, pytest.raises(Exception, match="ux_extractions_complete"):
         conn.execute(
             text(
                 "INSERT INTO extractions (id, document_id, schema_version, provider, model, "
-                "thinking, status, record, attempts, attempt_log, usage) "
-                "VALUES (:id, :d, :v, 'fake', :m, 'fake-thinking', 'complete', '{}', 1, "
+                "thinking, run_id, status, record, attempts, attempt_log, usage) "
+                "VALUES (:id, :d, :v, 'fake', :m, 'fake-thinking', :run_id, 'complete', '{}', 1, "
                 "'[]', '{}')"
             ),
-            {"id": uuid.uuid4(), "d": document_id, "v": SCHEMA_VERSION, "m": MODEL},
+            {
+                "id": uuid.uuid4(),
+                "d": document_id,
+                "v": SCHEMA_VERSION,
+                "m": MODEL,
+                "run_id": client.run_id,
+            },
         )
 
 

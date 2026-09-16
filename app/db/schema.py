@@ -157,6 +157,12 @@ extractions = Table(
     Column("provider", String, nullable=False),
     Column("model", String, nullable=False),
     Column("thinking", String, nullable=False),
+    # Identifies which run produced this row (app/extract/llm.py: one UUID
+    # per LLMClient unless APP_EXTRACTION_RUN_ID names one explicitly). Part
+    # of the idempotency key so a second complete run at identical settings
+    # (ADR-006 §8's two-run agreement check) gets its own row instead of
+    # being treated as a duplicate of the first.
+    Column("run_id", String, nullable=False),
     Column("status", String, nullable=False),
     # IncidentRecord as JSON. NULL iff status = 'failed'.
     Column("record", JSONB, nullable=True),
@@ -184,7 +190,11 @@ extractions = Table(
     # At-least-once delivery (ADR-003 §4) means two workers can run the same
     # extract job; the pipeline checks first, and this makes the check
     # race-proof: one complete row per (document, schema, provider, model,
-    # thinking).
+    # thinking, run). Adding run_id (over 0006's four-column key) is what
+    # lets a second run at identical settings produce its own complete row
+    # instead of colliding with the first — the duplicate check in
+    # app/extract/pipeline.py additionally scopes on run_id so at-least-once
+    # redelivery *within* one run still dedups as before.
     Index(
         "ux_extractions_complete",
         "document_id",
@@ -192,6 +202,7 @@ extractions = Table(
         "provider",
         "model",
         "thinking",
+        "run_id",
         unique=True,
         postgresql_where=text("status = 'complete'"),
     ),

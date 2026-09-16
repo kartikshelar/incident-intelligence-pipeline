@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import json
+import uuid
 from typing import Any
 
 from app.extract.llm import LLMResponse
@@ -148,6 +149,9 @@ class FakeLLMClient:
     def __init__(self, script: list[str | BaseException], *, model: str = "fake-model") -> None:
         self.script = list(script)
         self.model = model
+        # A fresh id per instance, like AnthropicClient's default: two
+        # FakeLLMClient()s are two runs unless a test sets .run_id equal.
+        self.run_id = str(uuid.uuid4())
         self.calls: list[dict[str, Any]] = []
 
     def complete(

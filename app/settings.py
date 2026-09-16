@@ -12,6 +12,14 @@ provider, the model string, and the API key all come from here.
                           `disabled`, optionally `:<effort>` — see
                           app.extract.llm) and stored verbatim on every
                           extractions row next to provider and model
+  APP_EXTRACTION_RUN_ID   labels which run produced a row (ADR-006 §8 needs
+                          two independent runs at identical settings to be
+                          distinguishable). Optional: unset means "generate
+                          one UUID per process" (app.extract.llm), which is
+                          enough to make a fresh `python -m
+                          scripts.extraction_run` invocation its own run.
+                          Set it explicitly to label a run by hand, or when
+                          more than one worker process must share one run id.
   ANTHROPIC_API_KEY       the provider's key (its own name, not APP_-prefixed,
                           so the same variable the SDK reads still works)
 
@@ -41,6 +49,10 @@ class Settings(BaseSettings):
     llm_provider: str | None = None
     extraction_model: str | None = None
     extraction_thinking: str | None = None
+    # Unset means "generate one UUID per client" (app.extract.llm), not "no
+    # run id" — unlike provider/model/thinking, a missing run id is not a
+    # configuration error, since it does not change what gets extracted.
+    extraction_run_id: str | None = None
     extraction_max_tokens: int = 16000
     # Schema-validation retries *within* one job (validation error fed back
     # to the model). Distinct from job_max_attempts, which is the queue's
@@ -53,7 +65,13 @@ class Settings(BaseSettings):
     # token, `ant auth login` profile).
     anthropic_api_key: SecretStr | None = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
 
-    @field_validator("llm_provider", "extraction_model", "extraction_thinking", mode="before")
+    @field_validator(
+        "llm_provider",
+        "extraction_model",
+        "extraction_thinking",
+        "extraction_run_id",
+        mode="before",
+    )
     @classmethod
     def _blank_is_unset(cls, value: object) -> object:
         # `APP_EXTRACTION_MODEL=` (empty) means "not configured", not "".

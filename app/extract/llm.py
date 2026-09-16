@@ -64,6 +64,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import uuid
 from collections.abc import Callable
 from typing import Any, Protocol
 
@@ -124,7 +125,11 @@ class LLMClient(Protocol):
 
     `provider` / `model` / `thinking` are what the pipeline records on each
     extraction row and keys idempotency on: the *configured* strings, not
-    whatever the API echoes back (that goes in the attempt log).
+    whatever the API echoes back (that goes in the attempt log). `run_id`
+    is part of that identity too (ADR-006 §8 needs two runs at identical
+    settings to each leave their own complete row) but, unlike the other
+    three, an unset one is not a configuration error — see
+    app.settings.Settings.extraction_run_id.
 
     `messages` is the conversation so far (user/assistant alternation);
     `schema` is the JSON schema the response must satisfy. Raises
@@ -135,6 +140,7 @@ class LLMClient(Protocol):
     provider: str
     model: str
     thinking: str
+    run_id: str
 
     def complete(
         self, *, system: str, messages: list[dict[str, Any]], schema: dict[str, Any]
@@ -151,12 +157,18 @@ class AnthropicClient:
         *,
         model: str,
         thinking: str,
+        run_id: str | None = None,
         max_tokens: int = 16000,
         api_key: str | None = None,
         client: Any | None = None,
     ) -> None:
         self.model = model
         self.thinking = thinking
+        # One UUID per client if the caller didn't name a run: enough to
+        # make each worker process (get_llm_client is @lru_cache'd, one
+        # client per process) its own run. Two worker processes sharing one
+        # run must be given the same APP_EXTRACTION_RUN_ID explicitly.
+        self.run_id = run_id if run_id is not None else str(uuid.uuid4())
         # Validated here, not per request: a bad value is a configuration
         # error and fails the job with a recorded reason before any call.
         self._thinking_params = thinking_request_params(thinking)
@@ -262,21 +274,24 @@ def response_to_llm_response(response: Any) -> LLMResponse:
     return result
 
 
-def _build_anthropic(settings: Settings, model: str, thinking: str) -> LLMClient:
+def _build_anthropic(
+    settings: Settings, model: str, thinking: str, run_id: str | None
+) -> LLMClient:
     key = settings.anthropic_api_key
     return AnthropicClient(
         model=model,
         thinking=thinking,
+        run_id=run_id,
         max_tokens=settings.extraction_max_tokens,
         api_key=key.get_secret_value() if key is not None else None,
     )
 
 
 # Provider name (APP_LLM_PROVIDER) -> constructor (settings, model,
-# thinking). The only place a provider is named; add a second entry here to
-# add a second provider. Each provider interprets the thinking string its
-# own way; the pipeline stores it verbatim either way.
-_PROVIDERS: dict[str, Callable[[Settings, str, str], LLMClient]] = {
+# thinking, run_id). The only place a provider is named; add a second entry
+# here to add a second provider. Each provider interprets the thinking
+# string its own way; the pipeline stores it verbatim either way.
+_PROVIDERS: dict[str, Callable[[Settings, str, str, str | None], LLMClient]] = {
     ANTHROPIC: _build_anthropic,
 }
 
@@ -308,4 +323,9 @@ def build_llm_client(settings: Settings) -> LLMClient:
             "APP_EXTRACTION_THINKING is not set (for anthropic: one of "
             f"{', '.join(THINKING_MODES)}, optionally ':<effort>')"
         )
-    return factory(settings, settings.extraction_model, settings.extraction_thinking)
+    return factory(
+        settings,
+        settings.extraction_model,
+        settings.extraction_thinking,
+        settings.extraction_run_id,
+    )

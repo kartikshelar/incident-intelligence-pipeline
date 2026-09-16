@@ -160,6 +160,7 @@ def _extractions(conn: Any, document_id: str) -> list[dict[str, Any]]:
                 "provider": r["provider"],
                 "model": r["model"],
                 "thinking": r["thinking"],
+                "run_id": r["run_id"],
                 "schema_version": r["schema_version"],
                 "validation_attempts": r["attempts"],
                 "usage": r["usage"],

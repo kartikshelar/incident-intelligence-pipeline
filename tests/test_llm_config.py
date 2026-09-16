@@ -31,6 +31,30 @@ def test_factory_builds_the_configured_provider_model_and_thinking() -> None:
     assert client.max_tokens == 777
 
 
+def test_unset_run_id_gets_a_generated_uuid() -> None:
+    cfg = _settings(
+        llm_provider="anthropic",
+        extraction_model="m",
+        extraction_thinking="default",
+        anthropic_api_key=SecretStr("k"),
+    )
+    client = build_llm_client(cfg)
+    assert isinstance(client.run_id, str) and len(client.run_id) > 0
+    # Two builds get two different generated ids: each is its own run.
+    assert build_llm_client(cfg).run_id != client.run_id
+
+
+def test_configured_run_id_is_passed_through_verbatim() -> None:
+    cfg = _settings(
+        llm_provider="anthropic",
+        extraction_model="m",
+        extraction_thinking="default",
+        extraction_run_id="run_10",
+        anthropic_api_key=SecretStr("k"),
+    )
+    assert build_llm_client(cfg).run_id == "run_10"
+
+
 def test_provider_name_is_case_insensitive() -> None:
     cfg = _settings(
         llm_provider="Anthropic",
@@ -78,6 +102,7 @@ def test_no_model_default_exists_in_code() -> None:
     assert _settings().extraction_model is None
     assert _settings().llm_provider is None
     assert _settings().extraction_thinking is None
+    assert _settings().extraction_run_id is None
     assert SUPPORTED_PROVIDERS == ("anthropic",)
 
 
@@ -99,10 +124,12 @@ def test_settings_read_provider_model_thinking_and_key_from_env(
 def test_blank_env_values_mean_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_EXTRACTION_MODEL", "")
     monkeypatch.setenv("APP_EXTRACTION_THINKING", "")
+    monkeypatch.setenv("APP_EXTRACTION_RUN_ID", "")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
     cfg = _settings()
     assert cfg.extraction_model is None
     assert cfg.extraction_thinking is None
+    assert cfg.extraction_run_id is None
     assert cfg.anthropic_api_key is None
 
 

@@ -12,14 +12,19 @@ app.worker.main.run_once does) and commit. Letting it escape
 `engine.begin()` rolls the failed row back along with everything else.
 
 Idempotent under at-least-once delivery (ADR-003 §4): a document that
-already has a `complete` row for this schema version, provider, model and
-thinking setting is a no-op. Failed rows never block a retry; they
+already has a `complete` row for this schema version, provider, model,
+thinking setting AND run is a no-op. Failed rows never block a retry; they
 accumulate, one per attempt-set, which is the audit trail.
 
-Provider, model and thinking are taken from the client (`client.provider`,
-`client.model`, `client.thinking`) — the configured identity, so
-idempotency keys on what was asked for, not on whatever string the API
-echoes back (that is kept per attempt in `attempt_log`).
+Provider, model, thinking and run_id are taken from the client
+(`client.provider`, `client.model`, `client.thinking`, `client.run_id`) —
+the configured identity, so idempotency keys on what was asked for, not on
+whatever string the API echoes back (that is kept per attempt in
+`attempt_log`). run_id is what makes ADR-006 §8's two-run agreement check
+measurable: re-running the same document/schema/provider/model/thinking
+under a different run_id (a fresh LLMClient, or APP_EXTRACTION_RUN_ID set
+to a new value) calls the model again and leaves its own complete row,
+instead of finding the first run's row and no-oping.
 
 Title (FINDINGS §4.7): if the parser found a metadata title, it wins over
 whatever the model wrote, and title_source says so.
@@ -60,13 +65,14 @@ def extract_document(
     max_attempts: int,
 ) -> ExtractOutcome:
     provider, model, thinking = client.provider, client.model, client.thinking
+    run_id = client.run_id
     existing = (
         conn.execute(
             text(
                 "SELECT id, attempts FROM extractions "
                 "WHERE document_id = :document_id AND schema_version = :schema_version "
                 "AND provider = :provider AND model = :model AND thinking = :thinking "
-                "AND status = 'complete'"
+                "AND run_id = :run_id AND status = 'complete'"
             ),
             {
                 "document_id": document_id,
@@ -74,6 +80,7 @@ def extract_document(
                 "provider": provider,
                 "model": model,
                 "thinking": thinking,
+                "run_id": run_id,
             },
         )
         .mappings()
@@ -114,6 +121,7 @@ def extract_document(
             provider=provider,
             model=model,
             thinking=thinking,
+            run_id=run_id,
             error=exc,
             error_kind=kind,
             attempts=exc.attempts,
@@ -126,6 +134,7 @@ def extract_document(
             provider=provider,
             model=model,
             thinking=thinking,
+            run_id=run_id,
             error=exc,
             error_kind="unexpected",
             attempts=[],
@@ -143,12 +152,12 @@ def extract_document(
         text(
             """
             INSERT INTO extractions
-                (id, document_id, schema_version, provider, model, thinking, status, record,
-                 per_field_confidence, confidence_source, derived, attempts,
+                (id, document_id, schema_version, provider, model, thinking, run_id, status,
+                 record, per_field_confidence, confidence_source, derived, attempts,
                  attempt_log, usage, error, error_kind)
             VALUES
-                (:id, :document_id, :schema_version, :provider, :model, :thinking, 'complete',
-                 :record, :per_field_confidence, 'self_report', :derived, :attempts,
+                (:id, :document_id, :schema_version, :provider, :model, :thinking, :run_id,
+                 'complete', :record, :per_field_confidence, 'self_report', :derived, :attempts,
                  :attempt_log, :usage, NULL, NULL)
             """
         ),
@@ -159,6 +168,7 @@ def extract_document(
             "provider": provider,
             "model": model,
             "thinking": thinking,
+            "run_id": run_id,
             "record": record.model_dump_json(),
             "per_field_confidence": result.output.confidence.model_dump_json(),
             "derived": json.dumps(derive_durations(record)),
@@ -182,6 +192,7 @@ def _insert_failed(
     provider: str,
     model: str,
     thinking: str,
+    run_id: str,
     error: BaseException,
     error_kind: str,
     attempts: list[Attempt],
@@ -194,12 +205,12 @@ def _insert_failed(
         text(
             """
             INSERT INTO extractions
-                (id, document_id, schema_version, provider, model, thinking, status, record,
-                 per_field_confidence, confidence_source, derived, attempts,
+                (id, document_id, schema_version, provider, model, thinking, run_id, status,
+                 record, per_field_confidence, confidence_source, derived, attempts,
                  attempt_log, usage, error, error_kind)
             VALUES
-                (:id, :document_id, :schema_version, :provider, :model, :thinking, 'failed',
-                 NULL, NULL, 'self_report', NULL, :attempts,
+                (:id, :document_id, :schema_version, :provider, :model, :thinking, :run_id,
+                 'failed', NULL, NULL, 'self_report', NULL, :attempts,
                  :attempt_log, :usage, :error, :error_kind)
             """
         ),
@@ -210,6 +221,7 @@ def _insert_failed(
             "provider": provider,
             "model": model,
             "thinking": thinking,
+            "run_id": run_id,
             "attempts": len(attempts),
             "attempt_log": _attempt_log_json(attempts),
             "usage": json.dumps(usage),
