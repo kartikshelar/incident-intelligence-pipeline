@@ -23,7 +23,13 @@ from app.extract.schema import (
     sentence_count,
     wire_schema,
 )
-from app.extract.taxonomy import DETECTION_METHODS, MECHANISM_CLASSES, MECHANISM_DEFINITIONS
+from app.extract.taxonomy import (
+    DETECTION_METHODS,
+    MECHANISM_CLASSES,
+    MECHANISM_DEFINITIONS,
+    TRIGGER_CLASSES,
+    TRIGGER_DEFINITIONS,
+)
 from tests.fake_llm import valid_output
 
 
@@ -91,12 +97,13 @@ def test_trigger_and_mechanism_labels_are_snake_case() -> None:
     assert "record.trigger.label" in format_validation_error(exc.value)
 
 
-# --- ADR-006 §3: mechanism is a closed enum, trigger stays open --------------
+# --- ADR-006 §3 / ADR-008 §3: mechanism and trigger are both closed enums ---
 
 
-def test_mechanism_enum_is_the_twelve_adr_006_classes() -> None:
-    assert len(MECHANISM_CLASSES) == 12
+def test_mechanism_enum_is_the_sixteen_adr_006_and_adr_008_classes() -> None:
+    assert len(MECHANISM_CLASSES) == 16
     assert set(MECHANISM_CLASSES) == {
+        # ADR-006 §3, unchanged
         "accidental_data_deletion",
         "cascading_overload",
         "limit_violation",
@@ -109,6 +116,11 @@ def test_mechanism_enum_is_the_twelve_adr_006_classes() -> None:
         "unsafe_failover",
         "workload_misrouting",
         "other",
+        # ADR-008 §3, added
+        "software_defect",
+        "security_compromise",
+        "hardware_data_loss",
+        "consistency_anomaly",
     }
 
 
@@ -152,12 +164,75 @@ def test_mechanism_definitions_are_the_adr_table_and_reach_the_wire() -> None:
     )
 
 
-def test_trigger_label_stays_open_vocabulary() -> None:
-    """ADR-006 §3 keeps `trigger` free text; only its shape is constrained."""
+def test_trigger_enum_is_the_ten_adr_008_classes() -> None:
+    assert len(TRIGGER_CLASSES) == 10
+    assert set(TRIGGER_CLASSES) == {
+        "config_change",
+        "code_deploy",
+        "manual_command",
+        "os_auto_update",
+        "infrastructure_maintenance",
+        "content_update",
+        "feature_rollout",
+        "database_failover",
+        "external_service_degradation",
+        "account_compromise",
+    }
+
+
+def test_every_trigger_class_is_accepted() -> None:
+    for name in TRIGGER_CLASSES:
+        data = valid_output()
+        data["record"]["trigger"]["label"] = name
+        assert ExtractionOutput.model_validate(data).record.trigger.label == name
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        "a_label_no_list_contains",
+        "internal_config_change",  # the ADR-008 §2 collision string; maps to config_change
+        # ADR-008 §3: deliberately excluded, not merely absent by omission.
+        "traffic_spike",
+        "operational_delay",
+        "race_condition",
+    ],
+)
+def test_free_text_trigger_label_is_rejected_with_the_class_list(label: str) -> None:
     data = valid_output()
-    data["record"]["trigger"]["label"] = "a_label_no_list_contains"
-    ExtractionOutput.model_validate(data)
-    assert "enum" not in wire_schema()["$defs"]["Trigger"]["properties"]["label"]
+    data["record"]["trigger"]["label"] = label
+    with pytest.raises(ValidationError) as exc:
+        ExtractionOutput.model_validate(data)
+    message = format_validation_error(exc.value)
+    assert "record.trigger.label" in message
+    for name in TRIGGER_CLASSES:
+        assert name in message
+
+
+def test_trigger_definitions_are_the_adr_008_table_and_reach_the_wire() -> None:
+    assert tuple(TRIGGER_DEFINITIONS) == TRIGGER_CLASSES
+    label = wire_schema()["$defs"]["Trigger"]["properties"]["label"]
+    assert label["enum"] == list(TRIGGER_CLASSES)
+    for name, definition in TRIGGER_DEFINITIONS.items():
+        assert f"- {name}: {definition}" in label["description"]
+    assert TRIGGER_DEFINITIONS["config_change"] == (
+        "A change to system configuration, permissions, settings, policies, or "
+        "other operational configuration data initiates the incident."
+    )
+
+
+def test_excluded_trigger_strings_are_not_in_the_enum() -> None:
+    """ADR-006 §5 boundary, made structural (ADR-008 §3): an anomalous
+    condition (traffic_spike, operational_delay) or a failure mechanism
+    (race_condition) can never be chosen as a trigger label at all."""
+    for excluded in ("traffic_spike", "operational_delay", "race_condition"):
+        assert excluded not in TRIGGER_CLASSES
+
+
+def test_trigger_field_description_names_the_excluded_classes() -> None:
+    description = wire_schema()["$defs"]["IncidentRecord"]["properties"]["trigger"]["description"]
+    assert "traffic_spike and operational_delay are therefore NOT trigger classes" in description
+    assert "race_condition is NOT a trigger class either" in description
 
 
 # --- ADR-002: detection_method ---------------------------------------------
@@ -357,7 +432,7 @@ def test_wire_descriptions_are_the_v01_wording_not_the_v02_trim() -> None:
     """v0.2 cut every description the model reads to one sentence and was
     measured to cost more in retries than it saved (schema.py changelog,
     ADR-005 §4). v0.3 restored the v0.1 wording; this pins the revert."""
-    assert SCHEMA_VERSION == "0.5"
+    assert SCHEMA_VERSION == "0.6"
     defs = wire_schema()["$defs"]
     assert defs["TimeAnchor"]["description"].startswith(
         "One moment in the incident, as the document states it (FINDINGS §4.1)."

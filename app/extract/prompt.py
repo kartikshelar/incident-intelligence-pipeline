@@ -38,10 +38,14 @@ trigger / mechanism (two fields, not one):
 - `mechanism.label` is one of the closed classes listed with their definitions
   in the schema; any other string is rejected. Pick the class whose definition
   matches what directly produced the failure, and use `other` only when none
-  fits.
-- `trigger.label` is a short snake_case category label for the KIND of change
-  or event (its vocabulary is open; choose the most natural general label, not
-  a document-specific phrase).
+  fits. `software_defect` is the fallback ONLY when a software defect is
+  identifiable but no narrower class (limit_violation, null_pointer_failure,
+  out_of_bounds_read, race_condition, etc.) fits it.
+- `trigger.label` is one of the closed classes listed with their definitions
+  in the schema; any other string is rejected. `traffic_spike` and
+  `operational_delay` are NOT trigger classes (an anomalous condition is never
+  the trigger, per the null rule above); `race_condition` is NOT a trigger
+  class either (it is a mechanism, not an initiating event).
 
 detection_method — the FIRST signal that caused someone responsible for the
 system to recognise there was an incident worth investigating:

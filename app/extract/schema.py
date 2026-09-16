@@ -1,4 +1,4 @@
-"""Incident record schema v0.5 — the extraction contract.
+"""Incident record schema v0.6 — the extraction contract.
 
 This is PROJECT_BRIEF §6's draft schema after the corrections the M0 spike
 demanded. Every departure from the draft cites its source:
@@ -6,9 +6,18 @@ demanded. Every departure from the draft cites its source:
   ADR-001   `trigger_class` -> `trigger` (nullable: initiating change/event)
             + `mechanism` (required, single-valued: what actually failed).
             `change_induced` is REMOVED — derivable as `trigger is not None`.
-  ADR-006   (01b) `mechanism.label` is a closed enum of twelve classes
-            including `other`; `trigger.label` stays an open snake_case
-            string. Values and definitions in app/extract/taxonomy.py.
+  ADR-006   (01b) `mechanism.label` is a closed enum; `trigger.label` stays
+            open (revised by ADR-008, below). Values and definitions in
+            app/extract/taxonomy.py.
+  ADR-008   Taxonomy revision after the corpus expanded to 30 documents:
+            `mechanism.label` gains four classes (`software_defect`
+            restored, `security_compromise`, `hardware_data_loss`,
+            `consistency_anomaly`), sixteen total including `other`.
+            `trigger.label` becomes a closed ten-class enum (was open
+            snake_case text): `traffic_spike`, `operational_delay` and
+            `race_condition` are deliberately excluded (ADR-006 §5 — an
+            anomalous condition or a failure mechanism is never itself the
+            trigger).
   ADR-002   `detection_method` enum: monitoring | customer_report |
             internal_manual | operator | ambiguous | unknown. Single-valued;
             means the first signal that caused the org to acknowledge the
@@ -119,6 +128,35 @@ one of four default-thinking runs by taking an anomalous delay as the
 "event" (spike/nullable_trigger_regression.md), and nothing the model
 read defined event vs condition.
 
+v0.6 (2026-09-16, ADR-008): the corpus expanded to 30 documents exposed
+both taxonomies as overfit to the ten they were derived from — run 09
+(v0.5) put 7 of 30 (23%, above the pre-registered 20% ceiling) on
+`mechanism: other`, all seven in the 20 newly added documents (35% of the
+held-out expansion), and `trigger`'s open vocabulary produced a confirmed
+same-concept collision (`internal_config_change` / `config_change`),
+which ADR-006 §3 had named as its own condition for closing the field.
+`mechanism.label` gains four classes (sixteen total): `software_defect`
+(ADR-006 §4 removed the general class entirely when it split
+`crash_on_bad_input`; ADR-008 §4 says that went too far — four of the
+seven `other` cases are software defects that fit no narrower class),
+`security_compromise`, `hardware_data_loss`, `consistency_anomaly`. The
+narrower classes `limit_violation` and `null_pointer_failure` are
+unchanged and still preferred over `software_defect` when the evidence
+supports them (app/extract/taxonomy.py: MECHANISM_DEFINITIONS
+["software_defect"] states the fallback rule the model reads).
+`trigger.label` becomes a closed ten-class enum (app/extract/taxonomy.py:
+TRIGGER_DEFINITIONS), derived by clustering the vocabulary observed
+across all 30 documents; a free-text label now fails validation like
+mechanism's always did. `traffic_spike`, `operational_delay` and
+`race_condition` are deliberately not trigger classes: the first two are
+anomalous conditions (ADR-006 §5), and the third names a failure
+mechanism, not an initiating change or event — the `trigger` field
+description states this exclusion by name, not only the general rule.
+Bumped because the validation contract changed for both fields and the
+version is part of the extraction idempotency key. No database migration:
+`record` is JSONB with no constraint on its contents, and every v0.5 row
+keeps its v0.5 labels under its own `schema_version`.
+
 OPEN, deliberately not decided here (FINDINGS §4.11, §4.12): one record per
 DOCUMENT. Nothing in this schema links two documents to one incident, and a
 document describing several impact periods yields one record for the
@@ -161,9 +199,10 @@ from app.extract.taxonomy import (
     MechanismClass,
     TriggerClass,
     mechanism_class_description,
+    trigger_class_description,
 )
 
-SCHEMA_VERSION = "0.5"
+SCHEMA_VERSION = "0.6"
 
 # Upper bound on the free-text descriptions the model writes. v0.3 set it at
 # 200 (run 03 medians were ~178 characters with a third over 200) and run 04
@@ -178,9 +217,6 @@ SourceSection = Literal["summary", "timeline", "body", "appendix", "other"]
 ActionStatus = Literal["done", "planned", "proposed"]
 OrgKind = Literal["company", "oss_project", "other"]
 TitleSource = Literal["document_metadata", "synthesized"]
-
-# Short snake_case label, e.g. "config_change", "latent_race_condition".
-_LABEL_PATTERN = r"^[a-z][a-z0-9]*(_[a-z0-9]+)*$"
 
 
 # Abbreviations whose trailing period is not a sentence end. Masked before
@@ -278,14 +314,13 @@ class Trigger(_Strict):
     operation, with no deploy, configuration change, command, maintenance
     or external event that activated it, has none. When several changes
     could count, the one closest to the failure that was necessary to
-    activate it wins (ADR-001 §4)."""
+    activate it wins (ADR-001 §4). The label is one of the closed classes
+    in ADR-008 §3."""
 
-    label: TriggerClass = Field(
-        pattern=_LABEL_PATTERN,
-        description="Short snake_case label for the KIND of initiating change/event, "
-        "e.g. config_change, code_deploy, os_auto_update, manual_command, "
-        "infrastructure_maintenance, external_input.",
-    )
+    # A Literal, not a pattern-constrained string (ADR-008 §3 closes the
+    # field): the enum is emitted on the wire and enforced by validation,
+    # same as Mechanism.label below.
+    label: TriggerClass = Field(description=trigger_class_description())
     description: OneSentence = Field(
         min_length=1,
         max_length=MAX_DESCRIPTION_CHARS,
@@ -299,7 +334,7 @@ class Mechanism(_Strict):
     """ADR-001: the immediate failure mechanism — what actually broke.
     Required and single-valued; further mechanisms go in
     contributing_factors. The label is one of the closed classes in
-    ADR-006 §3."""
+    ADR-006 §3 / ADR-008 §3."""
 
     # A Literal, not a pattern-constrained string: the enum is emitted on
     # the wire and enforced by validation; the definitions ride in the
@@ -398,7 +433,11 @@ class IncidentRecord(_Strict):
         "An anomalous condition (a delay, a slow or unhealthy node, a traffic spike, an "
         "error rate) is never the trigger: if the document attributes the anomaly to an "
         "identifiable change or external event, that change or event is the trigger; if "
-        "no such change or external event is identifiable, trigger is null (ADR-006 §5)."
+        "no such change or external event is identifiable, trigger is null (ADR-006 §5). "
+        "traffic_spike and operational_delay are therefore NOT trigger classes (they name "
+        "an anomalous condition, not what caused it), and race_condition is NOT a trigger "
+        "class either (it names a failure mechanism, not an initiating change or event; "
+        "use mechanism for it, ADR-008 §3)."
     )
     mechanism: Mechanism
     contributing_factors: list[ContributingFactor] = Field(
