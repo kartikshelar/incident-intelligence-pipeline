@@ -177,6 +177,7 @@ confidence, derived durations, validation attempts, tokens, cost, error).
 | [`run_05`](spike/extraction_run_05.json) (v0.4, thinking `adaptive:low`) | 10/10 | 0/10 | 1.40 | $0.63 ($0.03–$0.11 per document) |
 | [`run_06`](spike/extraction_run_06.json) (v0.4, thinking `disabled`) | 10/10 | 0/10 | 1.10 | $0.57 ($0.04–$0.13 per document) |
 | [`run_07`](spike/extraction_run_07.json) (v0.4, thinking `default`) | 10/10 | 0/10 | 1.40 | $1.01 ($0.07–$0.15 per document) |
+| [`run_08`](spike/extraction_run_08.json) (v0.5, thinking `adaptive:low`) | 10/10 | 0/10 | 1.50 | $0.65 ($0.04–$0.10 per document) |
 
 | Run | Uncached input | Cache read | Output | Written-description chars | Mean attempts | Cost / document |
 |---|---|---|---|---|---|---|
@@ -186,6 +187,7 @@ confidence, derived durations, validation attempts, tokens, cost, error).
 | run_05 (v0.4, `adaptive:low`) | 118,782 | 72,293 | 36,805 | 8,905 | 1.40 | $0.063 |
 | run_06 (v0.4, `disabled`) | 87,899 | 61,171 | 36,629 | 11,342 | 1.10 | $0.057 |
 | run_07 (v0.4, `default`) | 106,797 | 72,293 | 76,938 | 11,324 | 1.40 | $0.101 |
+| run_08 (v0.5, `adaptive:low`) | 115,835 | 90,790 | 38,849 | 8,421 | 1.50 | $0.065 |
 
 Run 01 is the grammar-limit failure described above. Run 02, after the
 schema moved into the system block, produced a schema-valid record for
@@ -260,6 +262,27 @@ ADR-001 uses as its example of a null trigger, is null in runs 02, 03, 05
 and 07, `operational_delay` in run 04 and `race_condition` in run 06.
 Agreement here is with run 07, not with ground truth; M5's eval against
 the gold set is what measures quality.
+
+**Run 08 (schema v0.5, `adaptive:low`)** is the first run with the
+closed mechanism enum, the corpus leak removed and the ADR-006 §5 rule in
+the trigger description; compare with run 05 (v0.4, same thinking
+setting). Every mechanism label is a class from the list by
+construction, and none is `other` (ADR-006 §8's ceiling is 20%). The
+labels: Cloudflare `limit_violation` and Google Cloud
+`null_pointer_failure` (the two the ADR split out of
+`crash_on_bad_input`), Datadog `route_deletion`, Roblox
+`lock_contention`, Kubernetes `workload_misrouting`; the other five match
+run 05 string for string. The AWS trigger is null (self-reported
+confidence 0.55), consistent with the §5 rule, but this is one run and
+the null rate over repeats is still the number to watch. Mean attempts
+1.50 (five retries, up from four); none was an out-of-enum label — all
+five were invented extra keys, and three of them sat on the trigger and
+mechanism objects (`source_section`, `at`, `label_ignore`), which had not
+happened in runs 05–07 and may be a side effect of the longer label
+description; noted, not concluded. Cost $0.65, within noise of run 05's
+$0.63. ADR-006 §8's pre-registered checks (a second `adaptive:low` run
+agreeing on 9 of 10 mechanism labels, and 8 of 10 agreement with the M0
+blind labels on a re-label pass) have not been run yet.
 
 ### Open — flagged, not decided
 
