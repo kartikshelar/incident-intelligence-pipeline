@@ -1,4 +1,4 @@
-"""Incident record schema v0.4 — the extraction contract.
+"""Incident record schema v0.5 — the extraction contract.
 
 This is PROJECT_BRIEF §6's draft schema after the corrections the M0 spike
 demanded. Every departure from the draft cites its source:
@@ -6,8 +6,9 @@ demanded. Every departure from the draft cites its source:
   ADR-001   `trigger_class` -> `trigger` (nullable: initiating change/event)
             + `mechanism` (required, single-valued: what actually failed).
             `change_induced` is REMOVED — derivable as `trigger is not None`.
-            Class *values* for both are still open (ADR-001 defers to 01b),
-            see app/extract/taxonomy.py.
+  ADR-006   (01b) `mechanism.label` is a closed enum of twelve classes
+            including `other`; `trigger.label` stays an open snake_case
+            string. Values and definitions in app/extract/taxonomy.py.
   ADR-002   `detection_method` enum: monitoring | customer_report |
             internal_manual | operator | ambiguous | unknown. Single-valued;
             means the first signal that caused the org to acknowledge the
@@ -94,6 +95,18 @@ baseline run, not with a hand label. M5's eval against the gold set is
 what decides this; until then `adaptive:low` is the setting new rows are
 made with.
 
+v0.5 (2026-09-16): `mechanism.label` is a closed enum (ADR-006 §3): the
+twelve classes in app/extract/taxonomy.py, each carrying its one-line ADR
+definition in the wire description, and a free-text label now fails
+validation and is retried with the class list in the error. Why: across
+runs 02/04/05/06/07 the open label produced one string on only 4 of 10
+documents, with 4 same-concept pairs in different spellings; a field whose
+vocabulary changes per run cannot be scored (ADR-006 §2). Bumped because
+the validation contract changed and the version is part of the extraction
+idempotency key. No database migration: `record` is JSONB with no
+constraint on its contents, and every v0.4 row keeps its v0.4 label under
+its own `schema_version`; the enum applies to rows written at v0.5.
+
 OPEN, deliberately not decided here (FINDINGS §4.11, §4.12): one record per
 DOCUMENT. Nothing in this schema links two documents to one incident, and a
 document describing several impact periods yields one record for the
@@ -131,9 +144,14 @@ from pydantic import (
     field_validator,
 )
 
-from app.extract.taxonomy import DetectionMethod, MechanismClass, TriggerClass
+from app.extract.taxonomy import (
+    DetectionMethod,
+    MechanismClass,
+    TriggerClass,
+    mechanism_class_description,
+)
 
-SCHEMA_VERSION = "0.4"
+SCHEMA_VERSION = "0.5"
 
 # Upper bound on the free-text descriptions the model writes. v0.3 set it at
 # 200 (run 03 medians were ~178 characters with a third over 200) and run 04
@@ -265,14 +283,13 @@ class Trigger(_Strict):
 class Mechanism(_Strict):
     """ADR-001: the immediate failure mechanism — what actually broke.
     Required and single-valued; further mechanisms go in
-    contributing_factors."""
+    contributing_factors. The label is one of the closed classes in
+    ADR-006 §3."""
 
-    label: MechanismClass = Field(
-        pattern=_LABEL_PATTERN,
-        description="Short snake_case label for the KIND of failure, e.g. resource_exhaustion, "
-        "crash_on_bad_input, race_condition, cascading_overload, data_loss, "
-        "unsafe_failover.",
-    )
+    # A Literal, not a pattern-constrained string: the enum is emitted on
+    # the wire and enforced by validation; the definitions ride in the
+    # description because JSON Schema `enum` carries no per-value text.
+    label: MechanismClass = Field(description=mechanism_class_description())
     description: OneSentence = Field(
         min_length=1,
         max_length=MAX_DESCRIPTION_CHARS,

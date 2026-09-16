@@ -38,7 +38,7 @@ def valid_output() -> dict[str, Any]:
             "quote": "a change to one of our database systems' permissions",
         },
         "mechanism": {
-            "label": "crash_on_bad_input",
+            "label": "limit_violation",
             "description": "The proxy panicked when the feature file exceeded its size limit.",
             "quote": "the software panicked",
         },

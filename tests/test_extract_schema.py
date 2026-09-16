@@ -1,6 +1,6 @@
-"""The incident record (v0.3): every FINDINGS §4 shape change and ADR-001/002
-rule that M3 was asked to implement, asserted by name, plus the v0.3
-constraint on the descriptions the model writes."""
+"""The incident record (v0.5): every FINDINGS §4 shape change and ADR-001/002
+rule that M3 was asked to implement, asserted by name, the v0.3 constraint
+on the descriptions the model writes, and ADR-006's closed mechanism enum."""
 
 import json
 
@@ -19,7 +19,7 @@ from app.extract.schema import (
     sentence_count,
     wire_schema,
 )
-from app.extract.taxonomy import DETECTION_METHODS
+from app.extract.taxonomy import DETECTION_METHODS, MECHANISM_CLASSES, MECHANISM_DEFINITIONS
 from tests.fake_llm import valid_output
 
 
@@ -66,6 +66,75 @@ def test_trigger_and_mechanism_labels_are_snake_case() -> None:
     with pytest.raises(ValidationError) as exc:
         ExtractionOutput.model_validate(data)
     assert "record.trigger.label" in format_validation_error(exc.value)
+
+
+# --- ADR-006 §3: mechanism is a closed enum, trigger stays open --------------
+
+
+def test_mechanism_enum_is_the_twelve_adr_006_classes() -> None:
+    assert len(MECHANISM_CLASSES) == 12
+    assert set(MECHANISM_CLASSES) == {
+        "accidental_data_deletion",
+        "cascading_overload",
+        "limit_violation",
+        "lock_contention",
+        "null_pointer_failure",
+        "out_of_bounds_read",
+        "race_condition",
+        "resource_exhaustion",
+        "route_deletion",
+        "unsafe_failover",
+        "workload_misrouting",
+        "other",
+    }
+
+
+def test_every_mechanism_class_is_accepted() -> None:
+    for name in MECHANISM_CLASSES:
+        data = valid_output()
+        data["record"]["mechanism"]["label"] = name
+        assert ExtractionOutput.model_validate(data).record.mechanism.label == name
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        "crash_on_bad_input",  # the pre-ADR-006 label the fixture used to carry
+        "network_route_deletion",  # a run-05 spelling of route_deletion
+        "misrouted_workload_scheduling",  # a run-06 spelling of workload_misrouting
+        "Limit violation",
+    ],
+)
+def test_free_text_mechanism_label_is_rejected_with_the_class_list(label: str) -> None:
+    data = valid_output()
+    data["record"]["mechanism"]["label"] = label
+    with pytest.raises(ValidationError) as exc:
+        ExtractionOutput.model_validate(data)
+    message = format_validation_error(exc.value)
+    assert "record.mechanism.label" in message
+    # The fed-back error names the allowed values, so the retry can pick one.
+    for name in MECHANISM_CLASSES:
+        assert name in message
+
+
+def test_mechanism_definitions_are_the_adr_table_and_reach_the_wire() -> None:
+    assert tuple(MECHANISM_DEFINITIONS) == MECHANISM_CLASSES
+    label = wire_schema()["$defs"]["Mechanism"]["properties"]["label"]
+    assert label["enum"] == list(MECHANISM_CLASSES)
+    for name, definition in MECHANISM_DEFINITIONS.items():
+        assert f"- {name}: {definition}" in label["description"]
+    assert MECHANISM_DEFINITIONS["limit_violation"] == (
+        "An input or state exceeds an enforced implementation limit, causing the "
+        "consuming component to fail."
+    )
+
+
+def test_trigger_label_stays_open_vocabulary() -> None:
+    """ADR-006 §3 keeps `trigger` free text; only its shape is constrained."""
+    data = valid_output()
+    data["record"]["trigger"]["label"] = "a_label_no_list_contains"
+    ExtractionOutput.model_validate(data)
+    assert "enum" not in wire_schema()["$defs"]["Trigger"]["properties"]["label"]
 
 
 # --- ADR-002: detection_method ---------------------------------------------
@@ -265,7 +334,7 @@ def test_wire_descriptions_are_the_v01_wording_not_the_v02_trim() -> None:
     """v0.2 cut every description the model reads to one sentence and was
     measured to cost more in retries than it saved (schema.py changelog,
     ADR-005 §4). v0.3 restored the v0.1 wording; this pins the revert."""
-    assert SCHEMA_VERSION == "0.4"
+    assert SCHEMA_VERSION == "0.5"
     defs = wire_schema()["$defs"]
     assert defs["TimeAnchor"]["description"].startswith(
         "One moment in the incident, as the document states it (FINDINGS §4.1)."

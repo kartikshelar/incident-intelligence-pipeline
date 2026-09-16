@@ -89,12 +89,22 @@ documents that already shared a text.
 
 `app/extract/` — see its `__init__.py` for the module map.
 
-**Schema v0.4** (`app/extract/schema.py`) is PROJECT_BRIEF §6's draft after
+**Schema v0.5** (`app/extract/schema.py`) is PROJECT_BRIEF §6's draft after
 the spike's corrections, each cited in the module docstring:
 
 - `trigger` (nullable: initiating change/event) + `mechanism` (required,
   single-valued: what failed), per [ADR-001](docs/adr/001-trigger-taxonomy.md).
   `change_induced` is gone — it is `trigger is not null`.
+- `mechanism.label` is a closed enum of twelve classes including `other`,
+  per [ADR-006](docs/adr/006-taxonomy-classes.md) §3; each class's
+  one-line definition is in `app/extract/taxonomy.py` and is sent to the
+  model as the field's description. A label outside the list fails
+  validation and is retried with the class list in the error. `trigger.label`
+  stays an open snake_case string (ADR-006 §3: stable on 7 of 10 documents
+  across runs, no confirmed collisions) and is scored by concept match.
+  v0.5 changed the validation contract, so it is a new version; no
+  migration, since `record` is JSONB and v0.4 rows keep their labels under
+  their own `schema_version`.
 - `detection_method` ∈ monitoring | customer_report | internal_manual |
   operator | ambiguous | unknown, per [ADR-002](docs/adr/002-detection-method.md).
 - five typed time anchors with precision + original timezone string
@@ -253,18 +263,15 @@ the gold set is what measures quality.
 
 ### Open — flagged, not decided
 
-- **Trigger / mechanism class values.** ADR-001 fixes the *structure* and
-  defers the class lists to "01b", which does not exist yet. Until it does
-  the two labels are open snake_case strings (`app/extract/taxonomy.py`),
-  stored verbatim; swapping in a `Literal[...]` is a one-line change there.
-  How unstable the open strings are is measured in
-  [`spike/label_stability.json`](spike/label_stability.json)
-  (`scripts/label_stability.py`, runs 02/04/05/06): trigger labels are one
-  string in every run for 7 of 10 documents, mechanism labels for 4 of 10;
-  of the 18 mechanism pairs that co-occur on one document, 4 are one
-  concept in different words (`route_deletion` /
-  `network_route_deletion`, the three `misrouting_*` spellings) and 3 more
-  are borderline. Evidence for 01b, not a class list.
+- **Trigger class values.** ADR-006 closed `mechanism` (schema v0.5) on
+  the evidence in [`spike/label_stability.json`](spike/label_stability.json)
+  (`scripts/label_stability.py`, runs 02/04/05/06: mechanism labels were
+  one string in every run for only 4 of 10 documents; of the 18 pairs that
+  co-occurred on one document, 4 were one concept in different words and 3
+  more borderline) and left `trigger` open (one string for 7 of 10, no
+  confirmed collisions). ADR-006 §8 pre-registers the checks: 8 of 10
+  agreement with the M0 blind labels, identical mechanism labels on 9 of
+  10 across two `adaptive:low` runs, and no more than 20% `other`.
 - **What counts as an initiating "event".** The AWS trigger flips between
   null and a value across runs on identical read-side text; the prompt's
   "change or event" lets an anomalous delay qualify, and ADR-001 does not

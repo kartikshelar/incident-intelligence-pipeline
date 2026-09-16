@@ -31,9 +31,13 @@ trigger / mechanism (two fields, not one):
   activate it — not simply the earliest event.
 - `mechanism` is what actually failed, and is required. Exactly one primary
   mechanism; put additional mechanisms in contributing_factors.
-- `label` values are short snake_case category labels for the KIND of change /
-  KIND of failure (the closed vocabulary is not fixed yet; choose the most
-  natural general label, not a document-specific phrase).
+- `mechanism.label` is one of the closed classes listed with their definitions
+  in the schema; any other string is rejected. Pick the class whose definition
+  matches what directly produced the failure, and use `other` only when none
+  fits.
+- `trigger.label` is a short snake_case category label for the KIND of change
+  or event (its vocabulary is open; choose the most natural general label, not
+  a document-specific phrase).
 
 detection_method — the FIRST signal that caused someone responsible for the
 system to recognise there was an incident worth investigating:

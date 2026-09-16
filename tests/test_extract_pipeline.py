@@ -86,7 +86,7 @@ def test_complete_extraction_is_persisted_with_confidence_and_derived(engine: En
     assert row["provider"] == "fake"  # from the client, not a caller argument
     assert row["model"] == MODEL
     assert row["thinking"] == "fake-thinking"
-    assert row["record"]["mechanism"]["label"] == "crash_on_bad_input"
+    assert row["record"]["mechanism"]["label"] == "limit_violation"
     assert row["record"]["trigger"]["label"] == "config_change"
     assert row["per_field_confidence"]["detection_method"] == 0.9
     assert row["confidence_source"] == "self_report"
