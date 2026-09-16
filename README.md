@@ -89,22 +89,29 @@ documents that already shared a text.
 
 `app/extract/` — see its `__init__.py` for the module map.
 
-**Schema v0.5** (`app/extract/schema.py`) is PROJECT_BRIEF §6's draft after
+**Schema v0.6** (`app/extract/schema.py`) is PROJECT_BRIEF §6's draft after
 the spike's corrections, each cited in the module docstring:
 
 - `trigger` (nullable: initiating change/event) + `mechanism` (required,
   single-valued: what failed), per [ADR-001](docs/adr/001-trigger-taxonomy.md).
   `change_induced` is gone — it is `trigger is not null`.
-- `mechanism.label` is a closed enum of twelve classes including `other`,
-  per [ADR-006](docs/adr/006-taxonomy-classes.md) §3; each class's
-  one-line definition is in `app/extract/taxonomy.py` and is sent to the
-  model as the field's description. A label outside the list fails
-  validation and is retried with the class list in the error. `trigger.label`
-  stays an open snake_case string (ADR-006 §3: stable on 7 of 10 documents
-  across runs, no confirmed collisions) and is scored by concept match.
-  v0.5 changed the validation contract, so it is a new version; no
-  migration, since `record` is JSONB and v0.4 rows keep their labels under
-  their own `schema_version`.
+- `mechanism.label` is a closed enum of sixteen classes including `other`,
+  per [ADR-006](docs/adr/006-taxonomy-classes.md) §3 and
+  [ADR-008](docs/adr/008-taxonomy-revision.md) §3 (`software_defect`
+  restored, plus `security_compromise`, `hardware_data_loss`,
+  `consistency_anomaly`); each class's one-line definition is in
+  `app/extract/taxonomy.py` and is sent to the model as the field's
+  description. `trigger.label` is also a closed enum as of ADR-008 §3 —
+  ten classes derived by clustering the vocabulary observed across the
+  30-document corpus, excluding `traffic_spike` / `operational_delay`
+  (anomalous conditions, ADR-006 §5) and `race_condition` (a mechanism,
+  not an initiating event). A label outside either list fails validation
+  and is retried with the class list in the error. Both taxonomies'
+  wire descriptions are built by one shared function
+  (`taxonomy._enum_description`). v0.5 and v0.6 each changed the
+  validation contract, so each is a new version; no migration, since
+  `record` is JSONB and earlier rows keep their labels under their own
+  `schema_version`.
 - `detection_method` ∈ monitoring | customer_report | internal_manual |
   operator | ambiguous | unknown, per [ADR-002](docs/adr/002-detection-method.md).
 - five typed time anchors with precision + original timezone string
@@ -179,6 +186,7 @@ confidence, derived durations, validation attempts, tokens, cost, error).
 | [`run_07`](spike/extraction_run_07.json) (v0.4, thinking `default`) | 10/10 | 0/10 | 1.40 | $1.01 ($0.07–$0.15 per document) |
 | [`run_08`](spike/extraction_run_08.json) (v0.5, thinking `adaptive:low`) | 10/10 | 0/10 | 1.50 | $0.65 ($0.04–$0.10 per document) |
 | [`run_09`](spike/extraction_run_09.json) (v0.5, `adaptive:low`, corpus of 30: 20 new + 10 reused from run 08) | 30/30 | 0/30 | 1.45 (20 new) | $1.06 ($0.02–$0.12 per new document) |
+| [`run_10`](spike/extraction_run_10.json) (v0.6, `adaptive:low`, ADR-008 taxonomy, all 30 re-extracted) | 30/30 | 0/30 | 1.13 | $1.28 ($0.02–$0.10 per document) |
 
 | Run | Uncached input | Cache read | Output | Written-description chars | Mean attempts | Cost / document |
 |---|---|---|---|---|---|---|
@@ -190,6 +198,7 @@ confidence, derived durations, validation attempts, tokens, cost, error).
 | run_07 (v0.4, `default`) | 106,797 | 72,293 | 76,938 | 11,324 | 1.40 | $0.101 |
 | run_08 (v0.5, `adaptive:low`) | 115,835 | 90,790 | 38,849 | 8,421 | 1.50 | $0.065 |
 | run_09 (v0.5, `adaptive:low`, 20 new documents) | 308,579 | 272,370 | 100,876 | 14,483 | 1.45 | $0.053 |
+| run_10 (v0.6, `adaptive:low`, all 30 documents) | 218,236 | 247,071 | 77,505 | n/a | 1.13 | $0.043 |
 
 Run 01 is the grammar-limit failure described above. Run 02, after the
 schema moved into the system block, produced a schema-valid record for
@@ -350,18 +359,98 @@ and bills nothing for them). Findings, reported and not acted on:
   run-08's rows. ADR-006 §8's two-run agreement check still needs a
   second `adaptive:low` run, which the unique index on complete rows
   prevents at the same schema version without a deliberate re-run path.
+  (Fixed separately: `extractions.run_id` — migration 0007 — joins the
+  idempotency key so a repeat run at identical settings now gets its own
+  row instead of no-oping against the first.)
+
+**ADR-008 taxonomy revision and run 10 (2026-09-16).** Run 09 put
+mechanism `other` at 23% (above ADR-006 §8's 20% ceiling) and produced a
+confirmed trigger same-concept collision, so ADR-008 restored a general
+`software_defect` mechanism class (plus `security_compromise`,
+`hardware_data_loss`, `consistency_anomaly` — sixteen classes total) and
+closed `trigger` into a ten-class enum, both with definitions in
+`app/extract/taxonomy.py`. Schema bumped to v0.6. **Prediction, recorded
+before running** run 10: the v0.5 investigation (run 09 vs. schema v0.4)
+found the extra-key retries correlated with the length of the enum-
+definition block inserted between `label` and `quote` on the `Mechanism`
+object. ADR-008 roughly doubles that block (2,502 characters, up from
+~1,450) and adds an equivalent ~1,360-character block to `Trigger`, which
+had none. Predicted: mean validation attempts above run 09's 1.45, and
+invented keys on both the trigger and mechanism objects, not only
+mechanism.
+
+**Actual: the prediction was wrong on both counts.** All 30 documents at
+v0.6 / `adaptive:low`:
+
+- **Mechanism: `other` 1/30 (3.3%)**, back under the 20% ceiling — Firefox
+  only (a header case-sensitivity bug causing an infinite loop; it does
+  not cleanly fit any of the fifteen named classes). `software_defect`
+  fired on 5/30 (16.7%): incident.io (a poison-pill panic), Knight
+  Capital (Doug Seven's account), the Kubernetes test-infra Boskos crash
+  loop, the King's College London storage review, and the TUI Airways
+  load-sheet mis-weighting — four of these five are exactly the
+  `other`-in-run-09 cases ADR-008 §3 named as the reason to restore the
+  class. Every one of the sixteen classes except `other` was used more
+  than once except `race_condition`, `out_of_bounds_read`,
+  `null_pointer_failure`, `limit_violation`, `workload_misrouting`,
+  `hardware_data_loss`, and `security_compromise` (one each) — no class
+  went completely unused.
+- **Trigger: closed enum held on all 30**, zero documents needed a class
+  outside it. Distribution: `config_change` 5, `manual_command` 5, null
+  4 (13.3%), `infrastructure_maintenance` 4, `code_deploy` 4,
+  `content_update` 2, `external_service_degradation` 2,
+  `os_auto_update` 1, `feature_rollout` 1, `database_failover` 1,
+  `account_compromise` 1. `internal_config_change` (run 09's confirmed
+  collision case, LaunchDarkly) did not recur as a free string — the
+  document now returns `config_change`, ADR-008's intended
+  normalization.
+- **detection_method**: monitoring 10 (33.3%), customer_report 7 (23.3%),
+  internal_manual 6 (20.0%), operator 3 (10.0%), unknown 3 (10.0%),
+  ambiguous 1 (3.3%). Comparable in shape to run 09's distribution.
+- **Mean validation attempts: 1.13 (4 retries), lower than run 09's
+  1.45, not higher.** The trigger/mechanism extra-key pattern did **not**
+  persist: of the 4 retries, only one (CrowdStrike) touched the trigger
+  object at all, and its error (`record.trigger.}: Extra inputs are not
+  permitted`) is a malformed-JSON artifact — a stray brace parsed as a
+  key — not an invented field name like run 09's `quote_source` /
+  `source_section` family. The other three invented keys
+  (`affected_org_kind_confidence_placeholder`, `resolved_at_source`,
+  `detection_quote_secondary`) sit on unrelated top-level or time-anchor
+  fields. The correlation the v0.5 investigation reported (longer
+  inserted enum block near `label`/`quote` → more retries there) did not
+  hold when the block grew further and a second one was added elsewhere
+  in the same schema; whatever run 08→09's proximity effect was, it is
+  not a simple function of enum-block length. Not re-investigated further
+  per this task's instructions.
+- **Cost: $1.28 for all 30** ($0.043/document mean, $0.02–$0.10 range) —
+  higher in total than run 09's $1.06 because run 09 billed only its 20
+  new documents (10 were reused from run 08 at $0), but lower per
+  document than run 09's $0.053 and than run 08's $0.065, consistent with
+  fewer retries.
+- **Not done, per this task**: the enums were not revised based on this
+  result. ADR-008 §5's held-out-evaluation discipline applies to the
+  *next* corpus expansion, not to re-scoring this one; run 10 is itself
+  the frozen-taxonomy evaluation ADR-008 committed to, and its numbers
+  are reported, not acted on further here.
 
 ### Open — flagged, not decided
 
-- **Trigger class values.** ADR-006 closed `mechanism` (schema v0.5) on
-  the evidence in [`spike/label_stability.json`](spike/label_stability.json)
-  (`scripts/label_stability.py`, runs 02/04/05/06: mechanism labels were
-  one string in every run for only 4 of 10 documents; of the 18 pairs that
-  co-occurred on one document, 4 were one concept in different words and 3
-  more borderline) and left `trigger` open (one string for 7 of 10, no
-  confirmed collisions). ADR-006 §8 pre-registers the checks: 8 of 10
-  agreement with the M0 blind labels, identical mechanism labels on 9 of
-  10 across two `adaptive:low` runs, and no more than 20% `other`.
+- **Taxonomy checks against the M0 blind labels are still outstanding.**
+  ADR-008 (schema v0.6) closed both `mechanism` (sixteen classes) and
+  `trigger` (ten classes) after the 30-document corpus showed ADR-006's
+  classes were overfit to the ten they were derived from — see run 10
+  above. ADR-006 §8's 8-of-10 agreement check against the M0 blind labels
+  (`eval/blind_labels_m0.json`) has not been run against either enum's
+  current values. ADR-008 §5 pre-registers the discipline for the *next*
+  corpus expansion: freeze the enums before inspecting the new documents,
+  treat the new documents as held out, and record the 20%-`other` /
+  80%-trigger-agreement results before revising anything.
+- **ADR-006 §8's two-run reproducibility check is still unmeasured.** The
+  `run_id` fix (migration 0007) makes it possible — two `adaptive:low`
+  runs at the same schema version now each get their own row — but no
+  second run at one fixed schema version has been executed for the sole
+  purpose of that comparison; run 10 changed the schema version from
+  run 09, so it is not a same-settings repeat.
 - **What counts as an initiating "event"** — decided by ADR-006 §5, kept
   here until it is measured with repeats. The AWS trigger flipped between
   null and a value across runs on identical read-side text because the
