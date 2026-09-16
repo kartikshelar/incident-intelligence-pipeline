@@ -272,11 +272,16 @@ the gold set is what measures quality.
   confirmed collisions). ADR-006 §8 pre-registers the checks: 8 of 10
   agreement with the M0 blind labels, identical mechanism labels on 9 of
   10 across two `adaptive:low` runs, and no more than 20% `other`.
-- **What counts as an initiating "event".** The AWS trigger flips between
-  null and a value across runs on identical read-side text; the prompt's
-  "change or event" lets an anomalous delay qualify, and ADR-001 does not
-  say whether it should. Investigated, not fixed:
-  [`spike/nullable_trigger_regression.md`](spike/nullable_trigger_regression.md).
+- **What counts as an initiating "event"** — decided by ADR-006 §5, kept
+  here until it is measured with repeats. The AWS trigger flipped between
+  null and a value across runs on identical read-side text because the
+  prompt's "change or event" let an anomalous delay qualify
+  ([`spike/nullable_trigger_regression.md`](spike/nullable_trigger_regression.md)).
+  Since schema v0.5 the trigger description and the prompt state the rule:
+  an anomalous condition is never the trigger; the change or external
+  event it is attributable to is; with neither, null. One run per setting
+  cannot separate a wording effect from a coin flip on a borderline
+  document, so the null rate over repeated runs is the number to watch.
 - **Document ≠ incident** (FINDINGS §4.11, §4.12). `extractions` keys on
   `document_id`; there is no `incident_id`, and a multi-period document
   yields one record for its primary incident. Needs a schema decision.

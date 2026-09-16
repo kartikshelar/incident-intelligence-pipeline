@@ -110,6 +110,14 @@ Also in v0.5 (ADR-006 §6): the `Trigger` description no longer names the
 corpus document that exemplified a null trigger; it describes the case
 instead. tests/test_extract_schema.py asserts that no corpus org or title
 appears in anything the model reads.
+Also in v0.5 (ADR-006 §5, amending ADR-001): the record-level `trigger`
+description states the rule for anomalous conditions — a condition is
+never the trigger; the change or external event it is attributable to
+is; with neither, null. The prompt's trigger rule says the same. Why: the
+one latent-defect document in the corpus returned a non-null trigger in
+one of four default-thinking runs by taking an anomalous delay as the
+"event" (spike/nullable_trigger_regression.md), and nothing the model
+read defined event vs condition.
 
 OPEN, deliberately not decided here (FINDINGS §4.11, §4.12): one record per
 DOCUMENT. Nothing in this schema links two documents to one incident, and a
@@ -386,7 +394,11 @@ class IncidentRecord(_Strict):
     # The draft's `change_induced` boolean is exactly `trigger is not None`
     # and is not stored separately — ADR-001 §1.
     trigger: Trigger | None = Field(
-        description="Null ONLY when the document identifies no initiating change or event."
+        description="Null ONLY when the document identifies no initiating change or event. "
+        "An anomalous condition (a delay, a slow or unhealthy node, a traffic spike, an "
+        "error rate) is never the trigger: if the document attributes the anomaly to an "
+        "identifiable change or external event, that change or event is the trigger; if "
+        "no such change or external event is identifiable, trigger is null (ADR-006 §5)."
     )
     mechanism: Mechanism
     contributing_factors: list[ContributingFactor] = Field(

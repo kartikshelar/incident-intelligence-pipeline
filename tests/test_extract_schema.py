@@ -48,6 +48,25 @@ def test_trigger_is_nullable_and_mechanism_is_required() -> None:
     assert "record.mechanism" in format_validation_error(exc.value)
 
 
+def test_trigger_description_states_the_anomalous_condition_rule() -> None:
+    """ADR-006 §5 (amending ADR-001): an anomalous condition is never the
+    trigger; the change or external event it is attributable to is; with
+    neither, null. The rule must reach the model in the field it governs
+    and in the prompt, since nothing enforces it after the fact."""
+    record = wire_schema()["$defs"]["IncidentRecord"]["properties"]
+    description = record["trigger"]["description"]
+    assert description.startswith("Null ONLY when the document identifies no initiating change")
+    for text in (
+        "An anomalous condition",
+        "is never the trigger",
+        "identifiable change or external event, that change or event is the trigger",
+        "no such change or external event is identifiable, trigger is null",
+    ):
+        assert text in description
+    assert "is never the trigger" in SYSTEM_PROMPT
+    assert "that change or event is the trigger" in SYSTEM_PROMPT
+
+
 def test_mechanism_is_single_valued_not_a_list() -> None:
     data = valid_output()
     data["record"]["mechanism"] = [data["record"]["mechanism"]]

@@ -25,10 +25,14 @@ Field rules:
 
 trigger / mechanism (two fields, not one):
 - `trigger` is the initiating change or event that activated the failing path.
-  It is null ONLY when the document identifies no initiating change (e.g. a
-  latent race condition that surfaced on its own). If several changes could
-  count, choose the change closest to the failure that was necessary to
-  activate it — not simply the earliest event.
+  It is null ONLY when the document identifies no initiating change or external
+  event (e.g. a latent race condition that surfaced on its own). An anomalous
+  condition — a delay, a slow or unhealthy node, a traffic spike, an error
+  rate — is never the trigger: if the document attributes it to an identifiable
+  change or external event, that change or event is the trigger; otherwise the
+  trigger is null. If several changes could count, choose the change closest
+  to the failure that was necessary to activate it — not simply the earliest
+  event.
 - `mechanism` is what actually failed, and is required. Exactly one primary
   mechanism; put additional mechanisms in contributing_factors.
 - `mechanism.label` is one of the closed classes listed with their definitions
