@@ -75,6 +75,25 @@ worth more than every character the cap trimmed. 400 is above every
 over-cap value run 04 produced; the sentence rule still forbids padding
 it out into a paragraph. Bumped because the validation contract changed.
 
+Configuration default, 2026-09-16 (no version bump: the schema is
+unchanged; recorded here because `thinking` sits next to `schema_version`
+in the extraction row's identity and the measurement was made against
+this schema). APP_EXTRACTION_THINKING's project default (.env.example,
+docker-compose.yml) is `adaptive:low` instead of `default`. MEASURED on
+the same 10 documents at v0.4 (spike/thinking_experiment.json; baseline
+run 07 at `default`): output tokens 76,938 -> 36,805 at `adaptive:low`
+(run 05, 0.48x, cost $1.01 -> $0.63, mean attempts 1.40 -> 1.40) and
+-> 36,629 at `disabled` (run 06, 0.48x, $0.57, attempts 1.10). `disabled`
+is the cheaper of the two, but on the AWS latent-defect case — ADR-001's
+own example of a null trigger — it collapsed the two fields into one:
+trigger became `race_condition` (the mechanism) and mechanism became
+`dns_resolution_failure` (the symptom). `adaptive:low` kept that trigger
+null and matched the baseline on every trigger label (10/10; `disabled`
+8/10; mechanism 7/10 vs 5/10). One run per arm; agreement is with the
+baseline run, not with a hand label. M5's eval against the gold set is
+what decides this; until then `adaptive:low` is the setting new rows are
+made with.
+
 OPEN, deliberately not decided here (FINDINGS §4.11, §4.12): one record per
 DOCUMENT. Nothing in this schema links two documents to one incident, and a
 document describing several impact periods yields one record for the

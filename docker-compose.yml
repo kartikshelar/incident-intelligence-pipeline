@@ -47,12 +47,14 @@ services:
       # .env.example). Without them, ingest still works and each extract
       # job dead-letters with a recorded "not configured" error — see
       # README. The model and thinking defaults live here and in
-      # .env.example, not in app code. `default` sends no thinking
-      # parameter (the API's own default; see app/extract/llm.py for the
-      # other values) — runs 01-04 were made this way.
+      # .env.example, not in app code. `adaptive:low` since 2026-09-16
+      # (runs 05-07; why: app/extract/schema.py changelog). `default`
+      # sends no thinking parameter (the API's own default; see
+      # app/extract/llm.py for the other values) — runs 01-04 and 07
+      # were made this way.
       APP_LLM_PROVIDER: ${APP_LLM_PROVIDER:-anthropic}
       APP_EXTRACTION_MODEL: ${APP_EXTRACTION_MODEL:-claude-sonnet-5}
-      APP_EXTRACTION_THINKING: ${APP_EXTRACTION_THINKING:-default}
+      APP_EXTRACTION_THINKING: ${APP_EXTRACTION_THINKING:-adaptive:low}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     command: ["python", "-m", "app.worker.main"]
 

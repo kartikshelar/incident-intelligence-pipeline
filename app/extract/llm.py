@@ -43,11 +43,16 @@ the extractions row (see `thinking_request_params`):
 
   default          send no `thinking` and no effort; the API's default
                    applies (adaptive thinking on Sonnet 5 — what runs
-                   01-04 did)
+                   01-04 and 07 did)
   adaptive         thinking={"type": "adaptive"}
   disabled         thinking={"type": "disabled"}
   <mode>:<effort>  any of the above plus output_config={"effort": ...},
                    effort in low | medium | high | xhigh | max
+
+The project default is `adaptive:low` (.env.example, docker-compose.yml;
+since 2026-09-16, reasons in app/extract/schema.py's changelog). It is
+still not a constant here: an unset value is a recorded configuration
+error, not a silent fallback.
 
 `budget_tokens` is not expressible: the API rejects it on Sonnet 5.
 

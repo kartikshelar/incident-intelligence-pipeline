@@ -37,7 +37,7 @@ is git-ignored):
 |---|---|
 | `APP_LLM_PROVIDER` | which `app/extract/llm.py` implementation to use (`anthropic`) |
 | `APP_EXTRACTION_MODEL` | model string passed to the provider verbatim; the project default, `claude-sonnet-5`, lives in `.env.example` and `docker-compose.yml`, not in code |
-| `APP_EXTRACTION_THINKING` | thinking/effort, interpreted by the provider and stored verbatim. For `anthropic`: `default` (send nothing; the API's default, which on Sonnet 5 is adaptive thinking), `adaptive`, `disabled`, each optionally `:<low\|medium\|high\|xhigh\|max>` for `output_config.effort`, e.g. `adaptive:low`. The project default, `default`, lives in `.env.example` and `docker-compose.yml` |
+| `APP_EXTRACTION_THINKING` | thinking/effort, interpreted by the provider and stored verbatim. For `anthropic`: `default` (send nothing; the API's default, which on Sonnet 5 is adaptive thinking), `adaptive`, `disabled`, each optionally `:<low\|medium\|high\|xhigh\|max>` for `output_config.effort`, e.g. `adaptive:low`. The project default, `adaptive:low` since 2026-09-16, lives in `.env.example` and `docker-compose.yml`; why it is not `default` or `disabled` is in the `app/extract/schema.py` changelog and the thinking experiment below |
 | `ANTHROPIC_API_KEY` | the provider's key, under the SDK's own name |
 | `APP_EXTRACTION_MAX_TOKENS`, `APP_EXTRACTION_MAX_ATTEMPTS` | 16000 / 3 |
 
