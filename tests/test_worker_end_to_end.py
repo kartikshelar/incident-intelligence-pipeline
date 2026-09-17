@@ -131,6 +131,15 @@ def test_registered_source_flows_through_ingest_and_extract(
     assert extraction["record"]["detection_method"] == "monitoring"
     assert set(extraction["per_field_confidence"]) == set(extraction["record"])
 
+    # M4: every field has a review state, and none is below the floor
+    # (the fixture reports 0.9 everywhere), so the queue stays empty.
+    with engine.connect() as conn:
+        states = [
+            r[0] for r in conn.execute(text("SELECT review_state FROM field_reviews"))
+        ]
+    assert len(states) == 23
+    assert set(states) == {"unreviewed"}
+
     # 3. nothing left
     assert worker.run_once() is False
 

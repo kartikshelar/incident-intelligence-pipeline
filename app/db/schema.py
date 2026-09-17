@@ -5,7 +5,10 @@ are M1. `documents` is M2: the result of fetching a source's URL and
 normalizing markdown/HTML/PDF to text, with provenance. `extractions` is
 M3: one row per extraction attempt-set against a document — complete or
 failed — holding the validated incident record (app/extract/schema.py) as
-JSONB plus the full attempt log.
+JSONB plus the full attempt log. `field_reviews` is M4: one row per
+(complete extraction, top-level record field) carrying that field's
+review state, its self-reported confidence, and — once a human has looked
+at it — the decision and any corrected value, next to the model's value.
 
 It is called `extractions`, not `incidents`, on purpose: FINDINGS.md §4.11
 and §4.12 (document != incident; several impact periods per document) are
@@ -24,6 +27,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
+    Float,
     Index,
     Integer,
     LargeBinary,
@@ -207,4 +211,86 @@ extractions = Table(
         postgresql_where=text("status = 'complete'"),
     ),
     Index("ix_extractions_document_id", "document_id"),
+)
+
+# Per-field review state (M4, ADR-010 §1: the unit of review is the field).
+#   unreviewed  nobody has been asked to look at it. Every field of every
+#               complete extraction starts here (app/extract/pipeline.py
+#               writes one row per top-level record field in the same
+#               transaction as the extraction; migration 0008 backfilled
+#               the rows for extractions that predate the table).
+#   routed      selected for human review by app/review/routing.py
+#               (confidence below the configured floor, ranked ascending,
+#               budget applied after ranking). Stays routed until reviewed;
+#               a skip does not change state, it only moves the field to
+#               the back of the presentation order.
+#   reviewed    a human decided: `accepted` (the model's value stands) or
+#               `corrected` (`corrected_value` is the human's answer). A
+#               reviewed field is never re-routed (ADR-010 §6), and its
+#               `model_value` is never overwritten — both answers are kept.
+REVIEW_STATES = ("unreviewed", "routed", "reviewed")
+REVIEW_DECISIONS = ("accepted", "corrected")
+
+field_reviews = Table(
+    "field_reviews",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("extraction_id", UUID(as_uuid=True), nullable=False),
+    # A top-level IncidentRecord field name (app.extract.schema.RECORD_FIELDS).
+    Column("field", String, nullable=False),
+    # Copied from extractions.per_field_confidence[field] when the row is
+    # created, so the routing query can ORDER BY it without unpacking JSONB.
+    # The extraction row remains the source of truth for where the number
+    # came from (extractions.confidence_source, ADR-009).
+    Column("confidence", Float, nullable=False),
+    # The model's value for this field, as stored in extractions.record —
+    # the JSON value itself, so a null field is JSON `null`, never SQL NULL.
+    # Duplicated here deliberately: a corrections query is one table, and
+    # `record` is immutable so the copy cannot drift.
+    Column("model_value", JSONB, nullable=False),
+    Column("review_state", String, nullable=False, server_default="unreviewed"),
+    Column("routed_at", DateTime(timezone=True), nullable=True),
+    # Skip bookkeeping: a skipped field goes to the back of the
+    # presentation order (app/review/queries.py) but keeps its rank.
+    Column("skip_count", Integer, nullable=False, server_default="0"),
+    Column("last_skipped_at", DateTime(timezone=True), nullable=True),
+    # Set together when review_state becomes 'reviewed'.
+    Column("decision", String, nullable=True),
+    # The human's value when decision = 'corrected'. JSON `null` is a valid
+    # correction (the field should have been null); SQL NULL means "no
+    # correction", which the check below ties to the decision.
+    Column("corrected_value", JSONB, nullable=True),
+    Column("reviewer", Text, nullable=True),
+    Column("reviewer_note", Text, nullable=True),
+    Column("reviewed_at", DateTime(timezone=True), nullable=True),
+    Column("created_at", DateTime(timezone=True), server_default=func.now(), nullable=False),
+    UniqueConstraint("extraction_id", "field", name="field_reviews_extraction_field_key"),
+    CheckConstraint(f"review_state IN {REVIEW_STATES}", name="field_reviews_state_valid"),
+    CheckConstraint(
+        f"decision IS NULL OR decision IN {REVIEW_DECISIONS}", name="field_reviews_decision_valid"
+    ),
+    # Reviewed <=> a decision, a reviewer and a time are all recorded.
+    CheckConstraint(
+        "(review_state = 'reviewed') = "
+        "(decision IS NOT NULL AND reviewer IS NOT NULL AND reviewed_at IS NOT NULL)",
+        name="field_reviews_reviewed_is_complete",
+    ),
+    CheckConstraint(
+        "(review_state = 'reviewed') OR "
+        "(decision IS NULL AND reviewer IS NULL AND reviewed_at IS NULL)",
+        name="field_reviews_unreviewed_has_no_decision",
+    ),
+    # A corrected value exists exactly when the decision was 'corrected'.
+    CheckConstraint(
+        "(decision IS NOT DISTINCT FROM 'corrected') = (corrected_value IS NOT NULL)",
+        name="field_reviews_corrected_has_value",
+    ),
+    # Routed fields know when they were routed (reviewed ones may too).
+    CheckConstraint(
+        "review_state <> 'routed' OR routed_at IS NOT NULL",
+        name="field_reviews_routed_has_time",
+    ),
+    Index("ix_field_reviews_extraction_id", "extraction_id"),
+    # The routing scan (state + confidence) and the queue listing.
+    Index("ix_field_reviews_state_confidence", "review_state", "confidence"),
 )

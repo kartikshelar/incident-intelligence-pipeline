@@ -28,6 +28,12 @@ instead of finding the first run's row and no-oping.
 
 Title (FINDINGS §4.7): if the parser found a metadata title, it wins over
 whatever the model wrote, and title_source says so.
+
+Review state (M4, ADR-010 §1): a complete row is followed, in the same
+transaction, by one `field_reviews` row per top-level record field, all
+`unreviewed`. Routing them is not done here — it is a separate pass with
+its own configuration (app/review/routing.py), run by the worker after the
+extraction commits and on demand through the API.
 """
 
 from __future__ import annotations
@@ -43,6 +49,7 @@ from app.extract.errors import ExtractionError, TransientExtractionError
 from app.extract.extractor import Attempt, extract
 from app.extract.llm import LLMClient
 from app.extract.schema import SCHEMA_VERSION
+from app.review.fields import create_field_reviews
 
 
 @dataclasses.dataclass(frozen=True)
@@ -176,6 +183,9 @@ def extract_document(
             "attempt_log": _attempt_log_json(result.attempts),
             "usage": json.dumps(result.usage_totals),
         },
+    )
+    create_field_reviews(
+        conn, extraction_id=extraction_id, record=record, confidence=result.output.confidence
     )
     return ExtractOutcome(
         extraction_id=extraction_id,
