@@ -294,3 +294,171 @@ def test_corrections_are_queryable_as_gold_set_input(engine: Engine) -> None:
     assert [i["decision"] for i in by_field["items"]] == ["accepted"]
 
 
+# --- UI --------------------------------------------------------------------
+
+
+def test_ui_empty_queue(engine: Engine) -> None:
+    response = client.get("/ui/review")
+    assert response.status_code == 200
+    assert "queue is empty" in response.text
+
+
+def test_ui_shows_next_field_with_value_confidence_quote_and_context(engine: Engine) -> None:
+    extraction_id = complete_extraction(engine, confidence={"mechanism": 0.45, "summary": 0.6})
+    _route(engine)
+
+    response = client.get("/ui/review")
+    assert response.status_code == 200
+    html = response.text
+    assert "mechanism" in html  # lowest first
+    assert "0.45" in html
+    assert "limit_violation" in html
+    assert "<mark>the software panicked</mark>" in html
+    assert "core proxy returned HTTP 5xx" in html  # surrounding source text
+    assert "Full source text" in html
+    assert "Impact starts 11:28" in html
+    fid = field_id(engine, extraction_id, "mechanism")
+    assert f'action="/ui/review/{fid}"' in html
+    for action in ("accept", "correct", "skip"):
+        assert f'value="{action}"' in html
+
+
+def test_ui_flags_a_quote_that_is_not_in_the_source(engine: Engine) -> None:
+    from tests.review_support import insert_document
+
+    document_id = insert_document(engine, text_body="Nothing here matches the fixture.")
+    extraction_id = complete_extraction(
+        engine, document_id=document_id, confidence={"mechanism": 0.45}
+    )
+    _route(engine)
+    html = client.get(f"/ui/review/{field_id(engine, extraction_id, 'mechanism')}").text
+    assert "Quote not found in the source text" in html
+
+
+def test_ui_accept_marks_reviewed_and_advances(engine: Engine) -> None:
+    extraction_id = complete_extraction(engine, confidence={"trigger": 0.5, "mechanism": 0.6})
+    _route(engine)
+    fid = field_id(engine, extraction_id, "trigger")
+
+    response = client.post(
+        f"/ui/review/{fid}",
+        data={"action": "accept", "reviewer": "kartik", "corrected_value": "", "note": ""},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert response.headers["location"] == "/ui/review"
+    assert response.cookies.get("reviewer") == "kartik"
+    row = field_rows(engine, extraction_id)["trigger"]
+    assert (row["review_state"], row["decision"], row["reviewer"]) == (
+        "reviewed",
+        "accepted",
+        "kartik",
+    )
+    # Next page shows the next field, with the reviewer remembered.
+    client.cookies.set("reviewer", "kartik")
+    try:
+        html = client.get("/ui/review").text
+    finally:
+        client.cookies.clear()
+    assert 'value="kartik"' in html
+    assert "limit_violation" in html
+
+
+def test_ui_correct_accepts_json_and_plain_strings(engine: Engine) -> None:
+    extraction_id = complete_extraction(
+        engine, confidence={"detection_method": 0.5, "trigger": 0.5}
+    )
+    _route(engine)
+    rows = field_rows(engine, extraction_id)
+
+    # Plain enum value for a string-typed field, no quotes needed.
+    response = client.post(
+        f"/ui/review/{rows['detection_method']['id']}",
+        data={"action": "correct", "reviewer": "k", "corrected_value": "operator", "note": "x"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    # JSON for a structured field.
+    response = client.post(
+        f"/ui/review/{rows['trigger']['id']}",
+        data={
+            "action": "correct",
+            "reviewer": "k",
+            "corrected_value": '{"label": "code_deploy", "description": "A deploy did it.", '
+            '"quote": null}',
+            "note": "",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    rows = field_rows(engine, extraction_id)
+    assert rows["detection_method"]["corrected_value"] == "operator"
+    assert rows["trigger"]["corrected_value"]["label"] == "code_deploy"
+    assert rows["trigger"]["model_value"]["label"] == "config_change"
+
+
+def test_ui_plain_text_correction_for_a_currently_null_text_field(engine: Engine) -> None:
+    """vendor_org is `str | None` and null in the fixture; typing a name
+    without quotes must still be taken as the string."""
+    extraction_id = complete_extraction(engine, confidence={"vendor_org": 0.3})
+    _route(engine)
+    fid = field_id(engine, extraction_id, "vendor_org")
+    response = client.post(
+        f"/ui/review/{fid}",
+        data={"action": "correct", "reviewer": "k", "corrected_value": "HashiCorp", "note": ""},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    row = field_rows(engine, extraction_id)["vendor_org"]
+    assert row["model_value"] is None
+    assert row["corrected_value"] == "HashiCorp"
+
+
+def test_ui_invalid_correction_re_renders_with_the_error(engine: Engine) -> None:
+    extraction_id = complete_extraction(engine, confidence={"trigger": 0.5})
+    _route(engine)
+    fid = field_id(engine, extraction_id, "trigger")
+    response = client.post(
+        f"/ui/review/{fid}",
+        data={"action": "correct", "reviewer": "k", "corrected_value": "{not json", "note": ""},
+    )
+    assert response.status_code == 422
+    assert "not valid JSON" in response.text
+    assert "{not json" in response.text  # the reviewer's text is preserved
+    response = client.post(
+        f"/ui/review/{fid}",
+        data={
+            "action": "correct",
+            "reviewer": "k",
+            "corrected_value": '{"label": "x"}',
+            "note": "",
+        },
+    )
+    assert response.status_code == 422
+    assert "not a valid trigger" in response.text
+    assert field_rows(engine, extraction_id)["trigger"]["review_state"] == "routed"
+
+
+def test_ui_skip_moves_on(engine: Engine) -> None:
+    extraction_id = complete_extraction(engine, confidence={"trigger": 0.1, "mechanism": 0.2})
+    _route(engine)
+    fid = field_id(engine, extraction_id, "trigger")
+    response = client.post(f"/ui/review/{fid}", data={"action": "skip"}, follow_redirects=False)
+    assert response.status_code == 303
+    html = client.get("/ui/review").text
+    assert "limit_violation" in html  # mechanism is now first
+    assert field_rows(engine, extraction_id)["trigger"]["skip_count"] == 1
+
+
+def test_ui_reviewed_field_shows_decision_and_no_form(engine: Engine) -> None:
+    extraction_id = complete_extraction(engine, confidence={"trigger": 0.5})
+    _route(engine)
+    fid = field_id(engine, extraction_id, "trigger")
+    client.post(f"/review/fields/{fid}/decision", json={"action": "accept", "reviewer": "k"})
+    html = client.get(f"/ui/review/{fid}").text
+    assert "accepted by k" in html
+    assert "<form" not in html
+
+
+def test_ui_unknown_field_is_404(engine: Engine) -> None:
+    assert client.get(f"/ui/review/{uuid.uuid4()}").status_code == 404

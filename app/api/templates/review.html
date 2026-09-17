@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Field review</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 0 auto; max-width: 62rem; padding: 1rem 16px 4rem; }
+  header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; border-bottom: 1px solid #8884; padding-bottom: .5rem; }
+  header small { opacity: .7; }
+  h1 { font-size: 1.2rem; margin: 0; }
+  h2 { font-size: 1rem; margin: 1.5rem 0 .5rem; }
+  .field { font-family: ui-monospace, monospace; font-size: 1.1rem; }
+  .meta { display: grid; grid-template-columns: max-content 1fr; gap: .2rem 1rem; margin: 1rem 0; }
+  .meta dt { opacity: .7; }
+  .meta dd { margin: 0; overflow-wrap: anywhere; }
+  .conf { font-weight: 600; }
+  pre { background: #8881; padding: .75rem; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .snippet { background: #8881; padding: .75rem; border-radius: 4px; margin: .5rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .snippet mark { background: #fc0a; color: inherit; padding: 0 .1em; }
+  .missing { border-left: 3px solid #d33; }
+  .source { max-height: 28rem; overflow: auto; }
+  form { margin-top: 1.5rem; display: grid; gap: .75rem; }
+  label { display: grid; gap: .25rem; }
+  input[type=text], textarea { font: inherit; width: 100%; box-sizing: border-box; padding: .4rem; }
+  textarea { font-family: ui-monospace, monospace; min-height: 8rem; }
+  .actions { display: flex; gap: .75rem; flex-wrap: wrap; }
+  button { font: inherit; padding: .5rem 1rem; cursor: pointer; }
+  .error { background: #d332; border: 1px solid #d33; padding: .75rem; border-radius: 4px; }
+  .empty { margin-top: 3rem; text-align: center; opacity: .8; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Field review</h1>
+  <small>{{ queue_size }} field{{ '' if queue_size == 1 else 's' }} in queue
+    &middot; floor {{ '%.2f' % floor }}
+    &middot; budget {{ budget if budget is not none else 'uncapped' }}</small>
+</header>
+
+{% if error %}
+<p class="error">{{ error }}</p>
+{% endif %}
+
+{% if item is none %}
+<p class="empty">The review queue is empty. Fields enter it when an extraction completes with any field below the confidence floor, or after <code>POST /review/route</code>.</p>
+{% else %}
+{% set r = item.review %}
+<dl class="meta">
+  <dt>Field</dt><dd class="field">{{ r.field }}</dd>
+  <dt>Confidence</dt><dd class="conf">{{ '%.2f' % r.confidence }} <small>(self-reported)</small></dd>
+  <dt>Document</dt><dd>{{ item.document_title or '(untitled)' }}<br><small><a href="{{ item.source_url }}" rel="noopener">{{ item.source_url }}</a></small></dd>
+  <dt>Extraction</dt><dd><small>{{ r.extraction_id }} &middot; schema {{ item.schema_version }} &middot; run {{ item.run_id }}</small></dd>
+  <dt>State</dt><dd>{{ r.review_state }}{% if r.skip_count %} &middot; skipped {{ r.skip_count }}&times;{% endif %}{% if r.decision %} &middot; {{ r.decision }} by {{ r.reviewer }} at {{ r.reviewed_at }}{% endif %}</dd>
+</dl>
+
+<h2>Extracted value</h2>
+<pre>{{ value_json }}</pre>
+{% if r.decision == 'corrected' %}
+<h2>Corrected value</h2>
+<pre>{{ r.corrected_value | tojson(indent=2) }}</pre>
+{% endif %}
+
+<h2>Evidence in the source</h2>
+{% if snippets %}
+  {% for s in snippets %}
+    {% if s.found %}
+    <div class="snippet">&hellip;{{ s.before }}<mark>{{ s.match }}</mark>{{ s.after }}&hellip;</div>
+    {% else %}
+    <div class="snippet missing">Quote not found in the source text: <em>{{ s.quote }}</em>. The model may have paraphrased or invented it — check the full text below.</div>
+    {% endif %}
+  {% endfor %}
+{% else %}
+  <p><small>This field cites no quote. Judge it against the full text below.</small></p>
+{% endif %}
+
+<details {% if not snippets %}open{% endif %}>
+  <summary>Full source text ({{ item.document_text | length }} characters)</summary>
+  <pre class="source">{{ item.document_text }}</pre>
+</details>
+
+{% if r.review_state != 'reviewed' %}
+<form method="post" action="/ui/review/{{ r.id }}">
+  <label>Reviewer
+    <input type="text" name="reviewer" value="{{ reviewer }}" placeholder="your name" autocomplete="name">
+  </label>
+  <label>Corrected value (JSON; only used by Correct)
+    <textarea name="corrected_value">{{ corrected_json }}</textarea>
+  </label>
+  <label>Note (optional)
+    <input type="text" name="note" placeholder="why, if not obvious">
+  </label>
+  <div class="actions">
+    <button type="submit" name="action" value="accept">Accept</button>
+    <button type="submit" name="action" value="correct">Correct</button>
+    <button type="submit" name="action" value="skip" formnovalidate>Skip</button>
+  </div>
+</form>
+{% else %}
+<p><a href="/ui/review">Next field in the queue &rarr;</a></p>
+{% endif %}
+{% endif %}
+</body>
+</html>

@@ -16,6 +16,9 @@ dependencies = [
     "lxml>=5.0",
     "pypdf>=5.0",
     "anthropic>=1.0,<2",
+    # M4 review UI: server-rendered templates and HTML form posts.
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
@@ -53,3 +56,8 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["app*"]
+
+[tool.setuptools.package-data]
+# The review UI's templates ship with the package (the image does a
+# non-editable `pip install .`).
+app = ["api/templates/*.html"]
