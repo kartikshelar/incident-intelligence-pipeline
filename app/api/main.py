@@ -1,8 +1,9 @@
-"""M1 API: register a source URL, see its status.
+"""API: register a source URL, see its status (M1); review queue (M4).
 
-No ingestion, parsing, or extraction happens here or anywhere yet — that's
-M2/M3. This endpoint's only job is: write a `sources` row and a `queued`
-job row in one transaction, so a worker can pick it up.
+No ingestion, parsing, or extraction happens here — the worker does that.
+`register_source`'s only job is: write a `sources` row and a `queued` job
+row in one transaction, so a worker can pick it up. The M4 review
+endpoints live in app/api/review.py and are mounted here.
 """
 
 import uuid
@@ -11,10 +12,12 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, HttpUrl
 from sqlalchemy import text
 
+from app.api import review
 from app.db.engine import get_engine
 from app.queue import enqueue
 
 app = FastAPI(title="Incident Intelligence Pipeline", version="0.1.0")
+app.include_router(review.router)
 
 
 class RegisterSourceRequest(BaseModel):

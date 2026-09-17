@@ -15,6 +15,8 @@ Layout:
                 the budget cap applied after ranking
   queries.py    read side: the queue in presentation order, one field with
                 its document, and reviewed decisions as gold-set input
+  context.py    the source-text snippets a reviewer needs to judge a field
+                without opening the original document
 
 Nothing in this package tunes the floor: it is `settings.review_confidence
 _floor`, and M5 sweeps it (ADR-010 §3). Review precision and recall are
