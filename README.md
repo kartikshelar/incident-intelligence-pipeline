@@ -8,14 +8,18 @@ See [`PROJECT_BRIEF.md`](PROJECT_BRIEF.md) for the full contract, milestone
 plan, and open [DERIVE] decisions. Architectural decisions are recorded in
 [`docs/adr/`](docs/adr/).
 
-## Status: M3 — Extraction v0
+## Status: M4 — Confidence & review queue
 
 A registered source URL is fetched and normalized (M2), then a second job
 sends the text to Claude and stores one validated incident record per
-document in `extractions`. Output is validated against the schema; invalid
-output is retried with the validation error fed back; every failure is a
-row, not a log line. Per-field confidence is captured but not yet
-thresholded (that's M4).
+document in `extractions` (M3). Output is validated against the schema;
+invalid output is retried with the validation error fed back; every
+failure is a row, not a log line. Every field of every complete
+extraction then gets a review state; fields whose self-reported
+confidence is below a configured floor are ranked lowest-first and routed
+to a one-field-at-a-time review UI, and a reviewer's accept or correction
+is written back next to the model's value as gold-set input (M4, see
+[Review](#review)).
 
 ```
 cp .env.example .env   # set ANTHROPIC_API_KEY; provider and model are preset
@@ -40,6 +44,8 @@ is git-ignored):
 | `APP_EXTRACTION_THINKING` | thinking/effort, interpreted by the provider and stored verbatim. For `anthropic`: `default` (send nothing; the API's default, which on Sonnet 5 is adaptive thinking), `adaptive`, `disabled`, each optionally `:<low\|medium\|high\|xhigh\|max>` for `output_config.effort`, e.g. `adaptive:low`. The project default, `adaptive:low` since 2026-09-16, lives in `.env.example` and `docker-compose.yml`; why it is not `default` or `disabled` is in the `app/extract/schema.py` changelog and the thinking experiment below |
 | `ANTHROPIC_API_KEY` | the provider's key, under the SDK's own name |
 | `APP_EXTRACTION_MAX_TOKENS`, `APP_EXTRACTION_MAX_ATTEMPTS` | 16000 / 3 |
+| `APP_REVIEW_CONFIDENCE_FLOOR` | M4 routing: fields whose self-reported confidence is below this are eligible for review. `0.70` is [ADR-010](docs/adr/adr-010-review-queue-routing.md) §3's provisional operating point, kept as configuration so M5's threshold sweep is a config change, not a code change. Not tuned against any data yet |
+| `APP_REVIEW_BUDGET` | optional cap on fields awaiting a reviewer at once, applied after ranking; unset = uncapped, which is the mode M5 evaluates routing in |
 
 `provider`, `model` and `thinking` are stored on every `extractions` row
 and are part of its idempotency key, so the same document re-run at a
@@ -165,9 +171,84 @@ the extract job idempotent under at-least-once delivery.
 
 **Confidence**: `FieldConfidence` is one self-reported number per
 top-level field, stored in `extractions.per_field_confidence` with
-`confidence_source='self_report'`. Nothing reads it yet. Whether
-self-report is a usable confidence source is DERIVE-05 and gets measured in
-M5, not assumed here.
+`confidence_source='self_report'`. [ADR-009](docs/adr/adr-009-confidence-source.md)
+(DERIVE-05) keeps self-report as the routing signal for M4 on the evidence
+that it was lower on the fields that flipped between runs 10 and 11 (a
+0.11–0.12 gap on the unstable fields, small sample); whether it is
+*calibrated* is measured in M5, not assumed here. M4 uses it only to
+rank.
+
+## Review
+
+M4, per [ADR-010](docs/adr/adr-010-review-queue-routing.md) (DERIVE-06).
+`app/review/` — see its `__init__.py` for the module map.
+
+**Unit of review is the field.** Every complete extraction gets one
+`field_reviews` row per top-level record field (23 of them), written in
+the same transaction as the extraction (migration 0008 backfilled the
+rows for earlier extractions). Each row carries the field's review state —
+`unreviewed` → `routed` → `reviewed` — its self-reported confidence, and a
+copy of the model's value. A reviewed field is never routed again;
+re-extracting the document is a new extraction with its own rows.
+
+**Routing** (`app/review/routing.py`): eligible = unreviewed fields with
+confidence strictly below `APP_REVIEW_CONFIDENCE_FLOOR`; rank them by
+ascending confidence across all extractions; then, only if
+`APP_REVIEW_BUDGET` is set, route as many of the lowest as fit under the
+cap on fields awaiting review. The budget decides how many, never which —
+it is an operational constraint applied after the policy, and M5 scores
+the policy uncapped. The worker runs a pass after every completed
+extraction; `POST /review/route` runs one on demand (after changing the
+floor, or right after the migration backfill, whose rows start
+unrouted). A pass is idempotent. The floor is deliberately not a code
+constant and has not been tuned against any data: 0.70 is the ADR's
+provisional operating point between the mean confidence of stable (≈0.75)
+and unstable (≈0.64) extractions in runs 10/11, and M5 replaces it from
+the gold-set sweep.
+
+**Review UI** (`/ui/review`, `app/api/review_ui.py`): server-rendered,
+one field per page — the field, its value, its confidence, the quote(s)
+the extraction cites located in the source text with surrounding context
+(a quote that cannot be found is flagged, since the model may have
+paraphrased or invented it), and the full normalized text below. Three
+actions, one field each: **Accept**, **Correct** (the value as JSON,
+pre-filled with the current value; plain text is accepted for string
+fields; validated against the field's own Pydantic type before anything is
+written), **Skip** (back to the queue, behind fields not yet passed over).
+No bulk actions. The reviewer's name is a text box remembered in a cookie:
+provenance, not authentication.
+
+**Write-back** (`app/review/fields.py`): a decision marks the field
+`reviewed` with reviewer and timestamp and removes it from the queue. A
+correction is stored in `corrected_value` next to `model_value`; the
+model's answer is never overwritten, in `field_reviews` or in
+`extractions.record`. A "correction" equal to the model's value is refused
+as an accept. Reviewed fields are the gold-set input:
+
+```
+GET /review/corrections                    # decision=corrected (default) | accepted | all
+```
+
+returns each decision with `text_hash` (the document's identity under
+ADR-007), the extraction's schema version / provider / model / thinking /
+run, the field, the confidence it was routed at, both values, and who
+decided when. `app.review.queries.list_reviewed` is the same query in
+Python for M5.
+
+**API** (`app/api/review.py`, Pydantic contracts like the M1 handlers):
+
+```
+GET  /review/queue                  routed fields, lowest confidence first
+GET  /review/fields/{id}            one field: value, confidence, snippets, source text
+POST /review/fields/{id}/decision   {"action": "accept"|"correct"|"skip", "reviewer", "corrected_value", "note"}
+POST /review/route                  routing pass at the configured floor/budget
+GET  /review/corrections            reviewed fields as gold-set input
+```
+
+Decisions on a reviewed field return 409; an invalid correction 422 and
+changes nothing. Review precision and recall — is the queue routing the
+fields that are actually wrong? — are M5's metrics and are not computed
+here.
 
 ### First real runs (2026-09-15, anthropic / claude-sonnet-5)
 
