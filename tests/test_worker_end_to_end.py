@@ -144,6 +144,37 @@ def test_registered_source_flows_through_ingest_and_extract(
     assert worker.run_once() is False
 
 
+@respx.mock
+def test_low_confidence_fields_are_routed_when_the_extraction_completes(
+    engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """M4 (ADR-010): the worker runs a routing pass in the extraction's
+    transaction, at the configured floor and budget."""
+    from tests.review_support import output_with_confidence
+
+    fake = FakeLLMClient([output_with_confidence({"trigger": 0.55, "mechanism": 0.65})])
+    monkeypatch.setattr(worker, "get_llm_client", lambda: fake)
+    monkeypatch.setattr(worker.settings, "review_confidence_floor", 0.70)
+    monkeypatch.setattr(worker.settings, "review_budget", None)
+    extract_job_id = _ingest_then_claim_extract(engine, "https://example.com/pm-lowconf")
+
+    assert worker.run_once() is True
+    assert _job(engine, extract_job_id)["status"] == "succeeded"
+    with engine.connect() as conn:
+        routed = [
+            (r[0], r[1])
+            for r in conn.execute(
+                text(
+                    "SELECT field, confidence FROM field_reviews WHERE review_state = 'routed' "
+                    "ORDER BY confidence"
+                )
+            )
+        ]
+        total = conn.execute(text("SELECT count(*) FROM field_reviews")).scalar_one()
+    assert routed == [("trigger", 0.55), ("mechanism", 0.65)]
+    assert total == 23
+
+
 def test_run_once_returns_false_when_queue_is_empty(engine: Engine) -> None:
     assert worker.run_once() is False
 

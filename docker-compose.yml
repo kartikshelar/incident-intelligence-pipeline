@@ -31,6 +31,10 @@ services:
         condition: service_completed_successfully
     environment:
       APP_DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/incident_intel
+      # M4 review routing (ADR-010): read by POST /review/route and shown
+      # by the queue. Same values as the worker's, from ./.env or the shell.
+      APP_REVIEW_CONFIDENCE_FLOOR: ${APP_REVIEW_CONFIDENCE_FLOOR:-0.70}
+      APP_REVIEW_BUDGET: ${APP_REVIEW_BUDGET:-}
     ports:
       - "8000:8000"
     command: ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -56,6 +60,11 @@ services:
       APP_EXTRACTION_MODEL: ${APP_EXTRACTION_MODEL:-claude-sonnet-5}
       APP_EXTRACTION_THINKING: ${APP_EXTRACTION_THINKING:-adaptive:low}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # M4 review routing (ADR-010): the worker runs a routing pass after
+      # every completed extraction at this floor and budget. 0.70 is the
+      # ADR's provisional operating point; M5 sweeps it (see .env.example).
+      APP_REVIEW_CONFIDENCE_FLOOR: ${APP_REVIEW_CONFIDENCE_FLOOR:-0.70}
+      APP_REVIEW_BUDGET: ${APP_REVIEW_BUDGET:-}
     command: ["python", "-m", "app.worker.main"]
 
 volumes:

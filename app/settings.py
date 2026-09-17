@@ -22,6 +22,20 @@ provider, the model string, and the API key all come from here.
                           more than one worker process must share one run id.
   ANTHROPIC_API_KEY       the provider's key (its own name, not APP_-prefixed,
                           so the same variable the SDK reads still works)
+  APP_REVIEW_CONFIDENCE_FLOOR
+                          M4 routing (ADR-010 §3): a field whose self-
+                          reported confidence is below this is eligible for
+                          human review. 0.70 is the provisional operating
+                          point the ADR names; M5 sweeps it against the gold
+                          set, which is why it is configuration and not a
+                          constant in app/review/routing.py.
+  APP_REVIEW_BUDGET       Optional. Caps how many fields may be awaiting a
+                          reviewer at once (ADR-010 §1: "at a fixed human
+                          review budget"). Applied AFTER ranking, so it
+                          changes how many of the ranked fields get routed,
+                          never which ones rank first. Unset means uncapped,
+                          which is also how M5 evaluates the routing policy
+                          (ADR-010 §5).
 
 Provider, model and thinking are optional at load time so that processes
 which never call a model (API, migrations) start without them. The worker's
@@ -59,6 +73,13 @@ class Settings(BaseSettings):
     # retry budget for transient failures.
     extraction_max_attempts: int = 3
 
+    # Review routing (M4, ADR-010). The floor is a *provisional* operating
+    # point (ADR-010 §3), not a tuned threshold: nothing in this repository
+    # may adjust it against data before M5's sweep. The budget is an
+    # operational cap on outstanding review work, separate from the policy.
+    review_confidence_floor: float = Field(default=0.70, ge=0.0, le=1.0)
+    review_budget: int | None = Field(default=None, ge=0)
+
     # Read under the SDK's own variable name so a shell `export
     # ANTHROPIC_API_KEY=...` and a `.env` line both work. Passed explicitly
     # to the SDK; if unset the SDK falls back to its own resolution (auth
@@ -70,6 +91,7 @@ class Settings(BaseSettings):
         "extraction_model",
         "extraction_thinking",
         "extraction_run_id",
+        "review_budget",
         mode="before",
     )
     @classmethod

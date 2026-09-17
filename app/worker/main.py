@@ -24,6 +24,7 @@ from app.extract.llm import LLMClient, build_llm_client
 from app.extract.pipeline import extract_document
 from app.ingest.pipeline import ingest_source
 from app.queue import Job, claim_one, enqueue, mark_failed, mark_succeeded
+from app.review.routing import route_pending
 from app.settings import settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -102,6 +103,24 @@ def process_extract(conn: Connection, job: Job) -> None:
             outcome.extraction_id,
             job.document_id,
             outcome.attempts,
+        )
+        # M4 (ADR-010): a routing pass in the same transaction, so the new
+        # fields are in the queue the moment the extraction is visible.
+        # The pass is global — it ranks every unreviewed field below the
+        # floor, not just this document's — because the budget is a cap on
+        # the reviewer's outstanding work, not a per-document quota.
+        routing = route_pending(
+            conn, floor=settings.review_confidence_floor, budget=settings.review_budget
+        )
+        logger.info(
+            "job %s: routed %d field(s) for review (floor=%.2f, budget=%s, eligible=%d, "
+            "outstanding before=%d)",
+            job.id,
+            len(routing.routed),
+            routing.floor,
+            "uncapped" if routing.budget is None else routing.budget,
+            routing.eligible,
+            routing.outstanding_before,
         )
 
 
