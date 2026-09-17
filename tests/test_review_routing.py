@@ -5,9 +5,10 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy import Engine, text
 
+from app.review.fields import record_decision
 from app.review.routing import outstanding, rank_eligible, route_pending
 from app.settings import Settings, settings
-from tests.review_support import complete_extraction, field_rows
+from tests.review_support import complete_extraction, field_id, field_rows
 
 
 def _states(engine: Engine, extraction_id):  # type: ignore[no-untyped-def]
@@ -60,8 +61,10 @@ def test_budget_is_applied_after_ranking(engine: Engine) -> None:
     assert result.outstanding_before == 0
 
 
-def test_budget_caps_outstanding_review_work(engine: Engine) -> None:
-    complete_extraction(
+def test_budget_caps_outstanding_review_work_and_tops_up_as_reviews_land(
+    engine: Engine,
+) -> None:
+    extraction_id = complete_extraction(
         engine, confidence={"trigger": 0.10, "mechanism": 0.50, "summary": 0.30, "title": 0.65}
     )
     with engine.begin() as conn:
@@ -72,6 +75,15 @@ def test_budget_caps_outstanding_review_work(engine: Engine) -> None:
         assert again.routed == []
         assert again.outstanding_before == 2
         assert outstanding(conn) == 2
+    # The reviewer clears one; the next pass routes the next-lowest.
+    with engine.begin() as conn:
+        record_decision(
+            conn, field_id(engine, extraction_id, "trigger"), action="accept", reviewer="k"
+        )
+    with engine.begin() as conn:
+        topped = route_pending(conn, floor=0.70, budget=2)
+    assert [f.field for f in topped.routed] == ["mechanism"]
+    assert _states(engine, extraction_id)["title"] == "unreviewed"
 
 
 def test_uncapped_routes_everything_eligible(engine: Engine) -> None:
