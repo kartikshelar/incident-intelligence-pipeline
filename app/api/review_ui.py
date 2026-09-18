@@ -8,7 +8,9 @@ One field per page: the field's definition read from the schema itself
 (app/review/definitions.py), its current value, self-reported confidence,
 three to five candidate passages chosen from the source by field-specific
 keyword cues (app/review/candidates.py), and the full normalised document
-text below. The page does NOT locate or highlight the quote the
+text below with a client-side text search (match count, jump between
+matches, "find in source" from each candidate; inline script, no build
+step). The page does NOT locate or highlight the quote the
 extraction cites: candidate selection never sees the record, so the
 reviewer judges the value against the source rather than against the
 model's justification — corrections are gold-set input and must be

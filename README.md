@@ -243,6 +243,10 @@ is a text box remembered in a cookie: provenance, not authentication.
   justification is not an independent judge — biased corrections would
   silently corrupt the ground truth. The only thing the page says about a
   cited quote is when it cannot be found in the source at all.
+- *Search in the source*: the full-text panel has a client-side search
+  (literal, case-insensitive) with a match count, Enter / Shift+Enter to
+  step through matches, and a "find in source" link on each candidate
+  passage that scrolls to its exact span. Inline script, no build step.
 
 **Write-back** (`app/review/fields.py`): a decision marks the field
 `reviewed` with reviewer and timestamp and removes it from the queue. A

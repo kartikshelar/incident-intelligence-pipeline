@@ -334,6 +334,12 @@ def test_ui_shows_next_field_with_definition_value_and_candidates(engine: Engine
     assert "core proxy returned HTTP 5xx" in html
     assert "Full source text" in html
     assert "Impact starts 11:28" in html
+    # Task 3: the source panel has a search box, a match counter and
+    # per-candidate jump links; the script is inline (no build step).
+    assert 'id="source-search"' in html and 'id="search-count"' in html
+    assert 'id="source-text"' in html
+    assert 'data-locate="' in html
+    assert "<script>" in html and "<script src=" not in html
     fid = field_id(engine, extraction_id, "mechanism")
     assert f'action="/ui/review/{fid}"' in html
     for action in ("accept", "correct", "skip"):

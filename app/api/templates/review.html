@@ -31,6 +31,12 @@
   .candidate small { display: block; opacity: .7; white-space: normal; margin-bottom: .25rem; }
   .missing { border-left: 3px solid #d33; background: #8881; padding: .75rem; border-radius: 4px; margin: .5rem 0; }
   .source { max-height: 28rem; overflow: auto; }
+  .search { display: flex; gap: .5rem; align-items: center; margin: .5rem 0; flex-wrap: wrap; }
+  .search input { font: inherit; padding: .3rem .5rem; flex: 1 1 12rem; }
+  .search button { padding: .2rem .6rem; }
+  .search span { opacity: .7; min-width: 6rem; }
+  .hit { background: #fc06; }
+  .hit.active { background: #fc0; color: #000; outline: 2px solid #fc0; }
   form { margin-top: 1.5rem; display: grid; gap: .75rem; }
   label { display: grid; gap: .25rem; }
   input[type=text], textarea { font: inherit; width: 100%; box-sizing: border-box; padding: .4rem; }
@@ -125,17 +131,102 @@
 <h2>Candidate passages <small>chosen by keyword cues for this field, in document order</small></h2>
 {% if candidates %}
   {% for c in candidates %}
-  <div class="candidate"><small>characters {{ '{:,}'.format(c.start) }}&ndash;{{ '{:,}'.format(c.end) }}{% if c.cues %} &middot; cues: {{ c.cues | join(', ') }}{% else %} &middot; lead of the document (no cue matched){% endif %}</small>{{ c.text }}</div>
+  <div class="candidate"><small>characters {{ '{:,}'.format(c.start) }}&ndash;{{ '{:,}'.format(c.end) }}{% if c.cues %} &middot; cues: {{ c.cues | join(', ') }}{% else %} &middot; lead of the document (no cue matched){% endif %} &middot; <a href="#source-panel" data-locate="{{ c.start }}-{{ c.end }}">find in source</a></small>{{ c.text }}</div>
   {% endfor %}
   <p><small>These are places to look first, not evidence for or against the value. Judge the field against the source; the full text is below.</small></p>
 {% else %}
   <p><small>The source text is empty.</small></p>
 {% endif %}
 
-<details {% if not candidates %}open{% endif %}>
+<details id="source-panel" {% if not candidates %}open{% endif %}>
   <summary>Full source text ({{ '{:,}'.format(item.document_text | length) }} characters)</summary>
-  <pre class="source">{{ item.document_text }}</pre>
+  <div class="search" role="search">
+    <input type="search" id="source-search" placeholder="search the source text" autocomplete="off" aria-label="Search the source text">
+    <button type="button" id="search-prev" title="previous match (Shift+Enter)">&uarr;</button>
+    <button type="button" id="search-next" title="next match (Enter)">&darr;</button>
+    <span id="search-count" aria-live="polite"></span>
+  </div>
+  <pre class="source" id="source-text">{{ item.document_text }}</pre>
 </details>
+<script>
+/* Task 3: client-side search over the source text. Plain text search
+   (case-insensitive, literal), match count, Enter / Shift+Enter or the
+   arrows to jump between matches; each candidate passage also has a
+   "find in source" link that jumps to its offset. No dependencies, no
+   build step. The marks are made here in the browser from the reviewer's
+   own query, never from the extraction. */
+(function () {
+  var pre = document.getElementById('source-text');
+  var box = document.getElementById('source-search');
+  var count = document.getElementById('search-count');
+  var panel = document.getElementById('source-panel');
+  if (!pre || !box) return;
+  var text = pre.textContent;
+  var hits = [];      // [start, end] per match
+  var current = -1;
+
+  function render(query) {
+    hits = [];
+    if (query) {
+      var haystack = text.toLowerCase(), needle = query.toLowerCase(), i = 0;
+      while ((i = haystack.indexOf(needle, i)) !== -1) { hits.push([i, i + needle.length]); i += needle.length; }
+    }
+    var frag = document.createDocumentFragment(), pos = 0;
+    hits.forEach(function (h, n) {
+      frag.appendChild(document.createTextNode(text.slice(pos, h[0])));
+      var span = document.createElement('span');
+      span.className = 'hit'; span.id = 'hit-' + n; span.textContent = text.slice(h[0], h[1]);
+      frag.appendChild(span); pos = h[1];
+    });
+    frag.appendChild(document.createTextNode(text.slice(pos)));
+    pre.textContent = ''; pre.appendChild(frag);
+    current = hits.length ? 0 : -1;
+    focusHit();
+  }
+
+  function focusHit() {
+    var active = pre.querySelector('.hit.active');
+    if (active) active.classList.remove('active');
+    if (current >= 0) {
+      var el = document.getElementById('hit-' + current);
+      el.classList.add('active');
+      el.scrollIntoView({ block: 'center' });
+    }
+    count.textContent = hits.length ? (current + 1) + ' of ' + hits.length : (box.value ? 'no matches' : '');
+  }
+
+  function step(delta) {
+    if (!hits.length) return;
+    current = (current + delta + hits.length) % hits.length;
+    focusHit();
+  }
+
+  box.addEventListener('input', function () { panel.open = true; render(box.value); });
+  box.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); step(e.shiftKey ? -1 : 1); }
+  });
+  document.getElementById('search-next').addEventListener('click', function () { step(1); });
+  document.getElementById('search-prev').addEventListener('click', function () { step(-1); });
+
+  // "find in source" on a candidate: show that exact span in the source.
+  document.querySelectorAll('a[data-locate]').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      var range = a.getAttribute('data-locate').split('-');
+      box.value = '';
+      hits = [[+range[0], +range[1]]];
+      var frag = document.createDocumentFragment();
+      frag.appendChild(document.createTextNode(text.slice(0, hits[0][0])));
+      var span = document.createElement('span');
+      span.className = 'hit'; span.id = 'hit-0'; span.textContent = text.slice(hits[0][0], hits[0][1]);
+      frag.appendChild(span);
+      frag.appendChild(document.createTextNode(text.slice(hits[0][1])));
+      pre.textContent = ''; pre.appendChild(frag);
+      panel.open = true; current = 0; focusHit(); count.textContent = 'candidate passage';
+    });
+  });
+})();
+</script>
 
 {% if r.review_state != 'reviewed' %}
 <form method="post" action="/ui/review/{{ r.id }}">
