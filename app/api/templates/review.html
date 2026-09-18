@@ -11,15 +11,25 @@
   header small { opacity: .7; }
   h1 { font-size: 1.2rem; margin: 0; }
   h2 { font-size: 1rem; margin: 1.5rem 0 .5rem; }
+  h2 small { font-weight: normal; opacity: .7; }
   .field { font-family: ui-monospace, monospace; font-size: 1.1rem; }
   .meta { display: grid; grid-template-columns: max-content 1fr; gap: .2rem 1rem; margin: 1rem 0; }
   .meta dt { opacity: .7; }
   .meta dd { margin: 0; overflow-wrap: anywhere; }
   .conf { font-weight: 600; }
   pre { background: #8881; padding: .75rem; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .snippet { background: #8881; padding: .75rem; border-radius: 4px; margin: .5rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .snippet mark { background: #fc0a; color: inherit; padding: 0 .1em; }
-  .missing { border-left: 3px solid #d33; }
+  .definition { border-left: 3px solid #8886; padding: .25rem 0 .25rem .75rem; margin: .5rem 0 1rem; }
+  .definition p { margin: .25rem 0; white-space: pre-line; }
+  .definition ul { margin: .25rem 0; padding-left: 1.25rem; }
+  .definition .label { font-weight: 600; margin-top: .6rem; }
+  .definition .none { opacity: .7; font-style: italic; }
+  .definition code { font-family: ui-monospace, monospace; }
+  .definition details { margin: .25rem 0; }
+  .definition details p { margin: .25rem 0 .25rem 1rem; }
+  .definition summary { cursor: pointer; }
+  .candidate { background: #8881; padding: .75rem; border-radius: 4px; margin: .5rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .candidate small { display: block; opacity: .7; white-space: normal; margin-bottom: .25rem; }
+  .missing { border-left: 3px solid #d33; background: #8881; padding: .75rem; border-radius: 4px; margin: .5rem 0; }
   .source { max-height: 28rem; overflow: auto; }
   form { margin-top: 1.5rem; display: grid; gap: .75rem; }
   label { display: grid; gap: .25rem; }
@@ -47,6 +57,7 @@
 <p class="empty">The review queue is empty. Fields enter it when an extraction completes with any field below the confidence floor, or after <code>POST /review/route</code>.</p>
 {% else %}
 {% set r = item.review %}
+{% set d = definition %}
 <dl class="meta">
   <dt>Field</dt><dd class="field">{{ r.field }}</dd>
   <dt>Confidence</dt><dd class="conf">{{ '%.2f' % r.confidence }} <small>(self-reported)</small></dd>
@@ -55,28 +66,74 @@
   <dt>State</dt><dd>{{ r.review_state }}{% if r.skip_count %} &middot; skipped {{ r.skip_count }}&times;{% endif %}{% if r.decision %} &middot; {{ r.decision }} by {{ r.reviewer }} at {{ r.reviewed_at }}{% endif %}</dd>
 </dl>
 
+{# Every sentence below is read from app/extract/schema.py (the field
+   description and the object docstring the model receives) or from the
+   field-rule blocks of app/extract/prompt.py. Nothing is written here, so
+   the page cannot drift from what the model was told. #}
+<h2>Definition <small>from the schema</small></h2>
+<div class="definition">
+  {% for text in d.texts %}<p>{{ text }}</p>{% endfor %}
+  {% if not d.has_text %}<p class="none">{% if d.parts %}The schema describes this field only through its parts, below.{% else %}The schema gives this field no description.{% endif %}</p>{% endif %}
+  {% if d.enum %}<p>One of: {% for v in d.enum %}<code>{{ v }}</code>{{ ' | ' if not loop.last }}{% endfor %}{% if d.nullable %}, or null{% endif %}.</p>
+  {% elif d.nullable %}<p>May be null.</p>{% endif %}
+
+  {% if d.exclusions %}
+  <p class="label">What it does not mean</p>
+  <ul>{% for s in d.exclusions %}<li>{{ s }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if d.related %}
+  <p class="label">Not to be confused with</p>
+  <ul>{% for rel in d.related %}<li><code>{{ rel.field }}</code>{% if rel.summary %} &mdash; {{ rel.summary }}{% endif %}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if d.parts %}
+  <p class="label">Parts</p>
+  {% for p in d.parts %}
+    {% if p.description and p.description | length > 300 %}
+    <details><summary><code>{{ p.path }}</code>{% if p.enum %} &mdash; one of {{ p.enum | length }} classes{% endif %}{% if p.nullable %}, or null{% endif %}</summary><p>{{ p.description }}</p></details>
+    {% else %}
+    <p><code>{{ p.path }}</code>{% if p.enum %} &mdash; one of: {% for v in p.enum %}<code>{{ v }}</code>{{ ' | ' if not loop.last }}{% endfor %}{% endif %}{% if p.nullable %}, or null{% endif %}{% if p.description %} &mdash; {{ p.description }}{% endif %}</p>
+    {% endif %}
+  {% endfor %}
+  {% endif %}
+
+  {% if d.prompt_rules %}
+  <details>
+    <summary>Extraction rules that name this field <small>(from the prompt)</small></summary>
+    {% for block in d.prompt_rules %}<p>{{ block }}</p>{% endfor %}
+  </details>
+  {% endif %}
+</div>
+
 <h2>Extracted value</h2>
 <pre>{{ value_json }}</pre>
 {% if r.decision == 'corrected' %}
 <h2>Corrected value</h2>
 <pre>{{ r.corrected_value | tojson(indent=2) }}</pre>
 {% endif %}
+{% for quote in missing_quotes %}
+<div class="missing">The value cites a quote that is not in the source text: <em>{{ quote }}</em>. The model may have paraphrased or invented it.</div>
+{% endfor %}
 
-<h2>Evidence in the source</h2>
-{% if snippets %}
-  {% for s in snippets %}
-    {% if s.found %}
-    <div class="snippet">&hellip;{{ s.before }}<mark>{{ s.match }}</mark>{{ s.after }}&hellip;</div>
-    {% else %}
-    <div class="snippet missing">Quote not found in the source text: <em>{{ s.quote }}</em>. The model may have paraphrased or invented it — check the full text below.</div>
-    {% endif %}
+{# Candidate passages are chosen from (field, source text) only. The quote
+   the extraction cites is NOT located, highlighted, ranked first or marked
+   here, even when it is one of the candidates: corrections made on this
+   page are gold-set input for M5, and a reviewer shown the model's
+   justification is not an independent judge — biased corrections would
+   silently corrupt the ground truth. Full rationale: app/review/candidates.py. #}
+<h2>Candidate passages <small>chosen by keyword cues for this field, in document order</small></h2>
+{% if candidates %}
+  {% for c in candidates %}
+  <div class="candidate"><small>characters {{ '{:,}'.format(c.start) }}&ndash;{{ '{:,}'.format(c.end) }}{% if c.cues %} &middot; cues: {{ c.cues | join(', ') }}{% else %} &middot; lead of the document (no cue matched){% endif %}</small>{{ c.text }}</div>
   {% endfor %}
+  <p><small>These are places to look first, not evidence for or against the value. Judge the field against the source; the full text is below.</small></p>
 {% else %}
-  <p><small>This field cites no quote. Judge it against the full text below.</small></p>
+  <p><small>The source text is empty.</small></p>
 {% endif %}
 
-<details {% if not snippets %}open{% endif %}>
-  <summary>Full source text ({{ item.document_text | length }} characters)</summary>
+<details {% if not candidates %}open{% endif %}>
+  <summary>Full source text ({{ '{:,}'.format(item.document_text | length) }} characters)</summary>
   <pre class="source">{{ item.document_text }}</pre>
 </details>
 

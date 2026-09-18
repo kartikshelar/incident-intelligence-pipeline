@@ -1,7 +1,8 @@
 """M4 review API (ADR-010): the queue, one field, a decision, corrections.
 
   GET  /review/queue                 routed fields in presentation order
-  GET  /review/fields/{id}           one field with its evidence and source
+  GET  /review/fields/{id}           one field: definition, value, candidate
+                                     passages, cited-quote locations, source
   POST /review/fields/{id}/decision  accept / correct / skip
   POST /review/route                 run a routing pass at the configured
                                      floor and budget (the worker also runs
@@ -25,7 +26,9 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.db.engine import get_engine
+from app.review.candidates import candidates
 from app.review.context import quotes_for, snippets
+from app.review.definitions import field_definition
 from app.review.fields import (
     AlreadyReviewedError,
     FieldReview,
@@ -109,12 +112,55 @@ class FieldReviewState(BaseModel):
         )
 
 
+class SubFieldOut(BaseModel):
+    path: str
+    description: str | None
+    enum: list[str]
+    nullable: bool
+
+
+class RelatedOut(BaseModel):
+    field: str
+    summary: str | None
+
+
+class FieldDefinitionOut(BaseModel):
+    """The field's meaning, read from the schema (app/review/definitions.py)."""
+
+    field: str
+    description: str | None
+    object_description: str | None
+    object_is_shared: bool
+    summary: str | None
+    enum: list[str]
+    nullable: bool
+    exclusions: list[str]
+    related: list[RelatedOut]
+    parts: list[SubFieldOut]
+    prompt_rules: list[str]
+
+
+class CandidateOut(BaseModel):
+    """A passage chosen by field-specific keyword cues, independent of the
+    extraction (app/review/candidates.py). In document order."""
+
+    start: int
+    end: int
+    text: str
+    cues: list[str]
+
+
 class FieldReviewDetail(FieldReviewState):
     document_id: uuid.UUID
     document_title: str | None
     source_url: str
     schema_version: str
     run_id: str
+    definition: FieldDefinitionOut
+    candidates: list[CandidateOut]
+    # Where the quotes the extraction cites sit in the source, for
+    # programmatic consumers. The review page renders only the not-found
+    # ones (see app/api/review_ui.py).
     snippets: list[SnippetOut]
     document_text: str
 
@@ -219,6 +265,7 @@ def get_field(field_review_id: uuid.UUID) -> FieldReviewDetail:
             raise HTTPException(status_code=404, detail="field review not found") from None
     found = snippets(item.document_text, quotes_for(item.review.field, item.record))
     state = FieldReviewState.from_review(item.review)
+    definition = field_definition(item.review.field)
     return FieldReviewDetail(
         **state.model_dump(),
         document_id=item.document_id,
@@ -226,6 +273,28 @@ def get_field(field_review_id: uuid.UUID) -> FieldReviewDetail:
         source_url=item.source_url,
         schema_version=item.schema_version,
         run_id=item.run_id,
+        definition=FieldDefinitionOut(
+            field=definition.field,
+            description=definition.description,
+            object_description=definition.object_description,
+            object_is_shared=definition.object_is_shared,
+            summary=definition.summary,
+            enum=list(definition.enum),
+            nullable=definition.nullable,
+            exclusions=list(definition.exclusions),
+            related=[RelatedOut(**r.__dict__) for r in definition.related],
+            parts=[
+                SubFieldOut(
+                    path=p.path, description=p.description, enum=list(p.enum), nullable=p.nullable
+                )
+                for p in definition.parts
+            ],
+            prompt_rules=list(definition.prompt_rules),
+        ),
+        candidates=[
+            CandidateOut(start=c.start, end=c.end, text=c.text, cues=list(c.cues))
+            for c in candidates(item.review.field, item.document_text)
+        ],
         snippets=[SnippetOut(**s.__dict__) for s in found],
         document_text=item.document_text,
     )

@@ -4,10 +4,17 @@
   GET  /ui/review/{id}   one specific field
   POST /ui/review/{id}   the decision form: accept / correct / skip
 
-One field per page: its current value, self-reported confidence, the
-quote(s) the extraction cites located in the source text with surrounding
-context, and the full normalised document text below for fields that cite
-nothing. No bulk actions — every decision is one field, one form post.
+One field per page: the field's definition read from the schema itself
+(app/review/definitions.py), its current value, self-reported confidence,
+three to five candidate passages chosen from the source by field-specific
+keyword cues (app/review/candidates.py), and the full normalised document
+text below. The page does NOT locate or highlight the quote the
+extraction cites: candidate selection never sees the record, so the
+reviewer judges the value against the source rather than against the
+model's justification — corrections are gold-set input and must be
+independent (the rationale is in candidates.py). The one thing said about
+a cited quote is when it cannot be found in the source at all. No bulk
+actions — every decision is one field, one form post.
 
 The reviewer's name is a plain text input remembered in a cookie so it is
 not retyped per field. That is identity for provenance, not
@@ -34,7 +41,9 @@ from fastapi.templating import Jinja2Templates
 
 from app.db.engine import get_engine
 from app.extract.schema import IncidentRecord
+from app.review.candidates import candidates
 from app.review.context import quotes_for, snippets
+from app.review.definitions import field_definition
 from app.review.fields import (
     Action,
     AlreadyReviewedError,
@@ -80,9 +89,13 @@ def _render(
         context["corrected_json"] = (
             submitted_value if submitted_value is not None else context["value_json"]
         )
-        context["snippets"] = snippets(
-            item.document_text, quotes_for(item.review.field, item.record)
-        )
+        context["definition"] = field_definition(item.review.field)
+        # (field, text) only — never the record. See candidates.py.
+        context["candidates"] = candidates(item.review.field, item.document_text)
+        # Located quotes are deliberately not rendered; only the ones that
+        # are NOT in the source are surfaced, as a provenance warning.
+        located = snippets(item.document_text, quotes_for(item.review.field, item.record))
+        context["missing_quotes"] = [s.quote for s in located if not s.found]
     return templates.TemplateResponse(request, "review.html", context, status_code=status_code)
 
 

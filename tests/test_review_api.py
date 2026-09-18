@@ -66,7 +66,7 @@ def test_queue_paginates(engine: Engine) -> None:
 # --- one field -------------------------------------------------------------
 
 
-def test_field_detail_carries_value_confidence_evidence_and_source(engine: Engine) -> None:
+def test_field_detail_carries_definition_value_candidates_and_source(engine: Engine) -> None:
     extraction_id = complete_extraction(engine, confidence={"mechanism": 0.45})
     _route(engine)
     fid = field_id(engine, extraction_id, "mechanism")
@@ -81,11 +81,21 @@ def test_field_detail_carries_value_confidence_evidence_and_source(engine: Engin
     assert body["extraction_id"] == str(extraction_id)
     assert body["document_title"] == "Cloudflare outage"
     assert body["schema_version"] and body["run_id"]
+    # The definition is the schema's own text.
+    definition = body["definition"]
+    assert definition["object_description"].startswith("ADR-001: the immediate failure mechanism")
+    assert {r["field"] for r in definition["related"]} == {"trigger", "contributing_factors"}
+    label = next(p for p in definition["parts"] if p["path"] == "label")
+    assert "limit_violation" in label["enum"]
+    assert definition["prompt_rules"][0].startswith("trigger / mechanism")
+    # Candidate passages: verbatim spans, document order, cue names.
+    assert body["candidates"]
+    for c in body["candidates"]:
+        assert body["document_text"][c["start"] : c["end"]] == c["text"]
+    assert any("panic*" in c["cues"] for c in body["candidates"])
     (snippet,) = body["snippets"]
     assert snippet["found"] is True
     assert snippet["match"] == "the software panicked"
-    assert "exceeded its limit" in snippet["before"]
-    assert "core proxy returned HTTP 5xx" in snippet["after"]
     assert "Impact starts 11:28" in body["document_text"]
 
 
@@ -303,7 +313,7 @@ def test_ui_empty_queue(engine: Engine) -> None:
     assert "queue is empty" in response.text
 
 
-def test_ui_shows_next_field_with_value_confidence_quote_and_context(engine: Engine) -> None:
+def test_ui_shows_next_field_with_definition_value_and_candidates(engine: Engine) -> None:
     extraction_id = complete_extraction(engine, confidence={"mechanism": 0.45, "summary": 0.6})
     _route(engine)
 
@@ -313,14 +323,57 @@ def test_ui_shows_next_field_with_value_confidence_quote_and_context(engine: Eng
     assert "mechanism" in html  # lowest first
     assert "0.45" in html
     assert "limit_violation" in html
-    assert "<mark>the software panicked</mark>" in html
-    assert "core proxy returned HTTP 5xx" in html  # surrounding source text
+    # Task 1: the definition, from the schema's own text.
+    assert "what actually broke" in html
+    assert "Not to be confused with" in html
+    assert "<code>trigger</code>" in html
+    assert "- limit_violation: An input or state exceeds" in html  # class definitions
+    # Task 2: candidate passages, full source below.
+    assert "Candidate passages" in html
+    assert "cues:" in html
+    assert "core proxy returned HTTP 5xx" in html
     assert "Full source text" in html
     assert "Impact starts 11:28" in html
     fid = field_id(engine, extraction_id, "mechanism")
     assert f'action="/ui/review/{fid}"' in html
     for action in ("accept", "correct", "skip"):
         assert f'value="{action}"' in html
+
+
+def test_ui_never_marks_the_models_own_quote(engine: Engine) -> None:
+    """The extraction cites "the software panicked", which is in the source.
+    It must not be highlighted, located, or called evidence: the reviewer
+    judges against the source, not the model's justification."""
+    extraction_id = complete_extraction(engine, confidence={"mechanism": 0.45})
+    _route(engine)
+    html = client.get(f"/ui/review/{field_id(engine, extraction_id, 'mechanism')}").text
+    assert "<mark" not in html
+    assert "Evidence in the source" not in html
+    assert "not in the source text" not in html
+    # The quote is still visible as part of the value under review, as JSON
+    # (autoescaped quotes).
+    assert "&#34;quote&#34;: &#34;the software panicked&#34;" in html
+
+
+def test_ui_states_what_a_field_does_not_mean(engine: Engine) -> None:
+    extraction_id = complete_extraction(
+        engine, confidence={"trigger": 0.5, "impact_start": 0.5, "title": 0.5}
+    )
+    _route(engine)
+    rows = field_rows(engine, extraction_id)
+
+    html = client.get(f"/ui/review/{rows['trigger']['id']}").text
+    assert "What it does not mean" in html
+    assert "race_condition is NOT a trigger class" in html
+    assert "is never the trigger" in html
+
+    html = client.get(f"/ui/review/{rows['impact_start']['id']}").text
+    assert "When users/customers were first affected." in html
+    assert "Not to be confused with" in html
+    assert "<code>change_at</code> &mdash; When the triggering change was applied." in html
+
+    html = client.get(f"/ui/review/{rows['title']['id']}").text
+    assert "The schema gives this field no description." in html
 
 
 def test_ui_flags_a_quote_that_is_not_in_the_source(engine: Engine) -> None:
@@ -332,7 +385,8 @@ def test_ui_flags_a_quote_that_is_not_in_the_source(engine: Engine) -> None:
     )
     _route(engine)
     html = client.get(f"/ui/review/{field_id(engine, extraction_id, 'mechanism')}").text
-    assert "Quote not found in the source text" in html
+    assert "cites a quote that is not in the source text" in html
+    assert "<mark" not in html
 
 
 def test_ui_accept_marks_reviewed_and_advances(engine: Engine) -> None:

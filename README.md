@@ -207,16 +207,42 @@ and unstable (≈0.64) extractions in runs 10/11, and M5 replaces it from
 the gold-set sweep.
 
 **Review UI** (`/ui/review`, `app/api/review_ui.py`): server-rendered,
-one field per page — the field, its value, its confidence, the quote(s)
-the extraction cites located in the source text with surrounding context
-(a quote that cannot be found is flagged, since the model may have
-paraphrased or invented it), and the full normalized text below. Three
-actions, one field each: **Accept**, **Correct** (the value as JSON,
-pre-filled with the current value; plain text is accepted for string
-fields; validated against the field's own Pydantic type before anything is
-written), **Skip** (back to the queue, behind fields not yet passed over).
-No bulk actions. The reviewer's name is a text box remembered in a cookie:
-provenance, not authentication.
+one field per page — the field, its definition, its value, its
+confidence, three to five candidate passages from the source, and the
+full normalized text below. Three actions, one field each: **Accept**,
+**Correct** (the value as JSON, pre-filled with the current value; plain
+text is accepted for string fields; validated against the field's own
+Pydantic type before anything is written), **Skip** (back to the queue,
+behind fields not yet passed over). No bulk actions. The reviewer's name
+is a text box remembered in a cookie: provenance, not authentication.
+
+- *Definition* (`app/review/definitions.py`): read from the schema itself
+  — the field description and object docstring the model receives in the
+  wire schema, plus the blocks of the system prompt that name the field —
+  so it cannot drift from what the model was told. The sentences that say
+  what the field is *not* ("an anomalous condition is never the trigger";
+  "do not infer factors from the remediation list") are listed
+  separately, and each field is shown next to the siblings it is confused
+  with: `impact_start` (when users were first affected) against
+  `change_at` (when the triggering change was applied), `mitigations`
+  against `remediations`. Five fields have no description in the schema
+  (`title`, `title_source`, `affected_org_kind`; `affected` and
+  `blast_radius` are described only through their parts) and the page
+  says so rather than inventing one.
+- *Candidate passages* (`app/review/candidates.py`): the source is split
+  into sentence windows of at most 400 characters and scored by fixed,
+  field-specific keyword cues (deploy/config/rollout for `trigger`,
+  alert/paged/noticed/reported for `detection_method`, clock times plus
+  rollback/restored for `mitigated_at`, …); the top five with at least one
+  cue, or the document's lead when fewer than three score, shown in
+  document order with the cues that chose them. Deterministic and
+  keyword-only — no embeddings, no retrieval model (PROJECT_BRIEF §3).
+  **The selection never sees the extraction.** The quote the model cites
+  is not located, highlighted, ranked, or marked among the candidates:
+  corrections are gold-set input for M5, and a reviewer shown the model's
+  justification is not an independent judge — biased corrections would
+  silently corrupt the ground truth. The only thing the page says about a
+  cited quote is when it cannot be found in the source at all.
 
 **Write-back** (`app/review/fields.py`): a decision marks the field
 `reviewed` with reviewer and timestamp and removes it from the queue. A
@@ -239,7 +265,7 @@ Python for M5.
 
 ```
 GET  /review/queue                  routed fields, lowest confidence first
-GET  /review/fields/{id}            one field: value, confidence, snippets, source text
+GET  /review/fields/{id}            one field: definition, value, confidence, candidate passages, cited-quote locations, source text
 POST /review/fields/{id}/decision   {"action": "accept"|"correct"|"skip", "reviewer", "corrected_value", "note"}
 POST /review/route                  routing pass at the configured floor/budget
 GET  /review/corrections            reviewed fields as gold-set input
