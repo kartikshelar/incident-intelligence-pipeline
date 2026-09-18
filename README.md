@@ -181,7 +181,10 @@ rank.
 ## Review
 
 M4, per [ADR-010](docs/adr/adr-010-review-queue-routing.md) (DERIVE-06).
-`app/review/` — see its `__init__.py` for the module map.
+What the review page shows the reviewer, and why it shows candidate
+passages rather than the model's evidence, is
+[ADR-011](docs/adr/011-review-evidence.md). `app/review/` — see its
+`__init__.py` for the module map.
 
 **Unit of review is the field.** Every complete extraction gets one
 `field_reviews` row per top-level record field (23 of them), written in
