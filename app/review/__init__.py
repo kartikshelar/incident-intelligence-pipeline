@@ -26,6 +26,9 @@ Layout:
                   judge (its docstring says why: corrections are gold)
   context.py      where the quotes the extraction cites sit in the source;
                   the review page shows only the ones that are NOT there
+  forms.py        the correction input derived from each field's type:
+                  spec from the schema, bound to a value for rendering,
+                  parsed back from the submitted form — no JSON typed
 
 Nothing in this package tunes the floor: it is `settings.review_confidence
 _floor`, and M5 sweeps it (ADR-010 §3). Review precision and recall are

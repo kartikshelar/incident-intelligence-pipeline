@@ -126,11 +126,11 @@ class FieldDefinition:
 
 
 @cache
-def _schema() -> dict[str, Any]:
+def record_schema() -> dict[str, Any]:
     return IncidentRecord.model_json_schema()
 
 
-def _resolve(node: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+def resolve_node(node: dict[str, Any]) -> tuple[dict[str, Any], bool]:
     """Unwrap `X | None` and follow a `$ref`. Returns the concrete node and
     whether null was one of the options."""
     nullable = False
@@ -141,7 +141,7 @@ def _resolve(node: dict[str, Any]) -> tuple[dict[str, Any], bool]:
             node = options[0]
     if "$ref" in node:
         name = node["$ref"].rsplit("/", 1)[-1]
-        node = _schema()["$defs"][name]
+        node = record_schema()["$defs"][name]
     return node, nullable
 
 
@@ -161,16 +161,16 @@ def _object_name(node: dict[str, Any]) -> str | None:
 def _object_of(node: dict[str, Any]) -> dict[str, Any] | None:
     """The object schema a field holds: the node itself, or an array's item
     type, when that is an object with properties."""
-    core, _ = _resolve(node)
+    core, _ = resolve_node(node)
     if core.get("type") == "array" and "items" in core:
-        core, _ = _resolve(core["items"])
+        core, _ = resolve_node(core["items"])
     return core if "properties" in core else None
 
 
 @cache
 def _shared_objects() -> frozenset[str]:
     """Object types held by more than one top-level field."""
-    names = [_object_name(node) for node in _schema()["properties"].values()]
+    names = [_object_name(node) for node in record_schema()["properties"].values()]
     return frozenset(n for n in names if n is not None and names.count(n) > 1)
 
 
@@ -221,12 +221,12 @@ def _parts(node: dict[str, Any], prefix: str, depth: int) -> list[SubField]:
     obj = _object_of(node)
     if obj is None or depth > 3:
         return []
-    core, _ = _resolve(node)
+    core, _ = resolve_node(node)
     if core.get("type") == "array":
         prefix = f"{prefix}[]"
     out: list[SubField] = []
     for name, sub in obj["properties"].items():
-        sub_core, nullable = _resolve(sub)
+        sub_core, nullable = resolve_node(sub)
         path = f"{prefix}.{name}" if prefix else name
         out.append(
             SubField(
@@ -258,7 +258,7 @@ def prompt_rules(field: str) -> tuple[str, ...]:
 
 def _texts(field: str) -> tuple[str | None, str | None, bool]:
     """(field description, object docstring, object is shared) for a field."""
-    node = _schema()["properties"][field]
+    node = record_schema()["properties"][field]
     obj = _object_of(node)
     description = _unwrap(node.get("description"))
     object_description = _unwrap(obj.get("description")) if obj is not None else None
@@ -280,8 +280,8 @@ def _summary(field: str) -> str | None:
 def field_definition(field: str) -> FieldDefinition:
     if field not in RECORD_FIELDS:
         raise KeyError(f"{field!r} is not an IncidentRecord field")
-    node = _schema()["properties"][field]
-    core, nullable = _resolve(node)
+    node = record_schema()["properties"][field]
+    core, nullable = resolve_node(node)
     description, object_description, shared = _texts(field)
     related = tuple(
         Related(field=other, summary=_summary(other))

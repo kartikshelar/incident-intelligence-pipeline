@@ -39,8 +39,17 @@
   .hit.active { background: #fc0; color: #000; outline: 2px solid #fc0; }
   form { margin-top: 1.5rem; display: grid; gap: .75rem; }
   label { display: grid; gap: .25rem; }
-  input[type=text], textarea { font: inherit; width: 100%; box-sizing: border-box; padding: .4rem; }
-  textarea { font-family: ui-monospace, monospace; min-height: 8rem; }
+  label.inline { display: block; }
+  label.input small { opacity: .7; }
+  input[type=text], textarea, select { font: inherit; width: 100%; box-sizing: border-box; padding: .4rem; }
+  .correction .label { margin: 0 0 .25rem; font-weight: 600; }
+  .correction .label small { font-weight: normal; opacity: .7; }
+  fieldset { border: 1px solid #8884; border-radius: 4px; padding: .5rem .75rem; margin: .25rem 0; display: grid; gap: .5rem; }
+  fieldset.is-null, #decision .is-null { opacity: .45; }
+  fieldset.rows legend small { opacity: .7; }
+  .row { display: grid; gap: .25rem; }
+  .row > fieldset { margin: 0; }
+  .remove-row, .add-row { justify-self: start; padding: .2rem .6rem; }
   .actions { display: flex; gap: .75rem; flex-wrap: wrap; }
   button { font: inherit; padding: .5rem 1rem; cursor: pointer; }
   .error { background: #d332; border: 1px solid #d33; padding: .75rem; border-radius: 4px; }
@@ -229,22 +238,91 @@
 </script>
 
 {% if r.review_state != 'reviewed' %}
-<form method="post" action="/ui/review/{{ r.id }}">
+{# Task 4: the correction form is derived from the field's Pydantic type
+   (app/review/forms.py) and pre-filled with the current value, so the
+   reviewer never has to recall the wire format. Input names are paths
+   ("v", "v.label", "v.quantitative.0.metric"); the server parses them
+   back into the field's value and validates it against the type before
+   anything is written, as before. #}
+{% macro input(b, top=false) %}
+{% set s = b.spec %}
+{% if s.kind == 'object' %}
+  <div class="group">
+    {% if s.nullable %}<label class="inline"><input type="checkbox" name="{{ b.name }}.null" value="1" data-null-for="group-{{ b.name }}" {% if b.is_null %}checked{% endif %}> null &mdash; the document does not state this</label>{% endif %}
+    <fieldset class="object" id="group-{{ b.name }}">
+      {% for c in b.children %}{{ input(c) }}{% endfor %}
+    </fieldset>
+  </div>
+{% elif s.kind == 'rows' %}
+  <fieldset class="rows" data-rows="{{ b.name }}">
+    <legend>{{ s.label }}{% if s.description %} <small>{{ s.description }}</small>{% endif %}</legend>
+    <div class="row-list">
+      {% for row in b.children %}<div class="row">{{ input(row) }}<button type="button" class="remove-row">Remove</button></div>{% endfor %}
+    </div>
+    <template><div class="row">{{ input(b.template) }}<button type="button" class="remove-row">Remove</button></div></template>
+    <button type="button" class="add-row">Add row</button>
+    <noscript><small>Without scripts, correct the rows shown; a row whose text inputs are all empty is dropped.</small></noscript>
+  </fieldset>
+{% else %}
+  {% if top and s.nullable %}<label class="inline"><input type="checkbox" name="{{ b.name }}.null" value="1" data-null-for="input-{{ b.name }}" {% if b.is_null %}checked{% endif %}> null &mdash; the document does not state this</label>{% endif %}
+  <label class="input" id="input-{{ b.name }}">
+    <span>{{ s.label }}{% if s.nullable and s.kind in ('text', 'textarea') and not top %} <small>(leave empty for null)</small>{% endif %}</span>
+    {% if s.kind == 'textarea' %}<textarea name="{{ b.name }}" rows="3">{{ b.value if b.value is not none else '' }}</textarea>
+    {% elif s.kind == 'lines' %}<textarea name="{{ b.name }}" rows="3" placeholder="one per line">{{ b.value | join('\n') }}</textarea>
+    {% elif s.kind == 'select' %}<select name="{{ b.name }}">{% if s.nullable or b.needs_choose_option %}<option value="">{{ 'null' if s.nullable else '— choose —' }}</option>{% endif %}{% for o in s.options %}<option value="{{ o }}" {% if b.value == o %}selected{% endif %}>{{ o }}</option>{% endfor %}</select>
+    {% elif s.kind == 'bool' %}<select name="{{ b.name }}">{% if s.nullable or b.value is none %}<option value="">{{ 'null' if s.nullable else '— choose —' }}</option>{% endif %}<option value="true" {% if b.value is true %}selected{% endif %}>true</option><option value="false" {% if b.value is false %}selected{% endif %}>false</option></select>
+    {% else %}<input type="text" name="{{ b.name }}" value="{{ b.value if b.value is not none else '' }}">{% endif %}
+    {% if s.description and s.description | length <= 160 %}<small>{{ s.description }}</small>{% endif %}
+  </label>
+{% endif %}
+{% endmacro %}
+<form method="post" action="/ui/review/{{ r.id }}" id="decision">
   <label>Reviewer
     <input type="text" name="reviewer" value="{{ reviewer }}" placeholder="your name" autocomplete="name">
   </label>
-  <label>Corrected value (JSON; only used by Correct)
-    <textarea name="corrected_value">{{ corrected_json }}</textarea>
-  </label>
+  <div class="correction">
+    <p class="label">Corrected value <small>(only used by Correct; pre-filled with the extracted value)</small></p>
+    {{ input(form, top=true) }}
+  </div>
   <label>Note (optional)
     <input type="text" name="note" placeholder="why, if not obvious">
   </label>
   <div class="actions">
-    <button type="submit" name="action" value="accept">Accept</button>
+    <button type="submit" name="action" value="accept" formnovalidate>Accept</button>
     <button type="submit" name="action" value="correct">Correct</button>
     <button type="submit" name="action" value="skip" formnovalidate>Skip</button>
   </div>
 </form>
+<script>
+/* Task 4: null toggles disable the inputs they cover; "Add row" clones
+   the row template with the next index; "Remove" drops a row. The server
+   does not depend on any of this — a disabled group is null because its
+   checkbox is on, and a blank row is dropped when parsed. */
+(function () {
+  var form = document.getElementById('decision');
+  if (!form) return;
+  form.querySelectorAll('input[data-null-for]').forEach(function (box) {
+    var target = document.getElementById(box.getAttribute('data-null-for'));
+    function apply() {
+      target.classList.toggle('is-null', box.checked);
+      target.querySelectorAll('input, select, textarea').forEach(function (el) { el.disabled = box.checked; });
+    }
+    box.addEventListener('change', apply); apply();
+  });
+  form.querySelectorAll('fieldset[data-rows]').forEach(function (rows) {
+    var list = rows.querySelector('.row-list'), tpl = rows.querySelector('template');
+    var next = list.querySelectorAll(':scope > .row').length;
+    rows.querySelector('.add-row').addEventListener('click', function () {
+      var html = tpl.innerHTML.split('__i__').join(String(next++));
+      var holder = document.createElement('div'); holder.innerHTML = html;
+      list.appendChild(holder.firstElementChild);
+    });
+    rows.addEventListener('click', function (e) {
+      if (e.target.classList.contains('remove-row')) e.target.closest('.row').remove();
+    });
+  });
+})();
+</script>
 {% else %}
 <p><a href="/ui/review">Next field in the queue &rarr;</a></p>
 {% endif %}

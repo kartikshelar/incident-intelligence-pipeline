@@ -424,28 +424,80 @@ def test_ui_accept_marks_reviewed_and_advances(engine: Engine) -> None:
     assert "limit_violation" in html
 
 
-def test_ui_correct_accepts_json_and_plain_strings(engine: Engine) -> None:
+def test_ui_correction_form_is_typed_and_prefilled(engine: Engine) -> None:
+    """No JSON box: a select for an enum, labelled inputs per part of an
+    object, a null toggle for a nullable field, rows for a list."""
     extraction_id = complete_extraction(
-        engine, confidence={"detection_method": 0.5, "trigger": 0.5}
+        engine,
+        confidence={"detection_method": 0.5, "change_at": 0.5, "mitigations": 0.5, "title": 0.5},
     )
     _route(engine)
     rows = field_rows(engine, extraction_id)
 
-    # Plain enum value for a string-typed field, no quotes needed.
+    html = client.get(f"/ui/review/{rows['detection_method']['id']}").text
+    assert 'name="corrected_value"' not in html
+    assert '<select name="v">' in html
+    assert '<option value="monitoring" selected>' in html
+    assert '<option value="operator" >' in html
+
+    html = client.get(f"/ui/review/{rows['change_at']['id']}").text
+    assert 'name="v.null"' in html  # nullable object: explicit null toggle
+    assert '<input type="text" name="v.at" value="2025-11-18T11:05:00">' in html
+    assert '<select name="v.precision">' in html and '<option value="minute" selected>' in html
+    assert 'name="v.timezone"' in html and "(leave empty for null)" in html
+    assert "ISO-8601 date or datetime as stated in the document." in html  # schema hint
+
+    html = client.get(f"/ui/review/{rows['mitigations']['id']}").text
+    assert 'name="v.0.text"' in html and "Stopped generation and rolled back" in html
+    assert '<select name="v.0.status">' in html and '<option value="done" selected>' in html
+    assert 'name="v.__i__.text"' in html and "<template>" in html  # row template for Add row
+    assert 'class="add-row"' in html
+
+    html = client.get(f"/ui/review/{rows['title']['id']}").text
+    assert '<input type="text" name="v" value="Cloudflare outage">' in html
+    assert 'name="v.null"' not in html  # title is not nullable
+
+
+def test_ui_correct_from_the_typed_form(engine: Engine) -> None:
+    extraction_id = complete_extraction(
+        engine, confidence={"detection_method": 0.5, "trigger": 0.5, "mitigations": 0.5}
+    )
+    _route(engine)
+    rows = field_rows(engine, extraction_id)
+
     response = client.post(
         f"/ui/review/{rows['detection_method']['id']}",
-        data={"action": "correct", "reviewer": "k", "corrected_value": "operator", "note": "x"},
+        data={"action": "correct", "reviewer": "k", "v": "operator", "note": "x"},
         follow_redirects=False,
     )
     assert response.status_code == 303
-    # JSON for a structured field.
     response = client.post(
         f"/ui/review/{rows['trigger']['id']}",
         data={
             "action": "correct",
             "reviewer": "k",
-            "corrected_value": '{"label": "code_deploy", "description": "A deploy did it.", '
-            '"quote": null}',
+            "v.label": "code_deploy",
+            "v.description": "A deploy did it.",
+            "v.quote": "",  # empty nullable string -> null
+            "note": "",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    response = client.post(
+        f"/ui/review/{rows['mitigations']['id']}",
+        data={
+            "action": "correct",
+            "reviewer": "k",
+            "v.0.text": "Rolled back the feature file",
+            "v.0.status": "done",
+            "v.0.date": "",
+            "v.1.text": "Disabled generation",
+            "v.1.status": "done",
+            "v.1.date": "2025-11-18",
+            "v.2.text": "",  # the blank row the page offers
+            "v.2.status": "done",
+            "v.2.date": "",
             "note": "",
         },
         follow_redirects=False,
@@ -453,19 +505,43 @@ def test_ui_correct_accepts_json_and_plain_strings(engine: Engine) -> None:
     assert response.status_code == 303
     rows = field_rows(engine, extraction_id)
     assert rows["detection_method"]["corrected_value"] == "operator"
-    assert rows["trigger"]["corrected_value"]["label"] == "code_deploy"
+    assert rows["trigger"]["corrected_value"] == {
+        "label": "code_deploy",
+        "description": "A deploy did it.",
+        "quote": None,
+    }
     assert rows["trigger"]["model_value"]["label"] == "config_change"
+    assert [m["text"] for m in rows["mitigations"]["corrected_value"]] == [
+        "Rolled back the feature file",
+        "Disabled generation",
+    ]
 
 
-def test_ui_plain_text_correction_for_a_currently_null_text_field(engine: Engine) -> None:
-    """vendor_org is `str | None` and null in the fixture; typing a name
-    without quotes must still be taken as the string."""
+def test_ui_null_toggle_corrects_to_null(engine: Engine) -> None:
+    extraction_id = complete_extraction(engine, confidence={"trigger": 0.5})
+    _route(engine)
+    fid = field_id(engine, extraction_id, "trigger")
+    response = client.post(
+        f"/ui/review/{fid}",
+        data={"action": "correct", "reviewer": "k", "v.null": "1", "v.label": "config_change"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    row = field_rows(engine, extraction_id)["trigger"]
+    assert row["decision"] == "corrected" and row["corrected_value"] is None
+
+
+def test_ui_text_correction_for_a_currently_null_text_field(engine: Engine) -> None:
+    """vendor_org is `str | None` and null in the fixture: typing a name
+    into the text input is the string; leaving it empty is null."""
     extraction_id = complete_extraction(engine, confidence={"vendor_org": 0.3})
     _route(engine)
     fid = field_id(engine, extraction_id, "vendor_org")
+    html = client.get(f"/ui/review/{fid}").text
+    assert 'name="v.null" value="1" data-null-for="input-v" checked' in html
     response = client.post(
         f"/ui/review/{fid}",
-        data={"action": "correct", "reviewer": "k", "corrected_value": "HashiCorp", "note": ""},
+        data={"action": "correct", "reviewer": "k", "v": "HashiCorp", "note": ""},
         follow_redirects=False,
     )
     assert response.status_code == 303
@@ -474,28 +550,29 @@ def test_ui_plain_text_correction_for_a_currently_null_text_field(engine: Engine
     assert row["corrected_value"] == "HashiCorp"
 
 
-def test_ui_invalid_correction_re_renders_with_the_error(engine: Engine) -> None:
+def test_ui_invalid_correction_re_renders_with_the_error_and_the_input(engine: Engine) -> None:
     extraction_id = complete_extraction(engine, confidence={"trigger": 0.5})
     _route(engine)
     fid = field_id(engine, extraction_id, "trigger")
     response = client.post(
         f"/ui/review/{fid}",
-        data={"action": "correct", "reviewer": "k", "corrected_value": "{not json", "note": ""},
-    )
-    assert response.status_code == 422
-    assert "not valid JSON" in response.text
-    assert "{not json" in response.text  # the reviewer's text is preserved
-    response = client.post(
-        f"/ui/review/{fid}",
         data={
             "action": "correct",
             "reviewer": "k",
-            "corrected_value": '{"label": "x"}',
+            "v.label": "",  # left unchosen
+            "v.description": "Two sentences. Not allowed.",
+            "v.quote": "kept",
             "note": "",
         },
     )
     assert response.status_code == 422
-    assert "not a valid trigger" in response.text
+    html = response.text
+    assert "not a valid trigger" in html
+    assert "label:" in html and "description:" in html  # both problems named
+    # The reviewer's input is preserved in the form, not reset to the model's.
+    assert "Two sentences. Not allowed." in html
+    assert 'name="v.quote" value="kept"' in html
+    assert '<option value="">— choose —</option>' in html
     assert field_rows(engine, extraction_id)["trigger"]["review_state"] == "routed"
 
 

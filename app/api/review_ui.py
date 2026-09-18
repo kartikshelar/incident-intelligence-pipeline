@@ -22,11 +22,15 @@ The reviewer's name is a plain text input remembered in a cookie so it is
 not retyped per field. That is identity for provenance, not
 authentication (PROJECT_BRIEF §3: no auth theater).
 
-Corrections are entered as JSON (the textarea is pre-filled with the
-current value, so the common case is editing in place) and validated
-against the field's own type before anything is written; a plain string
-for a string-typed field is accepted as-is so an enum value does not have
-to be quoted.
+Corrections are entered in a form derived from the field's own Pydantic
+type (app/review/forms.py) — labelled inputs per part, selects for closed
+vocabularies, one line per item for string lists, add/remove rows for
+lists of objects, an explicit null toggle — pre-filled with the current
+value, so the common case is editing in place and the reviewer never has
+to recall the wire format. The submitted inputs are parsed back into the
+field's value and validated against its type before anything is written;
+on failure the page re-renders with the error and the reviewer's own
+input still in the form.
 """
 
 from __future__ import annotations
@@ -34,15 +38,14 @@ from __future__ import annotations
 import json
 import uuid
 from pathlib import Path
-from types import UnionType
-from typing import Any, Literal, Union, cast, get_args, get_origin
+from typing import Any, cast
 
-from fastapi import APIRouter, Form, Request, Response
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 
 from app.db.engine import get_engine
-from app.extract.schema import IncidentRecord
 from app.review.candidates import candidates
 from app.review.context import quotes_for, snippets
 from app.review.definitions import field_definition
@@ -54,6 +57,7 @@ from app.review.fields import (
     NotRoutedError,
     record_decision,
 )
+from app.review.forms import bind, form_spec, parse
 from app.review.queries import ReviewItem, load_for_review, next_for_review, queue_size
 from app.settings import settings
 
@@ -61,6 +65,9 @@ router = APIRouter(prefix="/ui/review", tags=["review-ui"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 REVIEWER_COOKIE = "reviewer"
+CORRECTION_ROOT = "v"  # the top-level input name; parts are "v.label", "v.0.text", ...
+
+_NOT_SUBMITTED = object()
 
 
 def _pretty(value: Any) -> str:
@@ -72,7 +79,7 @@ def _render(
     item: ReviewItem | None,
     *,
     error: str | None = None,
-    submitted_value: str | None = None,
+    correction: Any = _NOT_SUBMITTED,
     status_code: int = 200,
 ) -> Response:
     engine = get_engine()
@@ -88,9 +95,10 @@ def _render(
     }
     if item is not None:
         context["value_json"] = _pretty(item.review.model_value)
-        context["corrected_json"] = (
-            submitted_value if submitted_value is not None else context["value_json"]
-        )
+        # The form shows the reviewer's own (rejected) input when there is
+        # one, else the extracted value.
+        current = item.review.model_value if correction is _NOT_SUBMITTED else correction
+        context["form"] = bind(form_spec(item.review.field), CORRECTION_ROOT, current)
         context["definition"] = field_definition(item.review.field)
         # (field, text) only — never the record. See candidates.py.
         context["candidates"] = candidates(item.review.field, item.document_text)
@@ -122,35 +130,21 @@ def one_field(request: Request, field_review_id: uuid.UUID) -> Response:
     return _render(request, item)
 
 
-def _is_text_field(field: str) -> bool:
-    """True for fields typed str, str | None, or a string enum (Literal)."""
-    annotation = IncidentRecord.model_fields[field].annotation
-    options = (
-        get_args(annotation) if get_origin(annotation) in (Union, UnionType) else (annotation,)
-    )
-    return any(option is str or get_origin(option) is Literal for option in options)
-
-
-def _parse_correction(field: str, raw: str) -> Any:
-    """The textarea holds JSON. For a string-typed field, unquoted text is
-    taken as the string itself so `monitoring` works without quotes."""
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        if _is_text_field(field):
-            return raw.strip()
-        raise
-
-
 @router.post("/{field_review_id}", response_class=HTMLResponse)
-def decide(
-    request: Request,
-    field_review_id: uuid.UUID,
-    action: str = Form(...),
-    reviewer: str = Form(default=""),
-    corrected_value: str = Form(default=""),
-    note: str = Form(default=""),
-) -> Response:
+async def decide(request: Request, field_review_id: uuid.UUID) -> Response:
+    # The correction inputs are named by path and their number depends on
+    # the field's type, so the whole form is read rather than declared
+    # parameter by parameter. The database work stays synchronous like
+    # the other handlers and runs off the event loop.
+    form = await request.form()
+    data = {key: value for key, value in form.items() if isinstance(value, str)}
+    return await run_in_threadpool(_decide, request, field_review_id, data)
+
+
+def _decide(request: Request, field_review_id: uuid.UUID, data: dict[str, str]) -> Response:
+    action = data.get("action", "")
+    reviewer = data.get("reviewer", "")
+    note = data.get("note", "")
     if action not in ("accept", "correct", "skip"):
         return _render(request, None, error=f"Unknown action {action!r}.", status_code=422)
 
@@ -163,16 +157,7 @@ def decide(
 
         value: Any = None
         if action == "correct":
-            try:
-                value = _parse_correction(item.review.field, corrected_value)
-            except json.JSONDecodeError as exc:
-                return _render(
-                    request,
-                    item,
-                    error=f"Corrected value is not valid JSON: {exc.msg} at position {exc.pos}.",
-                    submitted_value=corrected_value,
-                    status_code=422,
-                )
+            value = parse(form_spec(item.review.field), CORRECTION_ROOT, data)
         try:
             record_decision(
                 conn,
@@ -185,8 +170,13 @@ def decide(
         except (AlreadyReviewedError, NotRoutedError) as exc:
             return _render(request, item, error=str(exc), status_code=409)
         except InvalidCorrectionError as exc:
+            # Re-render with the reviewer's own input bound into the form.
             return _render(
-                request, item, error=str(exc), submitted_value=corrected_value, status_code=422
+                request,
+                item,
+                error=str(exc),
+                correction=value if action == "correct" else _NOT_SUBMITTED,
+                status_code=422,
             )
 
     response = RedirectResponse(url=router.prefix, status_code=303)

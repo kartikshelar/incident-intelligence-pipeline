@@ -210,11 +210,11 @@ the gold-set sweep.
 one field per page — the field, its definition, its value, its
 confidence, three to five candidate passages from the source, and the
 full normalized text below. Three actions, one field each: **Accept**,
-**Correct** (the value as JSON, pre-filled with the current value; plain
-text is accepted for string fields; validated against the field's own
-Pydantic type before anything is written), **Skip** (back to the queue,
-behind fields not yet passed over). No bulk actions. The reviewer's name
-is a text box remembered in a cookie: provenance, not authentication.
+**Correct** (a form derived from the field's own Pydantic type, see
+below; validated against that type before anything is written), **Skip**
+(back to the queue, behind fields not yet passed over). No bulk actions.
+The reviewer's name is a text box remembered in a cookie: provenance,
+not authentication.
 
 - *Definition* (`app/review/definitions.py`): read from the schema itself
   — the field description and object docstring the model receives in the
@@ -247,6 +247,16 @@ is a text box remembered in a cookie: provenance, not authentication.
   (literal, case-insensitive) with a match count, Enter / Shift+Enter to
   step through matches, and a "find in source" link on each candidate
   passage that scrolls to its exact span. Inline script, no build step.
+- *Typed corrections* (`app/review/forms.py`): the correction input is
+  built from the field's JSON schema — a select for every closed
+  vocabulary, a labelled input per part of an object (a time anchor is
+  `at`, `precision`, `timezone`, `quote`, `source_section`, each with the
+  schema's own hint), one line per item for string lists, add/remove rows
+  for lists of objects, and an explicit null toggle for nullable values —
+  pre-filled with the extracted value. A reviewer never types JSON. The
+  submitted inputs are parsed back into the field's value and validated
+  against its Pydantic type before anything is written; a rejected
+  correction re-renders with the error and the reviewer's input intact.
 
 **Write-back** (`app/review/fields.py`): a decision marks the field
 `reviewed` with reviewer and timestamp and removes it from the queue. A
