@@ -4,8 +4,10 @@ FINDINGS §4.2: `time_to_detect` / `time_to_mitigate` as extracted intervals
 could not represent "within minutes" or say which two anchors were
 subtracted. So they are derived here from the typed anchors, and the
 derivation names the pair it used. Absent anchors give None, not a coerced
-number; day-precision anchors give None too (a difference of dates is not
-a duration anyone should compare across orgs).
+number; day/month/year-precision anchors give None too (a difference of
+calendar periods that coarse is not a duration anyone should compare
+across orgs — v0.7 extends this refusal from day to month and year, which
+schema v0.7 newly allows a reviewer or the model to record).
 
 Negative durations are valid and are recorded as-is. `detected_at` before
 `impact_start` is a real shape, not an extraction error: a latent trigger
@@ -22,13 +24,17 @@ from typing import Any
 
 from app.extract.schema import IncidentRecord, TimeAnchor, parse_anchor
 
+# Coarser precisions cannot combine into a meaningful signed duration
+# (schema v0.7 §changelog); only these four ever reach _seconds_between's
+# `coarser = max(...)` below.
 _ORDER = ("exact", "minute", "hour", "approximate")
+_NOT_A_DURATION = frozenset({"day", "month", "year"})
 
 
 def _seconds_between(start: TimeAnchor | None, end: TimeAnchor | None) -> dict[str, Any] | None:
     if start is None or end is None:
         return None
-    if start.precision == "day" or end.precision == "day":
+    if start.precision in _NOT_A_DURATION or end.precision in _NOT_A_DURATION:
         return None
     a = parse_anchor(start.at)
     b = parse_anchor(end.at)

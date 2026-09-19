@@ -63,8 +63,11 @@ A signal that existed but was dismissed and not acted on is NOT the detection;
 use the first acknowledged signal.
 
 Time anchors (change_at, impact_start, detected_at, mitigated_at, resolved_at):
-- Each is null unless the document states it. `at` is ISO-8601; use date-only
-  with precision "day" when no time is given. Copy the timezone string as
+- Each is null unless the document states it. `at` is ISO-8601 and must match
+  `precision` exactly: a bare year ("2025") for precision "year", "2025-10"
+  for "month", "2025-10-20" for "day", a full datetime for "hour"/"minute"/
+  "exact". Use the coarsest form the document actually supports — never
+  invent a day, month, or time it does not give. Copy the timezone string as
   written ("UTC", "PST"); null if none.
 - If a timeline table and the prose disagree, prefer the timeline and set
   source_section accordingly. Never reconcile two conflicting times into a third.

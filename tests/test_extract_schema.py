@@ -313,6 +313,74 @@ def test_absent_or_day_precision_anchors_give_null_not_a_coerced_number() -> Non
     assert derive_durations(IncidentRecord.model_validate(data))["time_to_detect"] is None
 
 
+# --- v0.7: year/month precision, and `at` must match `precision` -----------
+
+
+@pytest.mark.parametrize(
+    ("at", "precision"),
+    [
+        ("2025", "year"),
+        ("2025-10", "month"),
+        ("2025-10-20", "day"),
+        ("2025-10-20T11:20:00", "hour"),
+        ("2025-10-20T11:20:00", "minute"),
+        ("2025-10-20T11:20:00", "exact"),
+        ("2025-10", "approximate"),  # approximate may pair with any form
+        ("2025-10-20T11:20:00", "approximate"),
+    ],
+)
+def test_precision_matching_at_form_is_accepted(at: str, precision: str) -> None:
+    data = valid_output()
+    data["record"]["change_at"] = {
+        "at": at,
+        "precision": precision,
+        "timezone": None,
+        "quote": None,
+        "source_section": "body",
+    }
+    ExtractionOutput.model_validate(data)  # does not raise
+
+
+@pytest.mark.parametrize(
+    ("at", "precision"),
+    [
+        ("2025-10", "day"),  # month string, finer precision claimed
+        ("2025-10-20", "year"),  # day string, coarser precision claimed
+        ("2025-10-20", "minute"),  # date string, datetime precision claimed
+        ("2025-10-20T11:20:00", "day"),  # datetime string, date precision claimed
+        ("2025-10-20T11:20:00", "month"),
+        ("2025-10-20T11:20:00", "year"),
+    ],
+)
+def test_precision_mismatched_with_at_form_is_rejected(at: str, precision: str) -> None:
+    data = valid_output()
+    data["record"]["change_at"] = {
+        "at": at,
+        "precision": precision,
+        "timezone": None,
+        "quote": None,
+        "source_section": "body",
+    }
+    with pytest.raises(ValidationError) as exc:
+        ExtractionOutput.model_validate(data)
+    assert "record.change_at.precision" in format_validation_error(exc.value)
+
+
+def test_year_and_month_anchors_do_not_produce_a_derived_duration() -> None:
+    """Extends the day-precision refusal (FINDINGS §4.2): a month or year
+    difference is not a duration comparable across orgs either."""
+    data = valid_output()["record"]
+    for at, precision in [("2025", "year"), ("2025-11", "month")]:
+        data["detected_at"] = {
+            "at": at,
+            "precision": precision,
+            "timezone": None,
+            "quote": None,
+            "source_section": "body",
+        }
+        assert derive_durations(IncidentRecord.model_validate(data))["time_to_detect"] is None
+
+
 def test_detection_before_impact_is_recorded_as_a_negative_duration() -> None:
     """A latent trigger can be noticed before users are affected (Roblox,
     run 02). That is a valid, signed duration — not an error, not None,
@@ -432,7 +500,7 @@ def test_wire_descriptions_are_the_v01_wording_not_the_v02_trim() -> None:
     """v0.2 cut every description the model reads to one sentence and was
     measured to cost more in retries than it saved (schema.py changelog,
     ADR-005 §4). v0.3 restored the v0.1 wording; this pins the revert."""
-    assert SCHEMA_VERSION == "0.6"
+    assert SCHEMA_VERSION == "0.7"
     defs = wire_schema()["$defs"]
     assert defs["TimeAnchor"]["description"].startswith(
         "One moment in the incident, as the document states it (FINDINGS §4.1)."

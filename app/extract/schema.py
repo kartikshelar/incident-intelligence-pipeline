@@ -1,4 +1,4 @@
-"""Incident record schema v0.6 — the extraction contract.
+"""Incident record schema v0.7 — the extraction contract.
 
 This is PROJECT_BRIEF §6's draft schema after the corrections the M0 spike
 demanded. Every departure from the draft cites its source:
@@ -157,6 +157,28 @@ version is part of the extraction idempotency key. No database migration:
 `record` is JSONB with no constraint on its contents, and every v0.5 row
 keeps its v0.5 labels under its own `schema_version`.
 
+v0.7 (2026-09-18): `Precision` gains `year` and `month` (M4 review-UI
+follow-up: a reviewer correcting a time anchor from a document that only
+gives a year or a month had no precision to select and no way to submit
+that correction without inventing a day). `parse_anchor` (and therefore
+`TimeAnchor.at`'s validator) now accepts a bare year ("2025") or
+year-month ("2025-10") ISO form in addition to a full date/datetime, and
+requires `at` to match its own `precision`: `year` <-> "YYYY", `month` <->
+"YYYY-MM", `day` <-> "YYYY-MM-DD", `minute`/`hour`/`exact` <-> a datetime,
+`approximate` accepts any of the above. This is a validation-contract
+change on a field the model itself writes, not only a UI change: the
+model's own `at`/`precision` pairs are now checked for that same
+consistency (previously `precision` was unconstrained relative to `at`).
+`app/extract/derive.py`'s `_ORDER` (which anchor pair produces the
+coarser derived precision) is extended so `year` and `month` sort coarser
+than `day`; `_seconds_between` already refuses `day`-precision pairs and
+now refuses `month`/`year` the same way, since a month or year difference
+between two anchors is not a duration comparable in seconds. Bumped
+because the validation contract changed and the version is part of the
+extraction idempotency key. No database migration: `record` is JSONB
+with no constraint on its contents, and every v0.6 row keeps `year` and
+`month` unused (the model was never offered them at that version).
+
 OPEN, deliberately not decided here (FINDINGS §4.11, §4.12): one record per
 DOCUMENT. Nothing in this schema links two documents to one incident, and a
 document describing several impact periods yields one record for the
@@ -202,7 +224,7 @@ from app.extract.taxonomy import (
     trigger_class_description,
 )
 
-SCHEMA_VERSION = "0.6"
+SCHEMA_VERSION = "0.7"
 
 # Upper bound on the free-text descriptions the model writes. v0.3 set it at
 # 200 (run 03 medians were ~178 characters with a third over 200) and run 04
@@ -212,7 +234,7 @@ SCHEMA_VERSION = "0.6"
 # from the wire schema.
 MAX_DESCRIPTION_CHARS = 400
 
-Precision = Literal["exact", "minute", "hour", "day", "approximate"]
+Precision = Literal["exact", "minute", "hour", "day", "month", "year", "approximate"]
 SourceSection = Literal["summary", "timeline", "body", "appendix", "other"]
 ActionStatus = Literal["done", "planned", "proposed"]
 OrgKind = Literal["company", "oss_project", "other"]
@@ -266,15 +288,24 @@ class _Strict(BaseModel):
 class TimeAnchor(_Strict):
     """One moment in the incident, as the document states it (FINDINGS §4.1).
 
-    `at` is an ISO-8601 date ("2025-10-20") or datetime
-    ("2025-10-20T11:20:00" / "...+00:00"). Precision `day` means only the
-    date is known and `at` should be date-only. The timezone is the string
-    the author wrote ("UTC", "PST", "+02:00"), not a normalisation — the
-    spike found documents that mix zones, and coercing them is a lossy
-    decision that belongs in analysis, not extraction.
+    `at` is an ISO-8601 datetime ("2025-10-20T11:20:00" / "...+00:00"), a
+    full date ("2025-10-20"), a year-month ("2025-10"), or a bare year
+    ("2025") — as coarse as the document actually states, never invented
+    precision. `precision` must match the form of `at`: `year` <-> "YYYY",
+    `month` <-> "YYYY-MM", `day` <-> "YYYY-MM-DD", `hour`/`minute`/`exact`
+    <-> a datetime; `approximate` accepts any of these forms (v0.7). The
+    timezone is the string the author wrote ("UTC", "PST", "+02:00"), not
+    a normalisation — the spike found documents that mix zones, and
+    coercing them is a lossy decision that belongs in analysis, not
+    extraction.
     """
 
-    at: str = Field(description="ISO-8601 date or datetime as stated in the document.")
+    at: str = Field(
+        description="ISO-8601 value matching `precision`'s granularity: a bare year "
+        "(\"2025\") for precision year, \"YYYY-MM\" for month, \"YYYY-MM-DD\" for day, "
+        "or a full datetime for hour/minute/exact/approximate. As coarse as the document "
+        "actually states — never invent a day, month, or time the document does not give."
+    )
     precision: Precision
     timezone: str | None = Field(
         description="Timezone exactly as written in the document, or null if not stated."
@@ -290,15 +321,72 @@ class TimeAnchor(_Strict):
     def _iso8601(cls, value: str) -> str:
         parsed = parse_anchor(value)
         if parsed is None:
-            raise ValueError(f"not an ISO-8601 date or datetime: {value!r}")
+            raise ValueError(f"not an ISO-8601 year, year-month, date, or datetime: {value!r}")
+        return value
+
+    @field_validator("precision")
+    @classmethod
+    def _precision_matches_at(cls, value: Precision, info: Any) -> Precision:
+        at = info.data.get("at")
+        if at is None:  # `at` itself already failed validation
+            return value
+        form = anchor_form(at)
+        if form is None:
+            return value
+        # `at`'s literal form only distinguishes year / month / day / "has a
+        # time component"; hour, minute and exact all share the datetime
+        # form and aren't told apart by the string, so only a form/grain
+        # mismatch is rejected here (a partial date claiming a finer
+        # precision than it has, or a datetime claiming a coarser one it
+        # doesn't need). `approximate` is exempt: it may pair with any form.
+        if value == "approximate":
+            return value
+        needs_datetime = value in ("exact", "minute", "hour")
+        if needs_datetime != (form == "datetime"):
+            raise ValueError(
+                f"precision {value!r} does not match `at` {at!r}: "
+                + (
+                    f"{value!r} requires a full datetime, but `at` is {form}-precision"
+                    if needs_datetime
+                    else f"`at` is a full datetime, which does not match {value!r}-precision"
+                )
+            )
+        if form in ("year", "month", "day") and value != form:
+            raise ValueError(
+                f"precision {value!r} does not match `at` {at!r}, which is {form!r}-precision"
+            )
         return value
 
 
+def anchor_form(value: str) -> Literal["year", "month", "day", "datetime"] | None:
+    """The literal form of a TimeAnchor.at string: which of the four
+    accepted shapes it is. None if it matches none of them."""
+    text = value.strip()
+    if re.fullmatch(r"\d{4}", text):
+        return "year"
+    if re.fullmatch(r"\d{4}-\d{2}", text):
+        return "month"
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        return "day"
+    if parse_anchor(text) is not None:
+        return "datetime"
+    return None
+
+
 def parse_anchor(value: str) -> datetime | date | None:
-    """Parse a TimeAnchor.at string. Returns None if it is neither form."""
+    """Parse a TimeAnchor.at string: a bare year, a year-month, a full
+    date, or a datetime. Returns None if it matches none of those forms.
+    A bare year or year-month is returned as a `date` on the 1st of the
+    period (the caller uses `precision`, not this value's day-of-month, to
+    know how much of it is meaningful)."""
     text = value.strip()
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
+    if re.fullmatch(r"\d{4}", text):
+        return date(int(text), 1, 1)
+    if re.fullmatch(r"\d{4}-\d{2}", text):
+        year, month = text.split("-")
+        return date(int(year), int(month), 1)
     try:
         return (
             datetime.fromisoformat(text) if "T" in text or " " in text else date.fromisoformat(text)

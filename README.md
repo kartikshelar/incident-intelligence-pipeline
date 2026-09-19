@@ -95,7 +95,7 @@ documents that already shared a text.
 
 `app/extract/` — see its `__init__.py` for the module map.
 
-**Schema v0.6** (`app/extract/schema.py`) is PROJECT_BRIEF §6's draft after
+**Schema v0.7** (`app/extract/schema.py`) is PROJECT_BRIEF §6's draft after
 the spike's corrections, each cited in the module docstring:
 
 - `trigger` (nullable: initiating change/event) + `mechanism` (required,
@@ -123,7 +123,16 @@ the spike's corrections, each cited in the module docstring:
 - five typed time anchors with precision + original timezone string
   instead of `occurred_at`; durations are *derived* from anchors
   (`app/extract/derive.py`) and name the anchor pair they used, never
-  extracted (FINDINGS §4.1, §4.2).
+  extracted (FINDINGS §4.1, §4.2). `precision` is `exact | minute | hour |
+  day | month | year | approximate` (v0.7 added `month`/`year`: a review
+  correction — or the model — with only a year or a month for an anchor
+  had no precision that matched, so `at` had to invent a day it didn't
+  have). `at` must match `precision`'s granularity (`"2025"` for `year`,
+  `"2025-10"` for `month`, `"2025-10-20"` for `day`, a full datetime for
+  `hour`/`minute`/`exact`; `approximate` accepts any of these forms) —
+  checked on every extraction, not only on review corrections. A
+  month/year-precision anchor pair does not produce a derived duration,
+  the same refusal day-precision already had.
 - `affected` with `list_is_complete` / `all_services`; `publisher_org` /
   `affected_org` / `vendor_org`; `title_source`; `mitigations` vs
   `remediations` with status; `contributing_factors[].source_section`
@@ -260,6 +269,10 @@ not authentication.
   submitted inputs are parsed back into the field's value and validated
   against its Pydantic type before anything is written; a rejected
   correction re-renders with the error and the reviewer's input intact.
+  `precision`'s select offers all seven values (v0.7 added `month`/`year`
+  so a reviewer with only a year or a month can say so instead of
+  inventing a day), and `timezone`/`quote` are left blank rather than
+  forcing an invented value when the source does not give one.
 
 **Write-back** (`app/review/fields.py`): a decision marks the field
 `reviewed` with reviewer and timestamp and removes it from the queue. A

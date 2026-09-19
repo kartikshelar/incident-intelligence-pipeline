@@ -78,7 +78,15 @@ def test_kinds_follow_the_schema() -> None:
         "quote",
         "source_section",
     ]
-    assert anchor.children[1].options == ("exact", "minute", "hour", "day", "approximate")
+    assert anchor.children[1].options == (
+        "exact",
+        "minute",
+        "hour",
+        "day",
+        "month",
+        "year",
+        "approximate",
+    )
     assert anchor.children[0].description is not None  # the schema's hint
 
     affected = form_spec("affected")

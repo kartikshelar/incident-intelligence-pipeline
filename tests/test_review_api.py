@@ -445,7 +445,7 @@ def test_ui_correction_form_is_typed_and_prefilled(engine: Engine) -> None:
     assert '<input type="text" name="v.at" value="2025-11-18T11:05:00">' in html
     assert '<select name="v.precision">' in html and '<option value="minute" selected>' in html
     assert 'name="v.timezone"' in html and "(leave empty for null)" in html
-    assert "ISO-8601 date or datetime as stated in the document." in html  # schema hint
+    assert "ISO-8601 value matching" in html  # schema hint, names year/month/day/datetime forms
 
     html = client.get(f"/ui/review/{rows['mitigations']['id']}").text
     assert 'name="v.0.text"' in html and "Stopped generation and rolled back" in html
@@ -515,6 +515,67 @@ def test_ui_correct_from_the_typed_form(engine: Engine) -> None:
         "Rolled back the feature file",
         "Disabled generation",
     ]
+
+
+def test_ui_correct_time_anchor_to_the_precision_the_source_supports(engine: Engine) -> None:
+    """A reviewer who only has a year, or a month, for change_at must be
+    able to submit that without inventing a day or a time, and must be
+    able to leave timezone/quote blank rather than being forced to invent
+    them (v0.7: Precision gains year/month; `at` must match `precision`)."""
+    extraction_id = complete_extraction(engine, confidence={"change_at": 0.5})
+    _route(engine)
+    fid = field_id(engine, extraction_id, "change_at")
+
+    html = client.get(f"/ui/review/{fid}").text
+    for option in ("year", "month", "day", "hour", "minute", "exact", "approximate"):
+        assert f'<option value="{option}"' in html
+
+    response = client.post(
+        f"/ui/review/{fid}",
+        data={
+            "action": "correct",
+            "reviewer": "k",
+            "v.at": "2025-10",
+            "v.precision": "month",
+            "v.timezone": "",  # the document does not say
+            "v.quote": "",  # the document does not say
+            "v.source_section": "body",
+            "note": "the postmortem only gives a month",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    row = field_rows(engine, extraction_id)["change_at"]
+    assert row["decision"] == "corrected"
+    assert row["corrected_value"] == {
+        "at": "2025-10",
+        "precision": "month",
+        "timezone": None,
+        "quote": None,
+        "source_section": "body",
+    }
+
+
+def test_ui_time_anchor_correction_with_mismatched_precision_is_rejected(engine: Engine) -> None:
+    extraction_id = complete_extraction(engine, confidence={"change_at": 0.5})
+    _route(engine)
+    fid = field_id(engine, extraction_id, "change_at")
+    response = client.post(
+        f"/ui/review/{fid}",
+        data={
+            "action": "correct",
+            "reviewer": "k",
+            "v.at": "2025-10",
+            "v.precision": "day",  # does not match "2025-10"
+            "v.timezone": "",
+            "v.quote": "",
+            "v.source_section": "body",
+            "note": "",
+        },
+    )
+    assert response.status_code == 422
+    assert "precision" in response.text
+    assert field_rows(engine, extraction_id)["change_at"]["review_state"] == "routed"
 
 
 def test_ui_null_toggle_corrects_to_null(engine: Engine) -> None:
