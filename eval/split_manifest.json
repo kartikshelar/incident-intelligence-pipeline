@@ -1,0 +1,331 @@
+{
+  "created": "2026-09-18",
+  "protocol": "eval/M5_PROTOCOL.md §2",
+  "seed": 20260918,
+  "method": "stratified random assignment; per-stratum dev/test counts by largest-remainder allocation proportional to 12/30, documents within each stratum assigned by random.Random(seed).shuffle()",
+  "strata_definition": "(is_original_10, profile), profile from spike/corpus_manifest.json (inferred for documents A-J per this script's module docstring)",
+  "dev_size": 12,
+  "test_size": 18,
+  "total_documents": 30,
+  "documents": {
+    "A": {
+      "org": "Cloudflare",
+      "is_original_10": true,
+      "profile": "large_vendor",
+      "profile_source": "inferred_from_org_by_make_split.py"
+    },
+    "B": {
+      "org": "GitLab",
+      "is_original_10": true,
+      "profile": "large_vendor",
+      "profile_source": "inferred_from_org_by_make_split.py"
+    },
+    "C": {
+      "org": "AWS",
+      "is_original_10": true,
+      "profile": "large_vendor",
+      "profile_source": "inferred_from_org_by_make_split.py"
+    },
+    "D": {
+      "org": "Datadog",
+      "is_original_10": true,
+      "profile": "large_vendor",
+      "profile_source": "inferred_from_org_by_make_split.py"
+    },
+    "E": {
+      "org": "GitHub",
+      "is_original_10": true,
+      "profile": "large_vendor",
+      "profile_source": "inferred_from_org_by_make_split.py"
+    },
+    "F": {
+      "org": "CrowdStrike",
+      "is_original_10": true,
+      "profile": "large_vendor",
+      "profile_source": "inferred_from_org_by_make_split.py"
+    },
+    "G": {
+      "org": "Google Cloud",
+      "is_original_10": true,
+      "profile": "large_vendor",
+      "profile_source": "inferred_from_org_by_make_split.py"
+    },
+    "H": {
+      "org": "Slack",
+      "is_original_10": true,
+      "profile": "large_vendor",
+      "profile_source": "inferred_from_org_by_make_split.py"
+    },
+    "I": {
+      "org": "Roblox",
+      "is_original_10": true,
+      "profile": "large_vendor",
+      "profile_source": "inferred_from_org_by_make_split.py"
+    },
+    "J": {
+      "org": "Kubernetes SIG Testing (test-infra)",
+      "is_original_10": true,
+      "profile": "oss_project",
+      "profile_source": "inferred_from_org_by_make_split.py"
+    },
+    "K": {
+      "org": "Facebook",
+      "is_original_10": false,
+      "profile": "large_vendor",
+      "profile_source": "corpus_manifest"
+    },
+    "L": {
+      "org": "Cloudflare",
+      "is_original_10": false,
+      "profile": "large_vendor",
+      "profile_source": "corpus_manifest"
+    },
+    "M": {
+      "org": "Atlassian",
+      "is_original_10": false,
+      "profile": "large_vendor",
+      "profile_source": "corpus_manifest"
+    },
+    "N": {
+      "org": "LaunchDarkly",
+      "is_original_10": false,
+      "profile": "mid_company",
+      "profile_source": "corpus_manifest"
+    },
+    "O": {
+      "org": "Honeycomb",
+      "is_original_10": false,
+      "profile": "smaller_company",
+      "profile_source": "corpus_manifest"
+    },
+    "P": {
+      "org": "incident.io",
+      "is_original_10": false,
+      "profile": "smaller_company",
+      "profile_source": "corpus_manifest"
+    },
+    "Q": {
+      "org": "incident.io",
+      "is_original_10": false,
+      "profile": "smaller_company",
+      "profile_source": "corpus_manifest"
+    },
+    "R": {
+      "org": "Buildkite",
+      "is_original_10": false,
+      "profile": "smaller_company",
+      "profile_source": "corpus_manifest"
+    },
+    "S": {
+      "org": "Keepthescore (Caspar von Wrede)",
+      "is_original_10": false,
+      "profile": "individual_blog",
+      "profile_source": "corpus_manifest"
+    },
+    "T": {
+      "org": "Tarsnap (Colin Percival)",
+      "is_original_10": false,
+      "profile": "individual_blog",
+      "profile_source": "corpus_manifest"
+    },
+    "U": {
+      "org": "PythonAnywhere",
+      "is_original_10": false,
+      "profile": "smaller_company",
+      "profile_source": "corpus_manifest"
+    },
+    "V": {
+      "org": "Turso",
+      "is_original_10": false,
+      "profile": "smaller_company",
+      "profile_source": "corpus_manifest"
+    },
+    "W": {
+      "org": "Doug Seven (on Knight Capital)",
+      "is_original_10": false,
+      "profile": "individual_blog",
+      "profile_source": "corpus_manifest"
+    },
+    "X": {
+      "org": "Twilio",
+      "is_original_10": false,
+      "profile": "mid_company",
+      "profile_source": "corpus_manifest"
+    },
+    "Y": {
+      "org": "Mozilla (Firefox)",
+      "is_original_10": false,
+      "profile": "oss_project",
+      "profile_source": "corpus_manifest"
+    },
+    "Z": {
+      "org": "ESLint",
+      "is_original_10": false,
+      "profile": "oss_project",
+      "profile_source": "corpus_manifest"
+    },
+    "AA": {
+      "org": "Kubernetes SIG Testing (test-infra)",
+      "is_original_10": false,
+      "profile": "oss_project",
+      "profile_source": "corpus_manifest"
+    },
+    "AB": {
+      "org": "Kubernetes SIG Testing (test-infra)",
+      "is_original_10": false,
+      "profile": "oss_project",
+      "profile_source": "corpus_manifest"
+    },
+    "AC": {
+      "org": "King's College London (PA Consulting review)",
+      "is_original_10": false,
+      "profile": "non_tech_org",
+      "profile_source": "corpus_manifest"
+    },
+    "AD": {
+      "org": "AAIB (TUI Airways load sheet)",
+      "is_original_10": false,
+      "profile": "non_tech_org",
+      "profile_source": "corpus_manifest"
+    }
+  },
+  "assignment": {
+    "W": "dev",
+    "S": "test",
+    "T": "test",
+    "L": "dev",
+    "K": "test",
+    "M": "test",
+    "N": "dev",
+    "X": "test",
+    "AC": "dev",
+    "AD": "test",
+    "AA": "dev",
+    "AB": "dev",
+    "Y": "test",
+    "Z": "test",
+    "P": "dev",
+    "R": "dev",
+    "O": "test",
+    "Q": "test",
+    "U": "test",
+    "V": "test",
+    "B": "dev",
+    "E": "dev",
+    "F": "dev",
+    "H": "dev",
+    "A": "test",
+    "C": "test",
+    "D": "test",
+    "G": "test",
+    "I": "test",
+    "J": "test"
+  },
+  "strata": [
+    {
+      "is_original_10": false,
+      "profile": "individual_blog",
+      "size": 3,
+      "dev": [
+        "W"
+      ],
+      "test": [
+        "S",
+        "T"
+      ]
+    },
+    {
+      "is_original_10": false,
+      "profile": "large_vendor",
+      "size": 3,
+      "dev": [
+        "L"
+      ],
+      "test": [
+        "K",
+        "M"
+      ]
+    },
+    {
+      "is_original_10": false,
+      "profile": "mid_company",
+      "size": 2,
+      "dev": [
+        "N"
+      ],
+      "test": [
+        "X"
+      ]
+    },
+    {
+      "is_original_10": false,
+      "profile": "non_tech_org",
+      "size": 2,
+      "dev": [
+        "AC"
+      ],
+      "test": [
+        "AD"
+      ]
+    },
+    {
+      "is_original_10": false,
+      "profile": "oss_project",
+      "size": 4,
+      "dev": [
+        "AA",
+        "AB"
+      ],
+      "test": [
+        "Y",
+        "Z"
+      ]
+    },
+    {
+      "is_original_10": false,
+      "profile": "smaller_company",
+      "size": 6,
+      "dev": [
+        "P",
+        "R"
+      ],
+      "test": [
+        "O",
+        "Q",
+        "U",
+        "V"
+      ]
+    },
+    {
+      "is_original_10": true,
+      "profile": "large_vendor",
+      "size": 9,
+      "dev": [
+        "B",
+        "E",
+        "F",
+        "H"
+      ],
+      "test": [
+        "A",
+        "C",
+        "D",
+        "G",
+        "I"
+      ]
+    },
+    {
+      "is_original_10": true,
+      "profile": "oss_project",
+      "size": 1,
+      "dev": [],
+      "test": [
+        "J"
+      ]
+    }
+  ],
+  "selection_filters": {
+    "original_10": "spike/corpus_manifest.json top-level selection_filter: hand-picked for org/format spread across danluu/post-mortems plus Cloudflare/GitLab/AWS/Datadog; not random, not a gold-set sample.",
+    "expansion_20": "spike/corpus_manifest.json expansion_2026_09_16.selection_filter: weighted away from the large-vendor profile of the original 10, hand-picked, not random, not a gold-set sample."
+  }
+}
