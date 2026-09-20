@@ -55,6 +55,18 @@ provider, the model string, and the API key all come from here.
                           computed from these against extractions.usage if
                           ALL FOUR are set, else null/absent rather than a
                           guessed number.
+  APP_REVIEW_BASIC_AUTH_USER, APP_REVIEW_BASIC_AUTH_PASS
+                          M6 part 2: HTTP Basic Auth gating every /review/*
+                          and /ui/review/* endpoint (app/api/auth.py) — the
+                          review UI writes gold-set data (ADR-010 §6), so it
+                          is the one write surface this system exposes to a
+                          human over HTTP. Both must be set together or the
+                          gate refuses every request (fail closed, never
+                          "half configured is open"); unset means the gate
+                          is not engaged at all, which is what lets
+                          `docker compose up` and the existing test suite
+                          work with no credentials, and is not appropriate
+                          for the deployed instance (render.yaml sets both).
 
 Provider, model and thinking are optional at load time so that processes
 which never call a model (API, migrations) start without them. The worker's
@@ -123,6 +135,12 @@ class Settings(BaseSettings):
         default=None, validation_alias="PRICE_CACHE_WRITE_USD_PER_MTOK"
     )
 
+    # M6 part 2 (app/api/auth.py): gates /review/* and /ui/review/*, the
+    # only endpoints that write gold-set data. See module docstring above
+    # for the fail-closed-when-partially-set / open-when-fully-unset rule.
+    review_basic_auth_user: str | None = None
+    review_basic_auth_pass: SecretStr | None = None
+
     # Read under the SDK's own variable name so a shell `export
     # ANTHROPIC_API_KEY=...` and a `.env` line both work. Passed explicitly
     # to the SDK; if unset the SDK falls back to its own resolution (auth
@@ -140,6 +158,7 @@ class Settings(BaseSettings):
         "price_output_usd_per_mtok",
         "price_cache_read_usd_per_mtok",
         "price_cache_write_usd_per_mtok",
+        "review_basic_auth_user",
         mode="before",
     )
     @classmethod
@@ -150,7 +169,7 @@ class Settings(BaseSettings):
             return value or None
         return value
 
-    @field_validator("anthropic_api_key", mode="before")
+    @field_validator("anthropic_api_key", "review_basic_auth_pass", mode="before")
     @classmethod
     def _strip_key(cls, value: object) -> object:
         # A stray space around `=` in a .env line or shell export would

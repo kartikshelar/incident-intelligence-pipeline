@@ -1,0 +1,22 @@
+{
+  "rendered_at": "2026-09-20T20:09:59.885155+00:00",
+  "kind": "stubbed_throughput",
+  "note": "Model client and outbound HTTP are stubbed (see module docstring); this measures the queue/worker/Postgres system's own overhead, not the Anthropic API's response time. Real end-to-end latency against the live API is reported separately from spike/extraction_run_12.json \u2014 see scripts/latency_report.py and the README's load numbers section.",
+  "documents": 200,
+  "worker_threads": 1,
+  "wall_seconds": 15.581121331000304,
+  "extractions_completed": 181,
+  "documents_per_hour": 41819.83993049154,
+  "extraction_latency_seconds": {
+    "n": 200,
+    "min": 0.0005712409997613577,
+    "max": 0.05691086200022255,
+    "mean": 0.01309055616000478,
+    "p50": 0.013889442499930738,
+    "p95": 0.016237105599907407
+  },
+  "jobs_by_kind_status": {
+    "ingest:succeeded": 200,
+    "extract:succeeded": 200
+  }
+}

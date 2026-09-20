@@ -1,0 +1,110 @@
+# Render Blueprint (M6 part 2): public URL, Docker, managed Postgres.
+#
+# Three services from one image (Dockerfile):
+#   api      public web service (uvicorn). preDeployCommand runs Alembic
+#            migrations, then scripts/seed_corpus.py (idempotent — see its
+#            own docstring; replays the frozen spike/extraction_run_12.json
+#            report, never calls the LLM, safe to run on every deploy).
+#   worker   private background worker, no public URL. Claims real
+#            registrations made through the deployed api's POST /sources;
+#            the seeded 30-document corpus never touches it (seed_corpus.py
+#            enqueues no jobs, by design — see its docstring).
+#   incident-intel-db   managed Postgres, referenced by both services via
+#            `fromDatabase`, never a hardcoded connection string.
+#
+# What you set by hand in the Render dashboard (secrets, never committed):
+#   ANTHROPIC_API_KEY            required for the worker to extract for real
+#   APP_REVIEW_BASIC_AUTH_USER,
+#   APP_REVIEW_BASIC_AUTH_PASS    required — the review UI writes gold-set
+#                                  data (app/api/auth.py); a deployed
+#                                  instance with both unset is a
+#                                  misconfiguration this Blueprint does not
+#                                  paper over (sync: false forces manual entry)
+#   PRICE_*_USD_PER_MTOK (x4)     optional, for /metrics' and /cost's cost
+#                                  gauges; omit and they report null
+#
+# Cost note: the `api` web service and the Postgres database can run on
+# Render's free plan, but background workers cannot ("Other service types
+# don't support Free instances" — render.com/docs/free) — the worker below
+# is on `0.5c-512mb` (the cheapest paid compute plan, legacy name
+# "Starter"), a real recurring cost, not a free deployment end to end.
+# The free Postgres instance also expires 30 days after creation and the
+# free web service sleeps after inactivity — fine for a portfolio demo,
+# not a promise of durability. Upgrade `plan:` on any service that needs
+# to stay up or outlive 30 days.
+
+databases:
+  - name: incident-intel-db
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: incident-intel-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: uvicorn app.api.main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    healthCheckPath: /health
+    preDeployCommand: alembic upgrade head && python -m scripts.seed_corpus
+    envVars:
+      - key: APP_DATABASE_URL
+        fromDatabase:
+          name: incident-intel-db
+          property: connectionString
+      - key: APP_REVIEW_CONFIDENCE_FLOOR
+        value: "0.70"
+      - key: APP_OTEL_EXPORTER
+        value: console
+      - key: APP_OTEL_SERVICE_NAME
+        value: incident-intel-api
+      # Secrets: set once in the Render dashboard, never in this file.
+      - key: APP_REVIEW_BASIC_AUTH_USER
+        sync: false
+      - key: APP_REVIEW_BASIC_AUTH_PASS
+        sync: false
+      - key: PRICE_INPUT_USD_PER_MTOK
+        sync: false
+      - key: PRICE_OUTPUT_USD_PER_MTOK
+        sync: false
+      - key: PRICE_CACHE_READ_USD_PER_MTOK
+        sync: false
+      - key: PRICE_CACHE_WRITE_USD_PER_MTOK
+        sync: false
+
+  - type: worker
+    name: incident-intel-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: python -m app.worker.main
+    # Background workers do not support Render's free plan (see the cost
+    # note above); 0.5c-512mb is the cheapest paid compute plan.
+    plan: 0.5c-512mb
+    envVars:
+      - key: APP_DATABASE_URL
+        fromDatabase:
+          name: incident-intel-db
+          property: connectionString
+      - key: APP_LLM_PROVIDER
+        value: anthropic
+      - key: APP_EXTRACTION_MODEL
+        value: claude-sonnet-5
+      - key: APP_EXTRACTION_THINKING
+        value: adaptive:low
+      - key: APP_REVIEW_CONFIDENCE_FLOOR
+        value: "0.70"
+      - key: APP_OTEL_EXPORTER
+        value: console
+      - key: APP_OTEL_SERVICE_NAME
+        value: incident-intel-worker
+      # Secret: set once in the Render dashboard, never in this file.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: PRICE_INPUT_USD_PER_MTOK
+        sync: false
+      - key: PRICE_OUTPUT_USD_PER_MTOK
+        sync: false
+      - key: PRICE_CACHE_READ_USD_PER_MTOK
+        sync: false
+      - key: PRICE_CACHE_WRITE_USD_PER_MTOK
+        sync: false

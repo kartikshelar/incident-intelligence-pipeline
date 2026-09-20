@@ -4,16 +4,19 @@ No ingestion, parsing, or extraction happens here — the worker does that.
 `register_source`'s only job is: write a `sources` row and a `queued` job
 row in one transaction, so a worker can pick it up. The M4 review
 endpoints live in app/api/review.py (JSON) and app/api/review_ui.py
-(server-rendered HTML) and are mounted here.
+(server-rendered HTML) and are mounted here, gated by app.api.auth's HTTP
+Basic dependency: they are the only endpoints that write gold-set data
+(M6 part 2 — see app/api/auth.py for the auth design).
 """
 
 import uuid
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import Depends, FastAPI, HTTPException, Response
 from pydantic import BaseModel, HttpUrl
 from sqlalchemy import text
 
 from app.api import review, review_ui
+from app.api.auth import require_review_auth
 from app.db.engine import get_engine
 from app.queue import enqueue
 from app.settings import settings
@@ -26,8 +29,8 @@ configure_logging()
 configure_tracing(settings)
 
 app = FastAPI(title="Incident Intelligence Pipeline", version="0.1.0")
-app.include_router(review.router)
-app.include_router(review_ui.router)
+app.include_router(review.router, dependencies=[Depends(require_review_auth)])
+app.include_router(review_ui.router, dependencies=[Depends(require_review_auth)])
 
 
 class RegisterSourceRequest(BaseModel):

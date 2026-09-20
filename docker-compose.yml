@@ -48,6 +48,11 @@ services:
       PRICE_OUTPUT_USD_PER_MTOK: ${PRICE_OUTPUT_USD_PER_MTOK:-}
       PRICE_CACHE_READ_USD_PER_MTOK: ${PRICE_CACHE_READ_USD_PER_MTOK:-}
       PRICE_CACHE_WRITE_USD_PER_MTOK: ${PRICE_CACHE_WRITE_USD_PER_MTOK:-}
+      # M6 part 2 (app/api/auth.py): unset by default so local compose
+      # needs no credentials; set both to require a login on /review/* and
+      # /ui/review/*. render.yaml always sets both for the deployed instance.
+      APP_REVIEW_BASIC_AUTH_USER: ${APP_REVIEW_BASIC_AUTH_USER:-}
+      APP_REVIEW_BASIC_AUTH_PASS: ${APP_REVIEW_BASIC_AUTH_PASS:-}
     ports:
       - "8000:8000"
     command: ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

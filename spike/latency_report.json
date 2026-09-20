@@ -1,0 +1,23 @@
+{
+  "rendered_at": "2026-09-20T19:29:58.654016+00:00",
+  "kind": "real_end_to_end",
+  "note": "Against the live Anthropic API (see run.summary.provider_model / thinking in the source report), one worker process, documents processed serially. Per-document latency is the gap between consecutive extraction completions (see module docstring for why fetched_at cannot be used instead). Stubbed throughput under concurrency is reported separately by scripts/load_test.py and the README's load numbers section.",
+  "source_run": "extraction_run_12",
+  "documents": 30,
+  "wall_seconds": 807.962276,
+  "documents_per_hour": 133.6696071191324,
+  "extraction_latency_seconds": {
+    "n": 30,
+    "min": 8.762033,
+    "max": 52.366132,
+    "mean": 25.864210033333332,
+    "p50": 25.5961455,
+    "p95": 46.06034944999996
+  },
+  "provider_model": [
+    "anthropic/claude-sonnet-5"
+  ],
+  "thinking": [
+    "adaptive:low"
+  ]
+}
