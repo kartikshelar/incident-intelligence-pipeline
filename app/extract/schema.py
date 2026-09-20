@@ -1,4 +1,4 @@
-"""Incident record schema v0.7 — the extraction contract.
+"""Incident record schema v0.8 — the extraction contract.
 
 This is PROJECT_BRIEF §6's draft schema after the corrections the M0 spike
 demanded. Every departure from the draft cites its source:
@@ -179,6 +179,25 @@ extraction idempotency key. No database migration: `record` is JSONB
 with no constraint on its contents, and every v0.6 row keeps `year` and
 `month` unused (the model was never offered them at that version).
 
+v0.8 (2026-09-19, ADR-012): the record-level `trigger` field description
+gains the external-provider boundary rule. The gold-labeling pass for M5
+exposed inconsistent treatment of provider-side incidents across
+`config_change`, `external_service_degradation`, and null: the rule now
+states explicitly that `config_change` is for a documented provider-side
+configuration/default change, `external_service_degradation` is for a
+documented concrete provider service failure, and null is for a
+provider-side cause that is only suspected or described as an
+unexplained/anomalous condition. This is additional guidance for
+choosing among the existing trigger classes and null, not a change to
+`TriggerClass` itself — no enum member is added, removed, or renamed.
+Bumped because the schema text the model reads changed and extraction
+must be re-run under it before M5 scoring (ADR-012 "M5 implication"):
+scoring extraction made under the old description against a gold set
+labeled under the new rule would confound extraction quality with a
+specification mismatch. No database migration: `record` is JSONB with no
+constraint on its contents, and every v0.7 row keeps its v0.7 trigger
+label under its own `schema_version`.
+
 OPEN, deliberately not decided here (FINDINGS §4.11, §4.12): one record per
 DOCUMENT. Nothing in this schema links two documents to one incident, and a
 document describing several impact periods yields one record for the
@@ -224,7 +243,7 @@ from app.extract.taxonomy import (
     trigger_class_description,
 )
 
-SCHEMA_VERSION = "0.7"
+SCHEMA_VERSION = "0.8"
 
 # Upper bound on the free-text descriptions the model writes. v0.3 set it at
 # 200 (run 03 medians were ~178 characters with a third over 200) and run 04
@@ -525,7 +544,13 @@ class IncidentRecord(_Strict):
         "traffic_spike and operational_delay are therefore NOT trigger classes (they name "
         "an anomalous condition, not what caused it), and race_condition is NOT a trigger "
         "class either (it names a failure mechanism, not an initiating change or event; "
-        "use mechanism for it, ADR-008 §3)."
+        "use mechanism for it, ADR-008 §3). External-provider boundary (ADR-012): use "
+        "config_change when a provider-side configuration, permission, setting, or default "
+        "change is explicitly documented as the initiating event; use "
+        "external_service_degradation when a concrete failure or degradation of an external "
+        "provider service is explicitly documented as the initiating event; use null when "
+        "the provider-side cause is only suspected, described as an unexplained or anomalous "
+        "change or condition, or otherwise not established as a concrete initiating event."
     )
     mechanism: Mechanism
     contributing_factors: list[ContributingFactor] = Field(

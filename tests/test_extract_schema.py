@@ -500,7 +500,7 @@ def test_wire_descriptions_are_the_v01_wording_not_the_v02_trim() -> None:
     """v0.2 cut every description the model reads to one sentence and was
     measured to cost more in retries than it saved (schema.py changelog,
     ADR-005 §4). v0.3 restored the v0.1 wording; this pins the revert."""
-    assert SCHEMA_VERSION == "0.7"
+    assert SCHEMA_VERSION == "0.8"
     defs = wire_schema()["$defs"]
     assert defs["TimeAnchor"]["description"].startswith(
         "One moment in the incident, as the document states it (FINDINGS §4.1)."

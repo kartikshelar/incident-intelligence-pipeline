@@ -110,7 +110,9 @@ def validate_document(doc: dict) -> list[str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("path", type=Path, help="gold-set JSON file to validate")
     parser.add_argument(
         "--strict",

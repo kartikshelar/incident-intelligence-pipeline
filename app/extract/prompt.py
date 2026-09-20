@@ -33,6 +33,17 @@ trigger / mechanism (two fields, not one):
   trigger is null. If several changes could count, choose the change closest
   to the failure that was necessary to activate it — not simply the earliest
   event.
+- External-provider boundary (ADR-012): use `config_change` when a
+  provider-side configuration, permission, setting, or default change is
+  explicitly documented as the initiating event. Use
+  `external_service_degradation` when a concrete failure or degradation of an
+  external provider service is explicitly documented as the initiating event.
+  Use null when the provider-side cause is only suspected, described as an
+  unexplained or anomalous change or condition, or otherwise not established
+  as a concrete initiating event. A provider can be the actor without the
+  trigger becoming a generic external-dependency label, and an unexplained
+  provider-side anomaly is not promoted into a trigger merely because it is
+  temporally related to the incident.
 - `mechanism` is what actually failed, and is required. Exactly one primary
   mechanism; put additional mechanisms in contributing_factors.
 - `mechanism.label` is one of the closed classes listed with their definitions
