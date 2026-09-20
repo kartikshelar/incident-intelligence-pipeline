@@ -9,13 +9,21 @@ endpoints live in app/api/review.py (JSON) and app/api/review_ui.py
 
 import uuid
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel, HttpUrl
 from sqlalchemy import text
 
 from app.api import review, review_ui
 from app.db.engine import get_engine
 from app.queue import enqueue
+from app.settings import settings
+from app.telemetry.cost import pricing_from_settings
+from app.telemetry.logctx import configure_logging
+from app.telemetry.metrics import cost_summary, render_metrics
+from app.telemetry.tracing import configure as configure_tracing
+
+configure_logging()
+configure_tracing(settings)
 
 app = FastAPI(title="Incident Intelligence Pipeline", version="0.1.0")
 app.include_router(review.router)
@@ -39,9 +47,47 @@ class JobStatusResponse(BaseModel):
     attempts: int
 
 
+class CostResponse(BaseModel):
+    run_id: str | None
+    priced: bool
+    total_usd: float | None
+    documents_priced: int
+    mean_usd_per_document: float | None
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/metrics")
+def metrics() -> Response:
+    """PROJECT_BRIEF M6: documents by status, jobs by state, queue depth,
+    dead-letter count, extraction latency histogram, validation attempts
+    histogram, review queue depth, cost per document. Prometheus text
+    exposition format (app.telemetry.metrics.render_metrics)."""
+    engine = get_engine()
+    with engine.connect() as conn:
+        body = render_metrics(conn, settings)
+    return Response(content=body, media_type="text/plain; version=0.0.4")
+
+
+@app.get("/cost", response_model=CostResponse)
+def cost(run_id: str | None = None) -> CostResponse:
+    """Cost per document, queryable per run_id (PROJECT_BRIEF M6): "This
+    exists in run reports but not in the running system." Same computation
+    scripts/extraction_run.py uses, against the live `extractions` table."""
+    engine = get_engine()
+    pricing = pricing_from_settings(settings)
+    with engine.connect() as conn:
+        summary = cost_summary(conn, pricing, run_id=run_id)
+    return CostResponse(
+        run_id=run_id,
+        priced=summary.priced,
+        total_usd=summary.total_usd,
+        documents_priced=summary.documents_priced,
+        mean_usd_per_document=summary.mean_usd_per_document,
+    )
 
 
 @app.post("/sources", response_model=RegisterSourceResponse, status_code=201)

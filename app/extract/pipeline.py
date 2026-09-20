@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import time
 import uuid
 
 from sqlalchemy import Connection, text
@@ -50,6 +51,8 @@ from app.extract.extractor import Attempt, extract
 from app.extract.llm import LLMClient
 from app.extract.schema import SCHEMA_VERSION
 from app.review.fields import create_field_reviews
+from app.telemetry.metrics import record_extraction
+from app.telemetry.tracing import span
 
 
 @dataclasses.dataclass(frozen=True)
@@ -112,87 +115,99 @@ def extract_document(
     if doc is None:
         raise DocumentNotFoundError(f"document {document_id} does not exist")
 
-    try:
-        result = extract(
-            document_text=doc["text"],
-            document_title=doc["title"],
-            source_url=doc["source_url"],
-            client=client,
-            max_attempts=max_attempts,
-        )
-    except ExtractionError as exc:
-        kind = "transient" if isinstance(exc, TransientExtractionError) else "permanent"
-        _insert_failed(
-            conn,
-            document_id=document_id,
-            provider=provider,
-            model=model,
-            thinking=thinking,
-            run_id=run_id,
-            error=exc,
-            error_kind=kind,
-            attempts=exc.attempts,
-        )
-        raise
-    except Exception as exc:  # noqa: BLE001 - record it, then let the worker route it
-        _insert_failed(
-            conn,
-            document_id=document_id,
-            provider=provider,
-            model=model,
-            thinking=thinking,
-            run_id=run_id,
-            error=exc,
-            error_kind="unexpected",
-            attempts=[],
-        )
-        raise
+    started = time.monotonic()
+    with span(
+        "extract_document",
+        {"document.id": str(document_id), "llm.provider": provider, "llm.model": model},
+    ):
+        try:
+            result = extract(
+                document_text=doc["text"],
+                document_title=doc["title"],
+                source_url=doc["source_url"],
+                client=client,
+                max_attempts=max_attempts,
+            )
+        except ExtractionError as exc:
+            kind = "transient" if isinstance(exc, TransientExtractionError) else "permanent"
+            _insert_failed(
+                conn,
+                document_id=document_id,
+                provider=provider,
+                model=model,
+                thinking=thinking,
+                run_id=run_id,
+                error=exc,
+                error_kind=kind,
+                attempts=exc.attempts,
+            )
+            record_extraction(
+                duration_seconds=time.monotonic() - started, attempts=len(exc.attempts)
+            )
+            raise
+        except Exception as exc:  # noqa: BLE001 - record it, then let the worker route it
+            _insert_failed(
+                conn,
+                document_id=document_id,
+                provider=provider,
+                model=model,
+                thinking=thinking,
+                run_id=run_id,
+                error=exc,
+                error_kind="unexpected",
+                attempts=[],
+            )
+            record_extraction(duration_seconds=time.monotonic() - started, attempts=0)
+            raise
 
-    record = result.output.record
-    if doc["title"]:
-        record = record.model_copy(
-            update={"title": doc["title"], "title_source": "document_metadata"}
-        )
+        record = result.output.record
+        if doc["title"]:
+            record = record.model_copy(
+                update={"title": doc["title"], "title_source": "document_metadata"}
+            )
 
-    extraction_id = uuid.uuid4()
-    conn.execute(
-        text(
-            """
-            INSERT INTO extractions
-                (id, document_id, schema_version, provider, model, thinking, run_id, status,
-                 record, per_field_confidence, confidence_source, derived, attempts,
-                 attempt_log, usage, error, error_kind)
-            VALUES
-                (:id, :document_id, :schema_version, :provider, :model, :thinking, :run_id,
-                 'complete', :record, :per_field_confidence, 'self_report', :derived, :attempts,
-                 :attempt_log, :usage, NULL, NULL)
-            """
-        ),
-        {
-            "id": extraction_id,
-            "document_id": document_id,
-            "schema_version": SCHEMA_VERSION,
-            "provider": provider,
-            "model": model,
-            "thinking": thinking,
-            "run_id": run_id,
-            "record": record.model_dump_json(),
-            "per_field_confidence": result.output.confidence.model_dump_json(),
-            "derived": json.dumps(derive_durations(record)),
-            "attempts": len(result.attempts),
-            "attempt_log": _attempt_log_json(result.attempts),
-            "usage": json.dumps(result.usage_totals),
-        },
-    )
-    create_field_reviews(
-        conn, extraction_id=extraction_id, record=record, confidence=result.output.confidence
-    )
-    return ExtractOutcome(
-        extraction_id=extraction_id,
-        document_id=document_id,
-        was_duplicate=False,
-        attempts=len(result.attempts),
-    )
+        extraction_id = uuid.uuid4()
+        conn.execute(
+            text(
+                """
+                INSERT INTO extractions
+                    (id, document_id, schema_version, provider, model, thinking, run_id, status,
+                     record, per_field_confidence, confidence_source, derived, attempts,
+                     attempt_log, usage, error, error_kind)
+                VALUES
+                    (:id, :document_id, :schema_version, :provider, :model, :thinking, :run_id,
+                     'complete', :record, :per_field_confidence, 'self_report', :derived, :attempts,
+                     :attempt_log, :usage, NULL, NULL)
+                """
+            ),
+            {
+                "id": extraction_id,
+                "document_id": document_id,
+                "schema_version": SCHEMA_VERSION,
+                "provider": provider,
+                "model": model,
+                "thinking": thinking,
+                "run_id": run_id,
+                "record": record.model_dump_json(),
+                "per_field_confidence": result.output.confidence.model_dump_json(),
+                "derived": json.dumps(derive_durations(record)),
+                "attempts": len(result.attempts),
+                "attempt_log": _attempt_log_json(result.attempts),
+                "usage": json.dumps(result.usage_totals),
+            },
+        )
+        create_field_reviews(
+            conn, extraction_id=extraction_id, record=record, confidence=result.output.confidence
+        )
+        record_extraction(
+            duration_seconds=time.monotonic() - started, attempts=len(result.attempts)
+        )
+        return ExtractOutcome(
+            extraction_id=extraction_id,
+            document_id=document_id,
+            was_duplicate=False,
+            attempts=len(result.attempts),
+        )
 
 
 def _insert_failed(

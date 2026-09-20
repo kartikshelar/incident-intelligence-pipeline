@@ -34,6 +34,7 @@ from app.ingest.detect import detect_format
 from app.ingest.fetch import fetch
 from app.ingest.parse import parse
 from app.storage import save_raw, storage_backend_name
+from app.telemetry.tracing import span
 
 
 @dataclasses.dataclass(frozen=True)
@@ -66,7 +67,22 @@ def ingest_source(conn: Connection, *, source_id: uuid.UUID, source_url: str) ->
     (the worker) are expected to route those into the job's retry/dead-letter
     handling per ADR-003 and not swallow them.
     """
-    fetched = fetch(source_url)
+    with span("ingest_source", {"source.id": str(source_id), "source.url": source_url}) as outer:
+        result = _ingest_source(conn, source_id=source_id, source_url=source_url)
+        outer.set_attributes(
+            {
+                "document.id": str(result.document_id),
+                "document.format": result.format,
+                "document.was_duplicate": result.was_duplicate,
+            }
+        )
+        return result
+
+
+def _ingest_source(conn: Connection, *, source_id: uuid.UUID, source_url: str) -> IngestResult:
+    with span("fetch", {"source.url": source_url}) as fetch_span:
+        fetched = fetch(source_url)
+        fetch_span.set_attribute("fetch.bytes", len(fetched.raw_bytes))
     content_hash = hashlib.sha256(fetched.raw_bytes).hexdigest()
 
     # Cheapest check first: these exact bytes are already stored, so the
@@ -93,7 +109,9 @@ def ingest_source(conn: Connection, *, source_id: uuid.UUID, source_url: str) ->
     fmt = detect_format(
         url=fetched.url, content_type=fetched.content_type, raw_bytes=fetched.raw_bytes
     )
-    parsed = parse(fetched.raw_bytes, fmt=fmt)
+    with span("parse", {"document.format": fmt}) as parse_span:
+        parsed = parse(fetched.raw_bytes, fmt=fmt)
+        parse_span.set_attribute("parse.text_chars", len(parsed.text))
     text_hash = text_hash_of(parsed.text)
     stored_raw = save_raw(fetched.raw_bytes)
     fetched_at = datetime.now(UTC)

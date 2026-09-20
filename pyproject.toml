@@ -19,6 +19,12 @@ dependencies = [
     # M4 review UI: server-rendered templates and HTML form posts.
     "jinja2>=3.1",
     "python-multipart>=0.0.9",
+    # M6: tracing (app/telemetry/tracing.py). Console exporter ships in
+    # opentelemetry-sdk itself; OTLP is an extra so a console-only setup
+    # (the default) does not need a collector's wire format installed.
+    "opentelemetry-api>=1.27",
+    "opentelemetry-sdk>=1.27",
+    "opentelemetry-exporter-otlp-proto-http>=1.27",
 ]
 
 [project.optional-dependencies]

@@ -36,6 +36,25 @@ provider, the model string, and the API key all come from here.
                           never which ones rank first. Unset means uncapped,
                           which is also how M5 evaluates the routing policy
                           (ADR-010 §5).
+  APP_OTEL_EXPORTER       M6 tracing (app/telemetry/tracing.py): "console"
+                          (default — prints spans, no collector needed) or
+                          "otlp" (sends to APP_OTEL_EXPORTER_ENDPOINT over
+                          OTLP/HTTP). Unknown values are a configuration
+                          error, same treatment as the LLM provider.
+  APP_OTEL_EXPORTER_ENDPOINT
+                          Required when APP_OTEL_EXPORTER=otlp. The
+                          collector's OTLP/HTTP traces endpoint.
+  APP_OTEL_SERVICE_NAME   Resource `service.name` on every span. Defaults to
+                          "incident-intel"; set per-process (api/worker) if
+                          you want them distinguishable in a backend that
+                          doesn't already show the span names doing that.
+  PRICE_INPUT_USD_PER_MTOK, PRICE_OUTPUT_USD_PER_MTOK,
+  PRICE_CACHE_READ_USD_PER_MTOK, PRICE_CACHE_WRITE_USD_PER_MTOK
+                          M6 cost-per-document (app/telemetry/cost.py), same
+                          convention as scripts/extraction_run.py: cost is
+                          computed from these against extractions.usage if
+                          ALL FOUR are set, else null/absent rather than a
+                          guessed number.
 
 Provider, model and thinking are optional at load time so that processes
 which never call a model (API, migrations) start without them. The worker's
@@ -80,6 +99,30 @@ class Settings(BaseSettings):
     review_confidence_floor: float = Field(default=0.70, ge=0.0, le=1.0)
     review_budget: int | None = Field(default=None, ge=0)
 
+    # M6 tracing (app/telemetry/tracing.py). Console is the default so the
+    # full ingest->parse->extract->route->review trace works with no
+    # external collector; "otlp" is the opt-in for a real backend.
+    otel_exporter: str = "console"
+    otel_exporter_endpoint: str | None = None
+    otel_service_name: str = "incident-intel"
+
+    # M6 cost-per-document (app/telemetry/cost.py). Read directly from the
+    # environment under their own bare names (not APP_-prefixed) so they
+    # match scripts/extraction_run.py's existing convention exactly — one
+    # pricing config either way, not two spellings of it.
+    price_input_usd_per_mtok: float | None = Field(
+        default=None, validation_alias="PRICE_INPUT_USD_PER_MTOK"
+    )
+    price_output_usd_per_mtok: float | None = Field(
+        default=None, validation_alias="PRICE_OUTPUT_USD_PER_MTOK"
+    )
+    price_cache_read_usd_per_mtok: float | None = Field(
+        default=None, validation_alias="PRICE_CACHE_READ_USD_PER_MTOK"
+    )
+    price_cache_write_usd_per_mtok: float | None = Field(
+        default=None, validation_alias="PRICE_CACHE_WRITE_USD_PER_MTOK"
+    )
+
     # Read under the SDK's own variable name so a shell `export
     # ANTHROPIC_API_KEY=...` and a `.env` line both work. Passed explicitly
     # to the SDK; if unset the SDK falls back to its own resolution (auth
@@ -92,6 +135,11 @@ class Settings(BaseSettings):
         "extraction_thinking",
         "extraction_run_id",
         "review_budget",
+        "otel_exporter_endpoint",
+        "price_input_usd_per_mtok",
+        "price_output_usd_per_mtok",
+        "price_cache_read_usd_per_mtok",
+        "price_cache_write_usd_per_mtok",
         mode="before",
     )
     @classmethod

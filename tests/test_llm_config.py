@@ -133,6 +133,25 @@ def test_blank_env_values_mean_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     assert cfg.anthropic_api_key is None
 
 
+def test_blank_otel_and_price_env_values_mean_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    """docker-compose.yml passes these through `${VAR:-}`, which is an empty
+    string when unset in the shell/`.env` — not absent. Regression: this
+    used to fail Settings() construction with a pydantic float_parsing
+    error at process startup (caught only by an actual `docker compose up`,
+    not by any test against a real Postgres)."""
+    monkeypatch.setenv("APP_OTEL_EXPORTER_ENDPOINT", "")
+    monkeypatch.setenv("PRICE_INPUT_USD_PER_MTOK", "")
+    monkeypatch.setenv("PRICE_OUTPUT_USD_PER_MTOK", "")
+    monkeypatch.setenv("PRICE_CACHE_READ_USD_PER_MTOK", "")
+    monkeypatch.setenv("PRICE_CACHE_WRITE_USD_PER_MTOK", "")
+    cfg = _settings()
+    assert cfg.otel_exporter_endpoint is None
+    assert cfg.price_input_usd_per_mtok is None
+    assert cfg.price_output_usd_per_mtok is None
+    assert cfg.price_cache_read_usd_per_mtok is None
+    assert cfg.price_cache_write_usd_per_mtok is None
+
+
 def test_settings_read_from_dotenv_file(tmp_path: pytest.TempPathFactory) -> None:
     env_file = tmp_path / ".env"  # type: ignore[operator]
     env_file.write_text(

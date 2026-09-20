@@ -30,6 +30,7 @@ from app.extract.prompt import (
     initial_messages,
 )
 from app.extract.schema import ExtractionOutput, format_validation_error, wire_schema
+from app.telemetry.tracing import span
 
 
 @dataclasses.dataclass(frozen=True)
@@ -110,32 +111,49 @@ def extract(
     attempts: list[Attempt] = []
 
     for number in range(1, max_attempts + 1):
-        try:
-            response = client.complete(system=SYSTEM_PROMPT, messages=messages, schema=schema)
-        except ExtractionError as exc:
-            exc.attempts = attempts + exc.attempts
-            raise
+        # attempt 2+ IS the retry: same span kind every time, distinguished
+        # by attempt.number (module docstring), so a trace shows exactly
+        # how many round trips one document cost.
+        attempt_attrs = {"extract.attempt_number": number, "extract.max_attempts": max_attempts}
+        with span("extract.attempt", attempt_attrs):
+            llm_attrs = {"llm.provider": client.provider, "llm.model": client.model}
+            try:
+                with span("llm.call", llm_attrs) as llm_span:
+                    response = client.complete(
+                        system=SYSTEM_PROMPT, messages=messages, schema=schema
+                    )
+                    llm_span.set_attributes(
+                        {f"llm.usage.{k}": v for k, v in response.usage().items()}
+                    )
+            except ExtractionError as exc:
+                exc.attempts = attempts + exc.attempts
+                raise
 
-        output, error = _validate(response.text)
-        attempts.append(
-            Attempt(
-                number=number,
-                raw_output=response.text,
-                ok=output is not None,
-                validation_error=error,
-                usage=response.usage(),
-                model=response.model,
+            with span("validation") as validation_span:
+                output, error = _validate(response.text)
+                validation_span.set_attribute("validation.ok", output is not None)
+                if error is not None:
+                    validation_span.set_attribute("validation.error", error)
+
+            attempts.append(
+                Attempt(
+                    number=number,
+                    raw_output=response.text,
+                    ok=output is not None,
+                    validation_error=error,
+                    usage=response.usage(),
+                    model=response.model,
+                )
             )
-        )
-        if output is not None:
-            return ExtractionResult(output=output, attempts=attempts, model=response.model)
+            if output is not None:
+                return ExtractionResult(output=output, attempts=attempts, model=response.model)
 
-        # Feed the error back: the model sees its own output and the
-        # validator's complaint, and is asked for the corrected object.
-        messages = messages + [
-            {"role": "assistant", "content": response.text},
-            {"role": "user", "content": build_retry_message(error or "")},
-        ]
+            # Feed the error back: the model sees its own output and the
+            # validator's complaint, and is asked for the corrected object.
+            messages = messages + [
+                {"role": "assistant", "content": response.text},
+                {"role": "user", "content": build_retry_message(error or "")},
+            ]
 
     raise SchemaValidationExhaustedError(
         f"output failed schema validation on all {max_attempts} attempts; "

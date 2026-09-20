@@ -35,6 +35,19 @@ services:
       # by the queue. Same values as the worker's, from ./.env or the shell.
       APP_REVIEW_CONFIDENCE_FLOOR: ${APP_REVIEW_CONFIDENCE_FLOOR:-0.70}
       APP_REVIEW_BUDGET: ${APP_REVIEW_BUDGET:-}
+      # M6 tracing (app/telemetry/tracing.py): console by default, so
+      # `docker compose up` needs no collector. Set APP_OTEL_EXPORTER=otlp
+      # and APP_OTEL_EXPORTER_ENDPOINT to send elsewhere.
+      APP_OTEL_EXPORTER: ${APP_OTEL_EXPORTER:-console}
+      APP_OTEL_EXPORTER_ENDPOINT: ${APP_OTEL_EXPORTER_ENDPOINT:-}
+      APP_OTEL_SERVICE_NAME: incident-intel-api
+      # M6 cost per document (app/telemetry/cost.py), same PRICE_* env vars
+      # scripts/extraction_run.py already reads; unset means /metrics and
+      # /cost report cost as null rather than a guess.
+      PRICE_INPUT_USD_PER_MTOK: ${PRICE_INPUT_USD_PER_MTOK:-}
+      PRICE_OUTPUT_USD_PER_MTOK: ${PRICE_OUTPUT_USD_PER_MTOK:-}
+      PRICE_CACHE_READ_USD_PER_MTOK: ${PRICE_CACHE_READ_USD_PER_MTOK:-}
+      PRICE_CACHE_WRITE_USD_PER_MTOK: ${PRICE_CACHE_WRITE_USD_PER_MTOK:-}
     ports:
       - "8000:8000"
     command: ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -65,6 +78,15 @@ services:
       # ADR's provisional operating point; M5 sweeps it (see .env.example).
       APP_REVIEW_CONFIDENCE_FLOOR: ${APP_REVIEW_CONFIDENCE_FLOOR:-0.70}
       APP_REVIEW_BUDGET: ${APP_REVIEW_BUDGET:-}
+      # M6 tracing: same defaults as the api service, own service name so
+      # spans from the two processes are distinguishable in a backend.
+      APP_OTEL_EXPORTER: ${APP_OTEL_EXPORTER:-console}
+      APP_OTEL_EXPORTER_ENDPOINT: ${APP_OTEL_EXPORTER_ENDPOINT:-}
+      APP_OTEL_SERVICE_NAME: incident-intel-worker
+      PRICE_INPUT_USD_PER_MTOK: ${PRICE_INPUT_USD_PER_MTOK:-}
+      PRICE_OUTPUT_USD_PER_MTOK: ${PRICE_OUTPUT_USD_PER_MTOK:-}
+      PRICE_CACHE_READ_USD_PER_MTOK: ${PRICE_CACHE_READ_USD_PER_MTOK:-}
+      PRICE_CACHE_WRITE_USD_PER_MTOK: ${PRICE_CACHE_WRITE_USD_PER_MTOK:-}
     command: ["python", "-m", "app.worker.main"]
 
 volumes:

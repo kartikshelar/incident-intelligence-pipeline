@@ -26,8 +26,11 @@ from app.ingest.pipeline import ingest_source
 from app.queue import Job, claim_one, enqueue, mark_failed, mark_succeeded
 from app.review.routing import route_pending
 from app.settings import settings
+from app.telemetry.logctx import configure_logging
+from app.telemetry.tracing import configure as configure_tracing
+from app.telemetry.tracing import span
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+configure_logging()
 logger = logging.getLogger("worker")
 
 
@@ -109,9 +112,12 @@ def process_extract(conn: Connection, job: Job) -> None:
         # The pass is global — it ranks every unreviewed field below the
         # floor, not just this document's — because the budget is a cap on
         # the reviewer's outstanding work, not a per-document quota.
-        routing = route_pending(
-            conn, floor=settings.review_confidence_floor, budget=settings.review_budget
-        )
+        route_attrs = {"review.floor": settings.review_confidence_floor}
+        with span("route_pending", route_attrs) as route_span:
+            routing = route_pending(
+                conn, floor=settings.review_confidence_floor, budget=settings.review_budget
+            )
+            route_span.set_attribute("review.routed", len(routing.routed))
         logger.info(
             "job %s: routed %d field(s) for review (floor=%.2f, budget=%s, eligible=%d, "
             "outstanding before=%d)",
@@ -134,36 +140,84 @@ def process_job(conn: Connection, job: Job) -> None:
 
 
 def run_once() -> bool:
-    """Claim and process a single job. Returns True if a job was claimed."""
-    engine = get_engine()
-    with engine.begin() as conn:
-        job = claim_one(conn)
-        if job is None:
-            return False
+    """Claim and process a single job. Returns True if a job was claimed.
 
-        logger.info("claimed %s job %s (attempt %d)", job.kind, job.id, job.attempts)
+    One root span per job (`job`, renamed to the job's kind once known),
+    covering the claim and everything process_job does — ingest's
+    fetch/parse or extract's LLM calls and routing pass all nest under it,
+    so a trace viewer shows the full ingest -> parse -> extract -> route
+    path for one document in one trace. `job.claim` is the first child span
+    under that same root, not a separate trace, so a no-op claim (queue
+    empty) is also its own one-span trace rather than being invisible.
+
+    An `ingest` job's `extract` job is a separate trace (a separate queue
+    claim, possibly a separate worker/process) linked only by document_id,
+    which every span in both traces carries as an attribute.
+    """
+    engine = get_engine()
+    with engine.begin() as conn, span("job") as root_span:
+        with span("job.claim") as claim_span:
+            job = claim_one(conn)
+            if job is None:
+                claim_span.set_attribute("job.claimed", False)
+                root_span.update_name("job.none_available")
+                return False
+            claim_span.set_attributes(
+                {
+                    "job.claimed": True,
+                    "job.id": str(job.id),
+                    "job.kind": job.kind,
+                    "job.attempts": job.attempts,
+                }
+            )
+
+        root_span.update_name(f"job.{job.kind}")
+        root_span.set_attributes(
+            {
+                "job.id": str(job.id),
+                "job.kind": job.kind,
+                "job.attempts": job.attempts,
+                **({"document.id": str(job.document_id)} if job.document_id else {}),
+            }
+        )
+        logger.info(
+            "claimed %s job %s (attempt %d)",
+            job.kind,
+            job.id,
+            job.attempts,
+            extra={"job_id": str(job.id), "job_kind": job.kind, "job_attempts": job.attempts},
+        )
         try:
             process_job(conn, job)
         except PermanentJobError as exc:
-            logger.warning("job %s permanently failed: %s", job.id, exc)
+            logger.warning(
+                "job %s permanently failed: %s", job.id, exc, extra={"job_id": str(job.id)}
+            )
             mark_failed(conn, job.id, error=str(exc), permanent=True)
             return True
         except TransientJobError as exc:
-            logger.warning("job %s transiently failed: %s", job.id, exc)
+            logger.warning(
+                "job %s transiently failed: %s", job.id, exc, extra={"job_id": str(job.id)}
+            )
             mark_failed(conn, job.id, error=str(exc), permanent=False)
             return True
         except Exception as exc:  # noqa: BLE001 - failures must be recorded, not swallowed
-            logger.exception("job %s failed with an unexpected error", job.id)
+            logger.exception(
+                "job %s failed with an unexpected error",
+                job.id,
+                extra={"job_id": str(job.id)},
+            )
             mark_failed(conn, job.id, error=str(exc), permanent=False)
             return True
 
         mark_succeeded(conn, job.id)
-        logger.info("job %s succeeded", job.id)
+        logger.info("job %s succeeded", job.id, extra={"job_id": str(job.id)})
 
     return True
 
 
 def main() -> None:
+    configure_tracing(settings)
     logger.info("worker starting, poll interval=%ss", settings.worker_poll_interval_seconds)
     while True:
         claimed = run_once()
