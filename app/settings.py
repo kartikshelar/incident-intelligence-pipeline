@@ -5,6 +5,17 @@ file in the working directory (never committed — see .gitignore and
 .env.example). Nothing model-related is a constant in code: the LLM
 provider, the model string, and the API key all come from here.
 
+  APP_DATABASE_URL        Postgres connection string. Falls back to bare
+                          DATABASE_URL (no APP_ prefix) if APP_DATABASE_URL
+                          is unset — Heroku Postgres sets only the bare
+                          name, and never with a scheme SQLAlchemy accepts:
+                          it and its `postgres://` scheme are normalized to
+                          `postgresql+psycopg://` on load (see
+                          _normalize_database_url), so callers never see
+                          the raw Heroku value. Render's fromDatabase
+                          setting targets APP_DATABASE_URL directly and is
+                          already the scheme SQLAlchemy wants, so it passes
+                          through unchanged either way.
   APP_LLM_PROVIDER        which app.extract.llm implementation to use
   APP_EXTRACTION_MODEL    the model string passed to that provider verbatim
   APP_EXTRACTION_THINKING the thinking/effort setting, interpreted by the
@@ -74,14 +85,24 @@ LLM factory (app.extract.llm.build_llm_client) is what insists on them, and
 it fails per job with a recorded reason rather than at import time.
 """
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_", env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/incident_intel"
+    # AliasChoices tries APP_DATABASE_URL first, then bare DATABASE_URL —
+    # Heroku Postgres's release phase and dynos only ever set the bare
+    # name (Config Vars docs), and Render's fromDatabase is configured to
+    # set APP_DATABASE_URL directly in render.yaml, so this one field
+    # serves both without either platform's manifest needing to alias the
+    # other's variable name.
+    database_url: str = Field(
+        default="postgresql+psycopg://postgres:postgres@localhost:5432/incident_intel",
+        validation_alias=AliasChoices("APP_DATABASE_URL", "DATABASE_URL"),
+    )
 
     # Worker polling and job-claim behavior (mirrors ADR-003 §4).
     worker_poll_interval_seconds: float = 1.0
@@ -178,6 +199,22 @@ class Settings(BaseSettings):
             value = value.strip()
             return value or None
         return value
+
+    @field_validator("database_url", mode="after")
+    @classmethod
+    def _normalize_database_url(cls, value: str) -> str:
+        # Heroku Postgres's DATABASE_URL uses `postgres://` (and sometimes
+        # `postgresql://`), neither of which SQLAlchemy 2.x's psycopg 3
+        # dialect accepts on its own — it wants `postgresql+psycopg://`.
+        # Render's fromDatabase-generated URL is already that scheme, so
+        # this is a no-op there; it only rewrites what needs rewriting.
+        url = make_url(value)
+        if url.drivername in ("postgres", "postgresql"):
+            url = url.set(drivername="postgresql+psycopg")
+        # str(url) masks the password ("***") — render_as_string is the
+        # one that round-trips it, and this value is used to connect, not
+        # displayed.
+        return url.render_as_string(hide_password=False)
 
 
 settings = Settings()

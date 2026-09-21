@@ -1,0 +1,29 @@
+# Heroku container deploy (M6 part 2), alongside render.yaml — see the
+# README's Deployment section for which platform the live URL points at.
+# Both platforms build the same Dockerfile; nothing here is Heroku-only
+# except this manifest and the config-var names.
+#
+# release: runs once per deploy, before the new dynos start, with config
+# vars (including DATABASE_URL) already available — migrations, then
+# scripts/seed_corpus.py. Same script Render's preDeployCommand runs: it
+# replays extraction from the frozen spike/extraction_run_12.json report
+# (no Anthropic API calls) and enqueues no queue jobs (see its own
+# docstring for why that matters — a queued extract job would eventually
+# be claimed by the worker dyno and would call the real API).
+#
+# web/worker: both reuse the one image built from ./Dockerfile (`image:
+# web` on the worker process, per Heroku's heroku.yml schema for reusing
+# one build across process types) rather than building it twice.
+build:
+  docker:
+    web: Dockerfile
+
+release:
+  image: web
+  command: alembic upgrade head && python -m scripts.seed_corpus
+
+run:
+  web: uvicorn app.api.main:app --host 0.0.0.0 --port $PORT
+  worker:
+    image: web
+    command: python -m app.worker.main

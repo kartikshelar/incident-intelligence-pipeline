@@ -21,11 +21,12 @@ numbers, public deployment, review-UI auth) are both built — see
 [Observability](#observability), [Load numbers](#load-numbers), and
 [Deployment](#deployment) below.
 
-**Deployed:** not yet public — `render.yaml` (Blueprint) and the steps to
-launch it are ready (see [Deployment](#deployment)), but creating the
-actual Render services requires clicking through Render's dashboard with
-an account this repo's automation has no access to. Once deployed, put
-the URL here.
+**Deployed:** not yet public — both `render.yaml` and `heroku.yml` (see
+[Deployment](#deployment)) are ready, but creating the actual services on
+either platform requires clicking through that platform's dashboard (or
+`heroku apps:create` + `git push heroku`) with an account this repo's
+automation has no access to. Once deployed, put the URL — and which
+platform it's on — here.
 
 ---
 
@@ -490,31 +491,38 @@ races the DB tests here.
 
 ## Deployment
 
-[`render.yaml`](render.yaml) (Render Blueprint): three services from the
-same `Dockerfile` — a public `api` web service, a private `worker`
-background service, and a managed Postgres database, wired together with
-`fromDatabase` so no connection string is ever hardcoded.
+Two platform manifests, both building the same [`Dockerfile`](Dockerfile)
+— **only one is meant to be live at a time**; the Status section at the
+top of this README says which. Both run the same seed step, the same
+migrations, and gate the review UI with the same Basic Auth mechanism,
+so the app-level behavior is identical regardless of which one is
+actually deployed.
 
-```
-render.yaml
-├── incident-intel-db        managed Postgres (free tier; expires 30 days
-│                             after creation — fine for a demo, not durable)
-├── incident-intel-api        web service, public URL
-│   preDeployCommand:         alembic upgrade head
-│                             && python -m scripts.seed_corpus
-└── incident-intel-worker     background service (no public URL);
-                              background workers do NOT support Render's
-                              free plan — this runs on the cheapest paid
-                              compute plan (0.5c-512mb, legacy "Starter"),
-                              a real recurring cost
-```
+| | [`render.yaml`](render.yaml) | [`heroku.yml`](heroku.yml) |
+|---|---|---|
+| web process | `api` web service, public URL | `web` dyno, public URL |
+| worker process | `worker` background service (paid — Render has no free tier for workers, `0.5c-512mb`) | `worker` dyno (paid — Heroku has no free dyno tier at all since Nov 2022) |
+| Postgres | managed database resource, `fromDatabase` | Heroku Postgres add-on, `DATABASE_URL` config var |
+| migrate + seed | `preDeployCommand` on the `api` service | `release` phase, runs before new dynos start |
+| how connection string reaches the app | `APP_DATABASE_URL`, already the right scheme | bare `DATABASE_URL`, `postgres://` scheme — normalized to `postgresql+psycopg://` by `app/settings.py` (see below) |
+| launch | Render dashboard → New → Blueprint | `heroku apps:create` + `git push heroku main`, or Container Registry |
 
-**Seeding** ([`scripts/seed_corpus.py`](scripts/seed_corpus.py)): runs as
-the `api` service's `preDeployCommand`, after migrations, on every deploy.
-It ingests the 30-document corpus for real (fetch → parse → persist —
-10 documents from local fixtures under `spike/raw/`, no network; the other
-20 fetched once, for real, since only 10 were ever saved locally) but
-**replays extraction from the frozen [`spike/extraction_run_12.json`](spike/extraction_run_12.json)
+**The `DATABASE_URL` scheme fix**: Heroku Postgres only ever sets a bare
+`DATABASE_URL` (never `APP_-prefixed`), with a `postgres://` scheme that
+SQLAlchemy's psycopg 3 dialect rejects outright. `app.settings.Settings.
+database_url` reads `APP_DATABASE_URL` first, falls back to bare
+`DATABASE_URL` if that's unset (`pydantic.AliasChoices` — Render's
+`fromDatabase` targets `APP_DATABASE_URL` directly, so it's unaffected),
+and rewrites `postgres://`/`postgresql://` to `postgresql+psycopg://`
+either way. One field handles both platforms; neither manifest needs to
+alias the other's variable name.
+
+**Seeding** ([`scripts/seed_corpus.py`](scripts/seed_corpus.py)): runs
+after migrations, on every deploy, on both platforms. It ingests the
+30-document corpus for real (fetch → parse → persist — 10 documents from
+local fixtures under `spike/raw/`, no network; the other 20 fetched once,
+for real, since only 10 were ever saved locally) but **replays extraction
+from the frozen [`spike/extraction_run_12.json`](spike/extraction_run_12.json)
 report** rather than calling the model — no Anthropic API cost at seed
 time, byte-for-byte the same record on every redeploy. It also runs the
 same post-extraction routing pass the worker runs after a real extraction
@@ -528,22 +536,29 @@ script's own docstring for how that was found and fixed).
 
 **Auth** ([`app/api/auth.py`](app/api/auth.py)): every `/review/*` and
 `/ui/review/*` endpoint — read and write alike — requires HTTP Basic Auth
-on the deployed instance, `APP_REVIEW_BASIC_AUTH_USER` / `_PASS`, set once
-in Render's dashboard (`sync: false` in the Blueprint, never committed).
-The review surface is gated as a whole because it is the one place this
-system writes gold-set data (ADR-010 §6) on a human's say-so; nothing
-else needs a login (`/sources`, `/jobs/{id}`, `/metrics`, `/cost`).
-Locally, both env vars are unset by default, so `docker compose up` and
-the test suite need no credentials — see `app/api/auth.py`'s docstring
-for the fail-closed rule if only one of the two is ever set by mistake.
+on the deployed instance, `APP_REVIEW_BASIC_AUTH_USER` / `_PASS`. On
+Render these are Blueprint secrets (`sync: false`, set once in the
+dashboard); on Heroku they're ordinary Config Vars (`heroku config:set
+APP_REVIEW_BASIC_AUTH_USER=... APP_REVIEW_BASIC_AUTH_PASS=...`) — same
+env vars either way, `app/settings.py` doesn't know or care which
+platform set them. The review surface is gated as a whole because it is
+the one place this system writes gold-set data (ADR-010 §6) on a human's
+say-so; nothing else needs a login (`/sources`, `/jobs/{id}`, `/metrics`,
+`/cost`). Locally, both env vars are unset by default, so `docker compose
+up` and the test suite need no credentials — see `app/api/auth.py`'s
+docstring for the fail-closed rule if only one of the two is ever set by
+mistake.
 
-**To actually deploy**: this repo ships everything short of clicking
-"New Blueprint" in Render's dashboard, which needs an account this
-automation has no access to.
+**To actually deploy**: this repo ships everything short of the
+platform-side account action, which needs credentials this automation
+has no access to either way.
+
+Render:
 
 1. Push this repo to GitHub (or GitLab).
 2. In the Render dashboard: **New → Blueprint**, point it at the repo.
-   Render reads `render.yaml` and proposes the three services above.
+   Render reads `render.yaml` and proposes the three services in the
+   table above.
 3. Before the first deploy, set the `sync: false` secrets Render will
    prompt for: `APP_REVIEW_BASIC_AUTH_USER`, `APP_REVIEW_BASIC_AUTH_PASS`
    (pick any demo credentials), `ANTHROPIC_API_KEY` (only needed if you
@@ -554,4 +569,25 @@ automation has no access to.
 4. Deploy. The `api` service's `preDeployCommand` migrates and seeds
    automatically; watch its logs for `done: 30 document(s) ingested, ...`.
 5. Put the resulting `https://<service>.onrender.com` URL in the Status
-   section above.
+   section above and note it's on Render.
+
+Heroku:
+
+1. `heroku apps:create incident-intel` (or your own app name), from a
+   checkout of this repo with the Heroku CLI installed and `heroku
+   stack:set container -a incident-intel` set so `heroku.yml` is honored.
+2. `heroku addons:create heroku-postgresql:essential-0 -a incident-intel`
+   (or the current cheapest plan — Heroku Postgres has no permanent free
+   tier either) sets `DATABASE_URL` automatically; nothing to configure
+   by hand for the database.
+3. `heroku config:set -a incident-intel APP_REVIEW_BASIC_AUTH_USER=...
+   APP_REVIEW_BASIC_AUTH_PASS=... ANTHROPIC_API_KEY=...` (the API key
+   only needed for the worker to extract *new* registrations for real;
+   optionally the four `PRICE_*_USD_PER_MTOK` vars too).
+4. `git push heroku main`. The build uses `heroku.yml`; the `release`
+   phase migrates and seeds automatically — watch `heroku logs --tail -a
+   incident-intel` for `done: 30 document(s) ingested, ...`. Scale the
+   worker dyno on if it isn't already: `heroku ps:scale worker=1 -a
+   incident-intel`.
+5. Put the resulting `https://incident-intel-<hash>.herokuapp.com` URL in
+   the Status section above and note it's on Heroku.

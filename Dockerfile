@@ -12,7 +12,8 @@ COPY pyproject.toml ./
 COPY app ./app
 COPY migrations ./migrations
 COPY alembic.ini ./
-# M6 part 2: scripts/seed_corpus.py (Render's preDeployCommand) needs
+# M6 part 2: scripts/seed_corpus.py (Render's preDeployCommand /
+# Heroku's release phase, both run it from this same image) needs
 # spike/corpus_manifest.json + spike/extraction_run_12.json (the frozen
 # report it replays) + spike/raw/ (the 10 locally-available fixtures) —
 # not the rest of spike/'s scratch output, so this is scoped rather than
@@ -23,6 +24,6 @@ COPY spike/raw ./spike/raw
 
 RUN pip install --no-cache-dir .
 
-# Overridden by docker-compose per-service `command:`, and by render.yaml's
-# per-service `dockerCommand:`.
+# Overridden by docker-compose's per-service `command:`, render.yaml's
+# per-service `dockerCommand:`, and heroku.yml's `run:` section.
 CMD ["python", "-m", "app.worker.main"]
