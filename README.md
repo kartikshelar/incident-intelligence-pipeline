@@ -32,7 +32,7 @@ revised after being seen — see [What failed](#what-failed) for the full
 derivation.
 
 Everything else in this project — the extraction pipeline, the schema
-and taxonomy design (12 ADRs), the queue, the observability layer, and
+and taxonomy design (13 ADRs), the queue, the observability layer, and
 the deployment below — exists to make that measurement possible and
 honest. It is a working system with one honestly negative headline
 result, not a system that is broken.
@@ -503,16 +503,17 @@ fit, not generalization.
   4, a real (non-stubbed) model call competing for the same Postgres
   connections, and multi-machine deployment — this repo has only run
   process mode on one machine, up to 4 processes, against a stub.
-- **Two open [DERIVE] decisions from the brief have no ADR.** DERIVE-04
-  (whether multi-tenancy is real or theater here) was never written up —
-  the honest answer given the single-user, all-public-source corpus is
-  probably "not needed," but that has not been decided in writing. The
-  M6 Basic Auth gate on `/review/*` (`app/api/auth.py`) is a lock on the
-  door, not an answer to DERIVE-04: one shared credential pair, no
-  accounts, no per-user data isolation. DERIVE-03 (partial-extraction
-  semantics) also remains unimplemented: `extractions.status` is
-  `complete | failed` only, and `partial` is not a state the system
-  produces.
+- **Multi-tenancy and partial extraction remain unimplemented — now by
+  written decision, not by omission.** [ADR-013](docs/adr/013-multi-tenancy.md)
+  closes DERIVE-04: no tenant accounts, no per-user data isolation — the
+  M6 Basic Auth gate on `/review/*` (`app/api/auth.py`) protects
+  gold-set write integrity, it is not a tenancy mechanism, and the ADR
+  says so explicitly. [ADR-014](docs/adr/014-partial-extraction.md)
+  closes DERIVE-03: `extractions.status` is `complete | failed` only,
+  and the all-or-nothing cost that decision accepts (one bad field loses
+  twenty-two good ones) turned out to be nearly free in practice —
+  validation retry recovered every failure from run 02 onward, with zero
+  dead-lettered documents across runs 02–12.
 
 ---
 
@@ -529,6 +530,8 @@ fit, not generalization.
 - [010 — Review queue routing](docs/adr/010-review-queue-routing.md): per-field review unit, rank by ascending confidence, provisional 0.70 floor, pre-registers the precision/recall criteria that failed above.
 - [011 — Review evidence](docs/adr/011-review-evidence.md): show reviewers candidate passages from fixed keyword cues, never the model's own cited quote, to keep corrections an independent check rather than persuasion.
 - [012 — External-provider trigger boundary](docs/adr/012-external-provider-boundary.md): a rule distinguishing documented provider-side failures from merely suspected ones, applied to both the gold labels and the schema before this run's scoring.
+- [013 — Multi-tenancy](docs/adr/013-multi-tenancy.md): DERIVE-04, closed — not implemented, and not needed: one user, an all-public corpus, one shared gold set; the Basic Auth gate protects write integrity, not tenant isolation.
+- [014 — Partial extraction](docs/adr/014-partial-extraction.md): DERIVE-03, closed — `complete`/`failed` only, no `partial` state; validation retry recovered every failure from run 02 onward, so the all-or-nothing cost (one bad field loses twenty-two good ones) was never actually paid.
 
 ---
 

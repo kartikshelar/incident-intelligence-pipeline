@@ -251,18 +251,124 @@ Most of this is SWE, not ML. That is the point.
 
 ## 11. Questions to answer cold
 
-Write these as they get decided, not the night before an interview.
+### 1. Why a queue instead of extracting synchronously in the request?
 
-1. Why a queue instead of extracting synchronously in the request?
-2. Why this trigger taxonomy and not another? What did you reject?
-3. Where do confidence scores come from, and are they calibrated? Show the
-   reliability diagram.
-4. Three of twelve fields fail to extract. What does the system do, and why is
-   that right?
-5. What is the human review budget optimizing for?
-6. What broke that you didn't expect during the spike?
-7. What did you measure that didn't work?
-8. What would you do differently with another month?
+Extraction takes seconds to minutes, calls an external model, and can fail
+transiently. Making the API request wait would tie request latency and
+availability to that work and make retries awkward. The API instead commits the
+source and job together, returns `queued`, and lets a worker retry with backoff,
+reclaim abandoned jobs after a visibility timeout, and dead-letter permanent
+failures. Postgres with `FOR UPDATE SKIP LOCKED` is enough at this scale and
+keeps the job and application data in one transaction. I rejected Redis/RQ and
+Celery because a second service and richer scheduling primitives do not buy
+anything for tens to hundreds of documents and a few jobs per second at most.
+
+### 2. Why this trigger taxonomy and not another? What did you reject?
+
+The corpus repeatedly contained two different causal facts: the initiating
+change or event, and the mechanism that directly produced failure. For example,
+a configuration change can generate an oversized file, but the immediate
+mechanism is a limit violation. The schema therefore separates nullable
+`trigger` from required, single-valued `mechanism`; extra mechanisms go in
+contributing factors. I rejected one flat trigger enum because it loses the
+mechanism, one mechanism-only enum because it loses the initiating event, and
+an `initiator + artifact` split because it records who changed what but still
+not what failed. I also rejected free-text mechanism labels after repeated runs
+gave the same concepts different names. The mechanism enum was later broadened
+after 7/30 documents (23%, above the pre-registered 20% ceiling) landed on
+`other`, demonstrating that the first closed list had overfit its ten-document
+derivation corpus.
+
+### 3. Where do confidence scores come from, and are they calibrated?
+
+They are per-field model self-reports, stored explicitly with
+`confidence_source='self_report'`. I chose them initially because they cost
+nothing extra; token log probabilities were unavailable, while a verifier pass
+or an ensemble would require additional model calls. They are **not calibrated
+well enough to route review**. On the 12-document dev split, mean confidence for
+correct versus incorrect values was 0.700 vs 0.700 for trigger, 0.750 vs 0.750
+for mechanism, and 0.644 vs 0.617 for detection method. All three failed the
+pre-registered 0.05 separation criterion; ECE was 0.13--0.24. The complete
+ten-bin reliability diagrams are in
+[`eval/m5_results_dev.md`](../eval/m5_results_dev.md#4b-confidence-calibration-adr-009-5-dev-split).
+Earlier cross-run data suggested confidence separated stable from unstable
+outputs, but M5 showed that stability was not a proxy for correctness.
+
+### 4. Three of twenty-three fields fail to extract. What does the system do, and why?
+
+It does not persist a partial record. Schema validation rejects the whole
+extraction, feeds the validation errors back to the model, and retries up to the
+configured extraction-attempt limit. If the record still cannot validate, the
+extraction is `failed`; the job follows the queue's retry policy and eventually
+dead-letters with the reason recorded. This deliberately sacrifices the twenty
+good fields because a complete-or-failed invariant is easier for every consumer
+to reason about than a second, field-level partial state. That choice was
+empirically acceptable: validation retry recovered every such failure from
+runs 02--12, with mean attempts of 1.13--1.50 and no dead-lettered documents.
+Low-confidence but valid fields are a different case: persist the complete
+record and send only those fields to review.
+
+### 5. What is the human review budget optimizing for?
+
+Maximum errors corrected per fixed number of field reviews. The unit is a
+field, not a document, because re-reading twenty-two confident fields to check
+one uncertain field wastes the constrained resource: reviewer attention. Eligible
+fields are ranked by ascending confidence, then capped by the available budget.
+I rejected consequential-error weighting because there are no justified field
+value weights yet, record-level correctness because it mismatches the review
+unit, and an uncapped confidence threshold because a bad batch could route
+everything. The objective is measured with review precision, recall, and the
+threshold curve against gold labels.
+
+### 6. What broke that you didn't expect during the spike?
+
+Parsing broke before model extraction did, often silently. Taking the first
+`<article>` returned an author card or related-post card--including one
+zero-character and one 124-character "successful" extraction--so the parser
+had to select the longest plausible content container and reject empty text.
+Titles lived outside those containers, related-post dates leaked into incident
+timelines, PDF footers appeared mid-sentence, a third of one PDF was kernel-dump
+noise, and status pages mixed reverse-chronological updates with later
+authoritative reports. The important surprise was that HTTP 200 plus parsed
+text did not imply a usable document; content-quality checks and provenance are
+part of ingestion correctness.
+
+### 7. What did you measure that didn't work?
+
+The central negative result was confidence-based review routing. At the
+pre-registered 0.70 threshold it routed 15 of 36 fields, found only 3 of the 6
+errors, and achieved 20% precision and 50% recall, versus required precision of
+41.67% and recall of 80%. No threshold exceeded 24% precision; thresholds that
+reached full recall routed at least 25/36 fields. The implementation was doing
+what it was designed to do, but its ranking signal was uninformative.
+
+Two schema-trimming cost experiments also lost: shortening schema descriptions
+raised cost from $0.96 to $0.99 across the ten-document run, and capping written
+descriptions cut visible text by 24% but induced validation retries and raised
+cost to $0.104/document. The actual cost driver was invisible reasoning tokens.
+Disabling reasoning cut cost 44% but degraded agreement to 8/10 for trigger and
+5/10 for mechanism. `adaptive:low` was the useful middle ground: 37% cheaper
+with 10/10 trigger and 7/10 mechanism agreement against the baseline.
+
+### 8. What would you do differently with another month?
+
+First, I would stop tuning the self-report threshold and test a verifier pass
+as the next routing signal, because the pre-registered failure condition says
+to change the signal, not optimize harder against the dev split. I would compare
+verifier scores, selective two-pass extraction, and disagreement on only
+borderline cases by errors corrected per reviewer-minute and total model cost.
+I would keep the untouched test split sealed until that choice and threshold
+were frozen.
+
+Second, I would expand the blind corpus before changing the taxonomy again,
+freeze enums before seeing the new documents, and report held-out `other` rate
+and accuracy before revision. Finally, I would harden format-specific parsing
+and incident identity: use machine-readable status feeds where available,
+remove PDF page furniture and chrome deterministically, add content-quality
+checks, and model multiple documents about the same incident separately from
+content-hash document identity. Those changes target the measured failures
+rather than adding retrieval, embeddings, or a chat surface outside the
+project's scope.
 
 ---
 
