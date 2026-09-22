@@ -8,26 +8,42 @@ rather than assuming the model's output is correct. The output is rows
 in a database and a review queue, not answers to questions — there is no
 chat interface, no RAG, and no fine-tuning (`PROJECT_BRIEF.md` §3).
 
-See [`PROJECT_BRIEF.md`](PROJECT_BRIEF.md) for the full contract and
-milestone plan, [`docs/adr/`](docs/adr/) for every architectural
-decision, and [`eval/M5_PROTOCOL.md`](eval/M5_PROTOCOL.md) for the
-pre-registered evaluation design this README reports against.
+See [`docs/PROJECT_BRIEF.md`](docs/PROJECT_BRIEF.md) for the full
+contract and milestone plan (including its own session-protocol notes
+for the coding-agent workflow this project was built with —
+process detail, not part of the system itself, which is why it lives
+under `docs/` rather than at the repo root), [`docs/adr/`](docs/adr/)
+for every architectural decision, and
+[`eval/M5_PROTOCOL.md`](eval/M5_PROTOCOL.md) for the pre-registered
+evaluation design this README reports against.
 
 ## Status
 
-M0–M6 are done. M6 part 1 (observability: tracing, structured logs,
-`/metrics`, cost per document in the running system) and part 2 (load
-numbers, public deployment, review-UI auth) are both built — see
-[Observability](#observability), [Load numbers](#load-numbers), and
-[Deployment](#deployment) below.
+**Both pre-registered success criteria failed, and the second failure
+follows mechanically from the first.** Self-reported model confidence —
+the only signal this system has for deciding which extracted fields a
+human should check — does not separate correct extractions from
+incorrect ones on the dev split (0.00–0.03 confidence-point gap between
+right and wrong, against a 0.05 bar). Because the review queue is just a
+threshold cut on that same score, it inherits the failure: at no
+threshold does it hit the pre-registered precision *and* recall bar at
+once. Both are measured, both are reported, and neither result was
+revised after being seen — see [What failed](#what-failed) for the full
+derivation.
 
-**Deployed:** [`incident-intel-kartik-b115ad1b5098.herokuapp.com`](https://incident-intel-kartik-b115ad1b5098.herokuapp.com)
-(Heroku — see [Deployment](#deployment); `render.yaml` is also in this
-repo and works the same way, just not the one currently live). Seeded
-with the 30-document corpus, extraction replayed from the frozen
-`spike/extraction_run_12.json` report at deploy time — no live API calls
+Everything else in this project — the extraction pipeline, the schema
+and taxonomy design (12 ADRs), the queue, the observability layer, and
+the deployment below — exists to make that measurement possible and
+honest. It is a working system with one honestly negative headline
+result, not a system that is broken.
+
+**Try it:** [`incident-intel-kartik-b115ad1b5098.herokuapp.com`](https://incident-intel-kartik-b115ad1b5098.herokuapp.com)
+(Heroku; `render.yaml` also ships in this repo and works the same way, it
+is just not the one currently live — see [Deployment](#deployment)).
+Seeded with the 30-document corpus on deploy, extraction replayed from
+the frozen `spike/extraction_run_12.json` report — no live model calls
 made to seed it. `/health` and `/metrics` are open; `/ui/review` requires
-a login (ask for the demo credentials, not published here since this
+a login (ask for the demo credentials — not published here since this
 README is public).
 
 ---
@@ -187,10 +203,19 @@ system's overhead. The stubbed number answers a different question —
 document, with the network and the model subtracted out" — and the answer
 is: about three orders of magnitude less than the real number, meaning
 this system is not the bottleneck. Neither number is a promise about
-production load: both are single-worker, and `scripts/load_test.py`
-`WORKERS=4` shows throughput does not scale much past one worker against
-a single Postgres instance on this workload (DB round-trips, not CPU, are
-the limit) — a finding, not yet a tuned result.
+production load: both are single-worker, and `scripts/load_test.py
+WORKERS=4` (200 documents, same harness —
+[`spike/load_test_report_workers4.json`](spike/load_test_report_workers4.json)
+vs. the `WORKERS=1` baseline in
+[`spike/load_test_report.json`](spike/load_test_report.json)) measured
+**15,227.1 docs/hour — 2.7× slower than `WORKERS=1`'s 41,819.8**, a real
+and reproducible regression, not a wash. The harness's 4 "workers" are
+Python threads sharing one process-wide connection pool
+(`app.db.engine.get_engine()`), not separate processes, so this measures
+thread contention on one shared pool — it is not evidence about how N
+real worker processes (what `render.yaml`/`heroku.yml` would actually
+run) would scale against Postgres. See Limitations for what that gap
+means.
 
 **Cost per document** (run 12, `claude-sonnet-5` / `adaptive:low`, 30
 documents, `$2.00` / `$10.00` / `$0.20` / `$2.50` per MTok input / output /
@@ -232,12 +257,24 @@ Limitations).
 
 ### Lead number: the uncontaminated subset (n=5)
 
-Of the 12 dev documents, 7 are `seen_before=true` — the model (and in 4
-cases the labeler) had contact with that document before this labeling
-pass, either as one of the 10 M0-anchored documents (`B, E, F, H`) or as a
-document already in the corpus the taxonomy was derived from (`P, AA,
-AC`). The remaining 5 (`L, N, R, W, AB`) are genuinely fresh: blind-labeled,
-and not part of any prior taxonomy-derivation or reproducibility run.
+`seen_before` (`eval/gold_set.json`, defined in `eval/M5_PROTOCOL.md` §3):
+true when the labeler had contact with a document's model output, or a
+written discussion of it, before labeling that document. Two
+non-overlapping causes produce it across the 30-document gold set,
+17 documents total: the 10 M0 documents (`A`–`J`, anchored per ADR-006
+§7), and 7 more of the K–AD expansion documents — `P, Q, Y, Z, AA, AC,
+AD` — marked `seen_before: true` in `eval/gold_set_labels_K_to_AD.md`
+because "their difficulty/model-output discussion occurred before
+labeling." **None of the 30 documents, including these 7, were part of
+the original taxonomy-derivation corpus** — that was `A`–`J` only
+(ADR-008 §2) — being discussed is a distinct, narrower kind of
+contamination from being derived from.
+
+Restricted to the 12-document dev split, 7 are `seen_before=true`: the
+4 M0-anchored ones that fall in dev (`B, E, F, H`) plus 3 of the other
+7 that also fall in dev (`P, AA, AC`). The remaining 5 (`L, N, R, W,
+AB`) are genuinely fresh: blind-labeled, and neither M0-anchored nor
+previously discussed.
 
 | field | n=5 uncontaminated (L, N, R, W, AB) | n=12 full dev split |
 |---|---|---|
@@ -315,24 +352,49 @@ it is a sound implementation of a signal that measured as uninformative.
 
 ## What else didn't work
 
-**Three cost-reduction attempts, three net losses**, all sharing one
-root cause: they each targeted cheap tokens while ignoring what actually
-drives cost.
+**The real cost driver is reasoning tokens, not the schema.** Run 04
+(`default` thinking — no `thinking` parameter sent, which is adaptive
+thinking on Sonnet 5) produced ~20k tokens of visible JSON against
+80,412 billed output tokens total (`spike/extraction_run_04.json`
+summary) — roughly **75% of every dollar spent on output was invisible
+reasoning tokens**, not the record being returned. No schema change can
+touch that, because the schema only shapes the visible 20k. That is the
+finding the two schema-trimming attempts below ran into without knowing
+it, and it is why the fix that actually worked was changing the thinking
+setting, not the schema.
+
+**Two schema-trimming attempts, two net cost losses** — both targeted
+the cached schema text or the model's written output, and both lost
+money, because a validation retry resends the whole document and
+retries dominate per-document cost far more than the schema-text token
+count does:
 
 | Attempt | What changed | Intended saving | Measured result |
 |---|---|---|---|
 | Schema v0.2 ([ADR-005](docs/adr/005-structured-output.md) §4) | Cut every description the model *reads* to one sentence | Shrink the cached system block | Cached block 5,532→5,198 tokens, but mean attempts 1.20→1.30 and cost $0.96→$0.99 (run 03 vs run 02) |
 | Schema v0.3 (README run_04) | Cap descriptions the model *writes* at 200 chars | Shrink output tokens | Written text did shrink 24%, but 3 of 4 retries were the new cap itself firing; output tokens rose (76,526→80,412) and cost rose to $0.104/doc |
-| `APP_EXTRACTION_THINKING=disabled` (run 06 vs run 05/07) | Turn off adaptive thinking entirely | Cut billed output tokens further | Cost did drop ($0.057 vs $0.063 `adaptive:low`, $0.101 baseline) but on AWS — the corpus's one deliberately ambiguous document — mechanism and trigger swapped roles: `mechanism` became `dns_resolution_failure` and `trigger` became `race_condition`, exactly the two-field confusion [ADR-001](docs/adr/001-trigger-taxonomy.md) exists to prevent. Agreement with the `default`-thinking baseline also dropped furthest at `disabled` (8/10 trigger, 5/10 mechanism, vs 10/10 and 7/10 at `adaptive:low`) |
 
-Root cause, attempts 1–2: **a validation retry resends the whole
-document**, so retries dominate per-document cost far more than the
-schema-text token count does. Both trims moved tokens that cost roughly
-$0.0001–$0.001 per request and, by coincidence or by causing the new
-retries, lost far more than that back. `adaptive:low` was kept as the
-project default over both `default` and `disabled` for this reason: it
-gets most of `disabled`'s cost saving without `disabled`'s quality
-collapse on the hardest document in the corpus.
+Both trims moved tokens that cost roughly $0.0001–$0.001 per request
+and, by coincidence or by causing the new retries, lost far more than
+that back.
+
+**`APP_EXTRACTION_THINKING=adaptive:low` was a success, not a loss**: a
+**37% cost cut** (cost ratio 0.627 vs the `default`-thinking baseline,
+`spike/thinking_experiment.json`) with **10/10 trigger agreement and
+7/10 mechanism agreement** against that same baseline — no accuracy
+loss on the corpus's hardest document. This is the project default for
+exactly that reason, and it is the one cost experiment here that
+actually worked.
+
+**`disabled` thinking is a quality failure, not a cost failure.** It cut
+cost further still (cost ratio 0.562, i.e. a 44% cut) but collapsed
+agreement with the baseline to 8/10 trigger and 5/10 mechanism —
+specifically flipping AWS, the corpus's one deliberately ambiguous
+document, into a `null`-trigger / `race_condition`-mechanism reading
+that recreates the exact two-field confusion [ADR-001](docs/adr/001-trigger-taxonomy.md)
+exists to prevent. `adaptive:low` was kept as the project default over
+`disabled` for this reason: it gets most of `disabled`'s cost saving
+without `disabled`'s quality collapse.
 
 **Taxonomy overfitting: 23% vs a pre-registered 20% ceiling.** ADR-006's
 mechanism enum, derived from the original 10 documents, put 7 of the
@@ -367,7 +429,14 @@ fit, not generalization.
   which is the right thing to do for a fair comparison, but it means
   those 7 labels and that schema version were finalized together rather
   than independently — 2 of them (`N`, `AB`) fall in the dev split scored
-  above.
+  above. **This is a different 7-document set from the `seen_before=true`
+  7 described above** (`P, Q, Y, Z, AA, AC, AD`) — the two lists overlap
+  in exactly one document, `Y` (Mozilla/Firefox), which is both
+  ADR-012-affected and `seen_before=true` for the unrelated reason given
+  above. Conflating the two sets was an earlier drafting error in this
+  README; they are tracked separately in the source data
+  (`eval/gold_set.json`'s `seen_before` field vs. ADR-012's own text) and
+  should be read separately here too.
 - **10 of 30 documents are anchored, not blind.** The M0 documents
   (`A`–`J`) were blind-labeled before any model output existed for
   `detection_method`, but their `trigger`/`mechanism` labels are a
@@ -393,19 +462,19 @@ fit, not generalization.
   full corpus. Every number in this README moves several percentage
   points on a single document changing. No result here should be read as
   a stable rate.
-- **M6's load numbers are a single-worker floor, not a production capacity
-  claim.** Both the real (§[Load numbers](#load-numbers), 133.7 docs/hour)
-  and stubbed (~41,800 docs/hour) throughput figures are one worker
-  process; `WORKERS=4` in `scripts/load_test.py` shows throughput barely
-  moves past one worker against a single Postgres instance on this
-  workload, which is itself only weakly evidenced (one corpus, one machine)
-  and not load-tested against write contention, connection-pool limits, or
-  a realistic mix of concurrent ingest and extract traffic.
-- **The deployed instance is not yet public** (see
-  [Deployment](#deployment)) — `render.yaml` and the seed/auth
-  infrastructure are built and tested locally against the production
-  Docker image, but creating the actual Render services needs a manual
-  dashboard step this repo's automation cannot perform.
+- **`WORKERS=4` is measurably slower per document than `WORKERS=1` in
+  this harness, not a "barely moves" wash.** `scripts/load_test.py` at
+  200 documents: 1 worker thread measured 41,819.8 docs/hour
+  (`spike/load_test_report.json`); 4 worker threads measured 15,227.1
+  docs/hour (`spike/load_test_report_workers4.json`) — about 2.7× slower,
+  reproducible across repeated runs. The harness uses Python threads
+  sharing one process-wide SQLAlchemy connection pool
+  (`app.db.engine.get_engine()`), not separate processes the way real
+  Heroku/Render worker dynos would be, so this measures thread contention
+  on one pool, not what N real worker processes against Postgres would
+  do — the two are not the same experiment, and this repo has not run
+  the process-separated version. Real deployment (`render.yaml`,
+  `heroku.yml`) runs exactly one worker process either way.
 - **Two open [DERIVE] decisions from the brief have no ADR.** DERIVE-04
   (whether multi-tenancy is real or theater here) was never written up —
   the honest answer given the single-user, all-public-source corpus is
@@ -428,8 +497,8 @@ fit, not generalization.
 - [006 — Taxonomy classes](docs/adr/006-taxonomy-classes.md): close `mechanism` into an enum (label vocabulary wasn't reproducible as free text); keep `trigger` open pending further evidence.
 - [007 — Document identity](docs/adr/007-document-identity.md): a document is its extracted text (`text_hash`), not its bytes (`content_hash`) — re-served pages with changing nonces are not new documents.
 - [008 — Taxonomy revision](docs/adr/008-taxonomy-revision.md): the mechanism enum was overfit to its 10-document derivation corpus (23% `other` on expansion); restore `software_defect` and close `trigger` too.
-- [adr-009 — Confidence source](docs/adr/adr-009-confidence-source.md): keep model self-report as the M4 routing signal (cheap, and separates stable from unstable extractions pre-M5); calibration is unvalidated until measured — see Results above.
-- [adr-010 — Review queue routing](docs/adr/adr-010-review-queue-routing.md): per-field review unit, rank by ascending confidence, provisional 0.70 floor, pre-registers the precision/recall criteria that failed above.
+- [009 — Confidence source](docs/adr/009-confidence-source.md): keep model self-report as the M4 routing signal (cheap, and separates stable from unstable extractions pre-M5); calibration is unvalidated until measured — see Results above.
+- [010 — Review queue routing](docs/adr/010-review-queue-routing.md): per-field review unit, rank by ascending confidence, provisional 0.70 floor, pre-registers the precision/recall criteria that failed above.
 - [011 — Review evidence](docs/adr/011-review-evidence.md): show reviewers candidate passages from fixed keyword cues, never the model's own cited quote, to keep corrections an independent check rather than persuasion.
 - [012 — External-provider trigger boundary](docs/adr/012-external-provider-boundary.md): a rule distinguishing documented provider-side failures from merely suspected ones, applied to both the gold labels and the schema before this run's scoring.
 

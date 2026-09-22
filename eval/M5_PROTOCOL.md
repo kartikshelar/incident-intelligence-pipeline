@@ -65,6 +65,23 @@ project describe three categorical fields, not the whole record.
 - Labeling stops when all 30 are done or when time runs out. A partial gold set
   is reported at its actual size; the split proportions are preserved.
 
+**Addendum (added after labeling and scoring; a definitional clarification
+of an existing recorded field, not a revised criterion — see this section's
+own opening rule against post-hoc changes):** `eval/gold_set.json` records
+a `seen_before` boolean per document. `seen_before=true` means the labeler
+had contact with that document's model output, or a written discussion of
+it, before labeling that document — a broader condition than "not blind,"
+and distinct from `anchored_trigger_mechanism` (the M0-specific enum
+re-mapping above). Two non-overlapping causes produce it across the
+30-document gold set: the 10 M0 documents (`A`–`J`), and 7 of the K–AD
+expansion documents (`P, Q, Y, Z, AA, AC, AD`), marked `seen_before: true`
+in `eval/gold_set_labels_K_to_AD.md` because their difficulty or
+model-output was discussed in writing before that document was labeled.
+This is unrelated to, and does not overlap with the reasoning behind,
+which documents ADR-012's external-provider trigger boundary rule
+happened to change the label for (`T, U, Y, N, O, X, AB`) — the two
+7-document sets share exactly one document, `Y`, for unrelated reasons.
+
 ---
 
 ## 4. Pre-registered criteria
