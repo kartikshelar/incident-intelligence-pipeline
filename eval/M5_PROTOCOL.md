@@ -15,7 +15,15 @@ Commit hash of the frozen split manifest: 27bd9224c03512cf04e97b34ef815365e22346
 The gold set covers **three fields** across the 30-document corpus:
 `trigger.label`, `mechanism.label`, `detection_method`.
 
-It does **not** cover the other nine extracted fields.
+It does **not** cover the other 20 extracted fields.
+
+**Correction addendum (2026-09-21):** The pre-registered protocol referenced
+"nine extracted fields" based on an earlier schema estimate. The actual
+IncidentRecord schema v0.8 contains 23 top-level fields, not 12. The three
+scored fields (`trigger.label`, `mechanism.label`, `detection_method`) remain
+unchanged; the count of unscored fields is corrected here from 9 to 20. This
+is a factual correction to recorded field counts, not a revision to evaluation
+criteria or scope.
 
 Reasons, stated in advance:
 

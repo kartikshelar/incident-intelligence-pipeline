@@ -278,7 +278,7 @@ reliability diagrams are in
 test split has not been run** (see Limitations).
 
 The gold set covers three fields only — `trigger.label`, `mechanism.label`,
-`detection_method` — not the other nine extracted fields (see
+`detection_method` — not the other 20 extracted fields (see
 Limitations).
 
 ### Lead number: the uncontaminated subset (n=5)
@@ -438,14 +438,14 @@ fit, not generalization.
 
 ## Limitations
 
-- **The gold set covers 3 of 12 record fields.** `trigger.label`,
+- **The gold set covers 3 of 23 record fields.** `trigger.label`,
   `mechanism.label`, and `detection_method` are the only fields M5
   scores, because they are categorical (exact-match scoring needs no LLM
   judge), they are what every taxonomy ADR is about, and they are the
   only fields the M0 blind labels cover. Temporal fields were deliberately
   excluded — hand-labeling a precise timestamp the source doesn't support
   would invent precision that isn't there (M5_PROTOCOL.md §1). The other
-  nine fields (`affected`, `blast_radius`, `mitigations`/`remediations`,
+  20 fields (`affected`, `blast_radius`, `mitigations`/`remediations`,
   time anchors, …) have no measured accuracy anywhere in this project.
 - **7 of the 20 blind-labeled documents were labeled under a boundary
   rule written into the schema shortly before this run.** ADR-012 gives
