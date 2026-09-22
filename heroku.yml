@@ -20,10 +20,12 @@ build:
 
 release:
   image: web
-  command: alembic upgrade head && python -m scripts.seed_corpus
+  command:
+    - alembic upgrade head && python -m scripts.seed_corpus
 
 run:
   web: uvicorn app.api.main:app --host 0.0.0.0 --port $PORT
   worker:
     image: web
-    command: python -m app.worker.main
+    command:
+      - python -m app.worker.main
