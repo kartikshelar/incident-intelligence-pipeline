@@ -183,39 +183,64 @@ Implementation: `app/telemetry/` (`tracing.py`, `logctx.py`, `metrics.py`,
 
 ## Load numbers
 
-Two different measurements, reported separately because they measure
-different things — conflating them would understate one or overstate the
-other:
+Three different measurements, reported separately because they measure
+different things — conflating any of them would understate one or
+overstate another:
 
-| | real end-to-end (live API) | stubbed throughput (system only) |
-|---|---|---|
-| what's real | Postgres, queue, worker, ingest, parse, the actual Anthropic API call | Postgres, queue, worker, ingest, parse — LLM call and outbound HTTP are stubbed |
-| what's stubbed | nothing | the model response and the source fetch (`scripts/load_test.py`'s docstring explains why respx couldn't be used across worker threads and what replaced it) |
-| source | [`spike/extraction_run_12.json`](spike/extraction_run_12.json), 30 documents, one worker process, `claude-sonnet-5` / `adaptive:low` — reduced by [`scripts/latency_report.py`](scripts/latency_report.py) | [`scripts/load_test.py`](scripts/load_test.py), 200 documents, one worker thread, real fixture bytes from `spike/raw/` |
-| extraction latency p50 | **25.6s** | **13.9ms** |
-| extraction latency p95 | **46.1s** | **16.2ms** |
-| documents/hour | **133.7** (one worker, live API, serial) | **~41,800** (one worker thread, no network) |
+| | real end-to-end (live API) | stubbed, threads | stubbed, processes |
+|---|---|---|---|
+| what's real | Postgres, queue, worker, ingest, parse, the actual Anthropic API call | Postgres, queue, worker, ingest, parse — LLM call and outbound HTTP are stubbed | same as threads |
+| concurrency model | one worker process, serial | N threads in **one** process, sharing **one** SQLAlchemy connection pool | N **separate OS processes**, each with its **own** connection pool — nothing shared but Postgres |
+| what it can tell you | what a user/reviewer actually waits on | queue/worker/Postgres overhead with the network and model subtracted out | whether ADR-003's SKIP LOCKED claim — workers claim concurrently without blocking or double-claiming — actually holds |
+| source | [`spike/extraction_run_12.json`](spike/extraction_run_12.json), 30 docs, `claude-sonnet-5` / `adaptive:low` — reduced by [`scripts/latency_report.py`](scripts/latency_report.py) | [`scripts/load_test.py MODE=threads`](scripts/load_test.py), 200 docs, real fixture bytes | [`scripts/load_test.py MODE=processes`](scripts/load_test.py), 200 docs, real fixture bytes |
+| extraction latency p50 | **25.6s** | **14.3ms** (N=1) | **13.9ms** (N=1) |
+| extraction latency p95 | **46.1s** | **16.9ms** (N=1) | **16.4ms** (N=1) |
+| documents/hour | **133.7** (serial) | **41,445** (N=1) → **15,203** (N=4) | **37,034** (N=1) → **59,907** (N=2) → **78,390** (N=4) |
 
 The real number is what a user or a reviewer actually waits on; it is
 dominated by the model's own response time (mean 25.9s), not this
-system's overhead. The stubbed number answers a different question —
-"how much does the queue/worker/Postgres machinery itself cost per
-document, with the network and the model subtracted out" — and the answer
-is: about three orders of magnitude less than the real number, meaning
-this system is not the bottleneck. Neither number is a promise about
-production load: both are single-worker, and `scripts/load_test.py
-WORKERS=4` (200 documents, same harness —
+system's overhead — the stubbed numbers are three orders of magnitude
+below it, meaning this system is not the bottleneck.
+
+**Threads get *slower* as `WORKERS` increases; processes get faster.**
+This is the result the two concurrency models were built to separate.
+`scripts/load_test.py` at 200 documents, `MODE=threads`
+([`spike/load_test_report.json`](spike/load_test_report.json) at N=1,
 [`spike/load_test_report_workers4.json`](spike/load_test_report_workers4.json)
-vs. the `WORKERS=1` baseline in
-[`spike/load_test_report.json`](spike/load_test_report.json)) measured
-**15,227.1 docs/hour — 2.7× slower than `WORKERS=1`'s 41,819.8**, a real
-and reproducible regression, not a wash. The harness's 4 "workers" are
-Python threads sharing one process-wide connection pool
-(`app.db.engine.get_engine()`), not separate processes, so this measures
-thread contention on one shared pool — it is not evidence about how N
-real worker processes (what `render.yaml`/`heroku.yml` would actually
-run) would scale against Postgres. See Limitations for what that gap
-means.
+at N=4): throughput **drops 2.73×** from N=1 to N=4 (41,445 → 15,203
+docs/hour) — N threads sharing one process-wide connection pool
+(`app.db.engine.get_engine()`) contend with each other, and that
+contention is not what a real deployment looks like. `MODE=processes`
+([`spike/load_test_report_processes1.json`](spike/load_test_report_processes1.json),
+[`..._processes2.json`](spike/load_test_report_processes2.json),
+[`..._processes4.json`](spike/load_test_report_processes4.json)) — N
+separate OS processes, each with its own pool, the same shape as N real
+`python -m app.worker.main` processes or N Heroku/Render worker dynos —
+throughput instead **rises 1.62× at N=2 and 2.12× at N=4** relative to
+N=1 (37,034 → 59,907 → 78,390 docs/hour), sublinear but genuinely
+positive, unlike threads.
+
+**Does ADR-003's SKIP LOCKED claim hold under real concurrency?** Yes,
+measured directly, not assumed. Process mode instruments the claim
+itself: in the same transaction as every claim attempt, it checks
+whether `queued` rows existed at that moment but the claim still
+returned nothing (contention, not just "the queue ran dry"), and it logs
+every job id any process's claim returned, then checks the merged list
+across all processes for any id appearing twice — what SKIP LOCKED must
+never allow.
+
+| N | empty-while-queued attempts | successful claims | duplicate claims | SKIP LOCKED holds |
+|---|---|---|---|---|
+| 1 | 0 | 400 | none | ✅ |
+| 2 | 1 | 400 | none | ✅ |
+| 4 | 3 | 400 | none | ✅ |
+
+Zero duplicate claims at every N, across repeated runs. A small,
+non-blocking amount of contention appears and grows with N (0 → 1 → 3
+empty attempts out of 400 claims) — workers occasionally race for the
+same row and one loses cleanly, exactly the behavior ADR-003 §4
+describes (`FOR UPDATE SKIP LOCKED` lets the loser move on immediately
+rather than block), not evidence against the claim.
 
 **Cost per document** (run 12, `claude-sonnet-5` / `adaptive:low`, 30
 documents, `$2.00` / `$10.00` / `$0.20` / `$2.50` per MTok input / output /
@@ -227,11 +252,12 @@ exposes on `GET /metrics` (`cost_per_document_usd_mean`) and
 `GET /cost?run_id=...`, computed from `extractions.usage` — see
 [Observability](#observability) — once `PRICE_*_USD_PER_MTOK` is set.
 
-Reproduce either latency number:
+Reproduce any of these:
 
 ```
-python -m scripts.latency_report     # real, from the frozen run-12 report
-python -m scripts.load_test          # stubbed, DOCUMENTS/WORKERS env vars
+python -m scripts.latency_report                                   # real, from the frozen run-12 report
+DOCUMENTS=200 WORKERS=1 MODE=threads   python -m scripts.load_test  # stubbed, threads
+DOCUMENTS=200 WORKERS=4 MODE=processes python -m scripts.load_test  # stubbed, processes; see claim_contention in the report
 ```
 
 `scripts/load_test.py` refuses to run against any database whose name
@@ -462,19 +488,21 @@ fit, not generalization.
   full corpus. Every number in this README moves several percentage
   points on a single document changing. No result here should be read as
   a stable rate.
-- **`WORKERS=4` is measurably slower per document than `WORKERS=1` in
-  this harness, not a "barely moves" wash.** `scripts/load_test.py` at
-  200 documents: 1 worker thread measured 41,819.8 docs/hour
-  (`spike/load_test_report.json`); 4 worker threads measured 15,227.1
-  docs/hour (`spike/load_test_report_workers4.json`) — about 2.7× slower,
-  reproducible across repeated runs. The harness uses Python threads
-  sharing one process-wide SQLAlchemy connection pool
-  (`app.db.engine.get_engine()`), not separate processes the way real
-  Heroku/Render worker dynos would be, so this measures thread contention
-  on one pool, not what N real worker processes against Postgres would
-  do — the two are not the same experiment, and this repo has not run
-  the process-separated version. Real deployment (`render.yaml`,
-  `heroku.yml`) runs exactly one worker process either way.
+- **The thread-mode load test is measurably slower per document at higher
+  `WORKERS`, not a "barely moves" wash — and process mode now exists to
+  show the opposite is true for real concurrency.** `scripts/load_test.py
+  MODE=threads` at 200 documents: N=1 measured 41,445 docs/hour, N=4
+  measured 15,203 — about 2.73× slower, reproducible across repeated
+  runs. That mode's N threads share one process-wide SQLAlchemy
+  connection pool (`app.db.engine.get_engine()`), not separate processes,
+  so it was never evidence about how N real worker processes/dynos would
+  scale — only about thread contention on one shared pool. `MODE=processes`,
+  added specifically to close that gap, measured the opposite: N=1
+  37,034 docs/hour → N=2 59,907 → N=4 78,390, a real 2.12× improvement at
+  N=4 (see [Load numbers](#load-numbers)). What remains untested: N above
+  4, a real (non-stubbed) model call competing for the same Postgres
+  connections, and multi-machine deployment — this repo has only run
+  process mode on one machine, up to 4 processes, against a stub.
 - **Two open [DERIVE] decisions from the brief have no ADR.** DERIVE-04
   (whether multi-tenancy is real or theater here) was never written up —
   the honest answer given the single-user, all-public-source corpus is

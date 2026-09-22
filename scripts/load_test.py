@@ -24,12 +24,31 @@ and the fake is already the one place it is kept correct. Consequently
 this script only runs where `tests/` is on the image — Dockerfile.dev, not
 the production Dockerfile — same as pytest itself.
 
-Concurrency: N worker "threads" each loop `run_once()` in their own
-connection, exactly like N `python -m app.worker.main` processes would
-against the same Postgres — SKIP LOCKED is what makes that safe. Real
-deployment (render.yaml) runs one worker process; this script defaults to
-1 but accepts more to show the queue scales with workers, since that is
-the actual claim ADR-003 makes.
+Two concurrency modes, MODE env var:
+
+  threads (default)  N worker threads in ONE process, sharing ONE
+                      SQLAlchemy connection pool (app.db.engine.get_engine()
+                      is a process-wide @lru_cache). Cheap to run, but not
+                      what a real deployment does, and the README's
+                      Limitations section already records that this mode's
+                      own numbers should not be read as evidence about real
+                      multi-process scaling.
+  processes           N separate OS processes, each with its own engine,
+                      its own connection pool, its own patched fetch/LLM
+                      stub — nothing shared except the one Postgres
+                      database, exactly like N `python -m app.worker.main`
+                      processes (what render.yaml / heroku.yml actually
+                      run) or N Heroku/Render worker dynos. This is the
+                      mode that actually tests ADR-003 §2's claim: that
+                      `SELECT ... FOR UPDATE SKIP LOCKED` lets workers
+                      claim jobs concurrently without blocking each other
+                      or double-claiming. It instruments the claim itself
+                      (app.worker.main.claim_one, patched per subprocess)
+                      to count claim attempts that found the queue
+                      non-empty but still returned nothing — contention,
+                      not just "the queue ran dry" — and to detect any job
+                      id returned by more than one claim across every
+                      process, which SKIP LOCKED must never allow.
 
 Safety rail: refuses to run against any database whose name does not end
 in `_loadtest`, so a misconfigured APP_DATABASE_URL can never point this
@@ -39,7 +58,9 @@ suffix, a different suffix so the two never collide if run concurrently.
     APP_DATABASE_URL     must end in _loadtest (default: a local Postgres
                          database `incident_intel_loadtest`)
     DOCUMENTS            number of documents to push through (default 60)
-    WORKERS              concurrent worker threads (default 1)
+    WORKERS              concurrent workers, threads or processes per MODE
+                         (default 1)
+    MODE                 "threads" (default) or "processes"
     OUT                  where to write the JSON report
                          (default spike/load_test_report.json)
 
@@ -49,6 +70,7 @@ Usage: python -m scripts.load_test
 from __future__ import annotations
 
 import json
+import multiprocessing
 import os
 import statistics
 import threading
@@ -252,6 +274,174 @@ def _run_workers(*, worker_count: int, stop: threading.Event) -> None:
         t.join(timeout=600)
 
 
+# ---------------------------------------------------------------------
+# Process mode: N separate OS processes, each with its own engine/pool,
+# nothing shared but Postgres. See module docstring.
+# ---------------------------------------------------------------------
+
+
+def _patch_claim_with_contention_tracking(
+    *, empty_while_queued: list[int], claimed_ids: list[str]
+) -> None:
+    """Wrap app.worker.main.claim_one (the name that module imported from
+    app.queue, so this is the same pattern _patch_fetch uses on
+    app.ingest.pipeline.fetch) so every claim attempt is observable:
+
+    - empty_while_queued: incremented, in the SAME transaction as the
+      claim, whenever `status='queued'` rows existed at the moment of the
+      attempt but the claim still returned nothing. That is the SKIP
+      LOCKED contention signature this load test exists to measure —
+      distinct from the ordinary "queue is empty, stop polling" case,
+      which this never counts (checked before the claim, so a genuinely
+      empty queue contributes nothing here).
+    - claimed_ids: every job id any successful claim in this PROCESS
+      returned, appended in order. The orchestrator merges every
+      process's list afterward and checks for an id appearing twice
+      anywhere — across all processes, not just within one — which SKIP
+      LOCKED must never allow.
+    """
+    from app.worker import main as worker
+
+    original_claim_one = worker.claim_one
+
+    def instrumented_claim_one(conn: Any) -> Any:
+        queued_before = conn.execute(
+            text("SELECT count(*) FROM jobs WHERE status = 'queued'")
+        ).scalar_one()
+        job = original_claim_one(conn)
+        if job is None:
+            if queued_before > 0:
+                empty_while_queued.append(1)
+        else:
+            claimed_ids.append(str(job.id))
+        return job
+
+    worker.claim_one = instrumented_claim_one  # type: ignore[assignment]
+
+
+def _subprocess_worker_entry(
+    *,
+    database_url: str,
+    document_count: int,
+    fixture_bodies: dict[str, tuple[bytes, str | None]],
+    result_queue: multiprocessing.Queue[dict[str, Any]],
+) -> None:
+    """Entry point for one worker PROCESS. Runs in a fresh Python
+    interpreter (multiprocessing 'spawn' — the only start method on
+    Windows, and what this repo assumes rather than relying on 'fork'
+    semantics it would only have on Linux) — nothing from the parent
+    process's monkeypatches, engine, or imports carries over. Every setup
+    step _patch_fetch/main() does in the single-process/threaded path is
+    repeated here, independently, which is the point: this is what a real
+    second worker process actually looks like.
+    """
+    os.environ["APP_DATABASE_URL"] = database_url
+    os.environ.setdefault("APP_LLM_PROVIDER", "anthropic")
+    os.environ.setdefault("APP_EXTRACTION_MODEL", "load-test-stub")
+    os.environ.setdefault("APP_EXTRACTION_THINKING", "disabled")
+    os.environ.setdefault("ANTHROPIC_API_KEY", "unused-load-test-key")
+    os.environ.setdefault("APP_OTEL_EXPORTER", "console")
+
+    from app.worker import main as worker
+    from tests.fake_llm import FakeLLMClient, valid_output_json
+
+    # Each process gets its own stub client and therefore its own run_id
+    # (tests.fake_llm.FakeLLMClient's default). That is correct, not a
+    # limitation: every extract job is claimed by exactly one process
+    # (that is the property under test), so no document is ever extracted
+    # by two different run_ids — app.extract.pipeline's idempotency check
+    # never has two processes racing to write the same row.
+    stub = FakeLLMClient([valid_output_json() for _ in range(document_count)])
+    worker.get_llm_client.cache_clear()
+    worker.get_llm_client = lambda: stub  # type: ignore[assignment]
+
+    _patch_fetch(fixture_bodies)
+
+    empty_while_queued: list[int] = []
+    claimed_ids: list[str] = []
+    _patch_claim_with_contention_tracking(
+        empty_while_queued=empty_while_queued, claimed_ids=claimed_ids
+    )
+    latencies = _instrument_extract_latency()
+
+    idle = 0
+    while True:
+        claimed = worker.run_once()
+        idle = 0 if claimed else idle + 1
+        if not claimed:
+            if idle > 20:  # ~2s of nothing left at this poll interval; done
+                break
+            time.sleep(0.1)
+
+    result_queue.put(
+        {
+            "claimed_ids": claimed_ids,
+            "empty_while_queued": len(empty_while_queued),
+            "latencies": latencies,
+        }
+    )
+
+
+def _run_worker_processes(
+    *,
+    worker_count: int,
+    database_url: str,
+    document_count: int,
+    fixture_bodies: dict[str, tuple[bytes, str | None]],
+) -> tuple[list[float], int, list[str]]:
+    """Spawns worker_count separate processes, each running
+    _subprocess_worker_entry, and merges their results.
+
+    Returns (all_extract_latencies, total_empty_while_queued,
+    all_claimed_job_ids) — the last one still possibly containing
+    duplicates, which is exactly what the caller checks for.
+    """
+    ctx = multiprocessing.get_context("spawn")
+    result_queue: multiprocessing.Queue[dict[str, Any]] = ctx.Queue()
+    procs = [
+        ctx.Process(
+            target=_subprocess_worker_entry,
+            kwargs={
+                "database_url": database_url,
+                "document_count": document_count,
+                "fixture_bodies": fixture_bodies,
+                "result_queue": result_queue,
+            },
+        )
+        for _ in range(worker_count)
+    ]
+    for p in procs:
+        p.start()
+
+    results = [result_queue.get(timeout=600) for _ in procs]
+    for p in procs:
+        p.join(timeout=600)
+
+    all_latencies: list[float] = []
+    total_empty_while_queued = 0
+    all_claimed_ids: list[str] = []
+    for r in results:
+        all_latencies.extend(r["latencies"])
+        total_empty_while_queued += r["empty_while_queued"]
+        all_claimed_ids.extend(r["claimed_ids"])
+    return all_latencies, total_empty_while_queued, all_claimed_ids
+
+
+def _find_duplicate_claims(claimed_ids: list[str]) -> list[str]:
+    """Every job id that appears more than once across every process's
+    claimed_ids list, sorted for a stable report. SKIP LOCKED's guarantee
+    is that this is always empty; a non-empty result means two workers
+    claimed the same row, which ADR-003 says cannot happen."""
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for jid in claimed_ids:
+        if jid in seen:
+            duplicates.add(jid)
+        else:
+            seen.add(jid)
+    return sorted(duplicates)
+
+
 def _percentile(values: list[float], p: float) -> float:
     xs = sorted(values)
     if not xs:
@@ -277,37 +467,69 @@ def main() -> None:
 
     document_count = int(os.environ.get("DOCUMENTS", "60"))
     worker_count = int(os.environ.get("WORKERS", "1"))
+    mode = os.environ.get("MODE", "threads")
+    if mode not in ("threads", "processes"):
+        raise SystemExit(f"MODE={mode!r} is not valid (expected 'threads' or 'processes')")
     out_path = Path(os.environ.get("OUT", "spike/load_test_report.json"))
 
     _ensure_database(database_url)
 
     from app.db.engine import get_engine
-    from app.worker import main as worker
-    from tests.fake_llm import FakeLLMClient, valid_output_json
 
     engine = get_engine()
     _reset_schema(engine)
 
-    # One stub client per worker thread would each get their own run_id;
-    # a single shared instance keeps every extraction under one run_id,
-    # like one `python -m app.worker.main` process would.
-    stub = FakeLLMClient([valid_output_json() for _ in range(document_count)])
-    worker.get_llm_client.cache_clear()
-    worker.get_llm_client = lambda: stub  # type: ignore[assignment]
-
+    fixture_bodies = _fixture_bodies(document_count)
+    unit = "process(es)" if mode == "processes" else "thread(s)"
+    concurrency_label = f"{worker_count} worker {unit}"
     print(
-        f"load test: {document_count} documents, {worker_count} worker thread(s), "
+        f"load test: {document_count} documents, {concurrency_label}, MODE={mode}, "
         f"stubbed LLM client, stubbed HTTP fetch"
     )
 
-    _patch_fetch(_fixture_bodies(document_count))
-    latencies = _instrument_extract_latency()
     job_ids = _register_sources(engine, document_count)
 
-    stop = threading.Event()
-    wall_start = time.monotonic()
-    _run_workers(worker_count=worker_count, stop=stop)
-    wall_seconds = time.monotonic() - wall_start
+    claim_contention: dict[str, Any] | None = None
+    if mode == "processes":
+        wall_start = time.monotonic()
+        latencies, empty_while_queued, claimed_ids = _run_worker_processes(
+            worker_count=worker_count,
+            database_url=database_url,
+            document_count=document_count,
+            fixture_bodies=fixture_bodies,
+        )
+        wall_seconds = time.monotonic() - wall_start
+
+        # SKIP LOCKED's whole guarantee, checked directly: no job id may be
+        # returned by more than one successful claim, anywhere, across any
+        # number of concurrent processes.
+        duplicate_claims = _find_duplicate_claims(claimed_ids)
+        claim_contention = {
+            "claim_attempts_empty_while_queued": empty_while_queued,
+            "total_successful_claims": len(claimed_ids),
+            "jobs_claimed_more_than_once": duplicate_claims,
+            "skip_locked_holds": len(duplicate_claims) == 0,
+        }
+    else:
+        from app.worker import main as worker
+        from tests.fake_llm import FakeLLMClient, valid_output_json
+
+        # One stub client per worker thread would each get their own
+        # run_id; a single shared instance keeps every extraction under
+        # one run_id, like one `python -m app.worker.main` process would.
+        # (Process mode can't share a Python object across processes and
+        # doesn't need to — see _subprocess_worker_entry.)
+        stub = FakeLLMClient([valid_output_json() for _ in range(document_count)])
+        worker.get_llm_client.cache_clear()
+        worker.get_llm_client = lambda: stub  # type: ignore[assignment]
+
+        _patch_fetch(fixture_bodies)
+        latencies = _instrument_extract_latency()
+
+        stop = threading.Event()
+        wall_start = time.monotonic()
+        _run_workers(worker_count=worker_count, stop=stop)
+        wall_seconds = time.monotonic() - wall_start
 
     with engine.connect() as conn:
         job_rows = conn.execute(
@@ -324,15 +546,25 @@ def main() -> None:
     report: dict[str, Any] = {
         "rendered_at": datetime.now(UTC).isoformat(),
         "kind": "stubbed_throughput",
+        "mode": mode,
         "note": (
             "Model client and outbound HTTP are stubbed (see module docstring); this "
             "measures the queue/worker/Postgres system's own overhead, not the "
             "Anthropic API's response time. Real end-to-end latency against the live "
             "API is reported separately from spike/extraction_run_12.json — see "
-            "scripts/latency_report.py and the README's load numbers section."
+            "scripts/latency_report.py and the README's load numbers section. "
+            + (
+                "mode=threads: N threads share ONE connection pool in ONE process — "
+                "not what a real deployment does; see the README's Limitations."
+                if mode == "threads"
+                else "mode=processes: N separate OS processes, each with its own "
+                "connection pool, nothing shared but Postgres — the same shape as "
+                "N real worker processes/dynos, and the mode that actually tests "
+                "ADR-003's SKIP LOCKED concurrency claim (see claim_contention)."
+            )
         ),
         "documents": document_count,
-        "worker_threads": worker_count,
+        "worker_count": worker_count,
         "wall_seconds": wall_seconds,
         "extractions_completed": extraction_count,
         "documents_per_hour": docs_per_hour,
@@ -348,6 +580,8 @@ def main() -> None:
             f"{r.kind}:{r.status}": r.n for r in job_rows
         },
     }
+    if claim_contention is not None:
+        report["claim_contention"] = claim_contention
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(report, indent=2))
@@ -355,6 +589,18 @@ def main() -> None:
     print(f"documents/hour (stubbed): {docs_per_hour:.1f}")
     print(f"extraction latency p50={p50:.4f}s p95={p95:.4f}s (n={len(latencies)})")
     print(f"jobs: {report['jobs_by_kind_status']}")
+    if claim_contention is not None:
+        print(
+            f"claim contention: {claim_contention['claim_attempts_empty_while_queued']} "
+            f"empty-while-queued attempt(s) out of "
+            f"{claim_contention['total_successful_claims']} successful claims; "
+            f"SKIP LOCKED holds: {claim_contention['skip_locked_holds']}"
+            + (
+                ""
+                if claim_contention["skip_locked_holds"]
+                else f" — DUPLICATE CLAIMS: {claim_contention['jobs_claimed_more_than_once']}"
+            )
+        )
     print(f"report written to {out_path}")
     del job_ids  # only used to size the registration loop above
 

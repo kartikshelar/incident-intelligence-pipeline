@@ -1,0 +1,29 @@
+{
+  "rendered_at": "2026-09-22T02:26:58.710823+00:00",
+  "kind": "stubbed_throughput",
+  "mode": "processes",
+  "note": "Model client and outbound HTTP are stubbed (see module docstring); this measures the queue/worker/Postgres system's own overhead, not the Anthropic API's response time. Real end-to-end latency against the live API is reported separately from spike/extraction_run_12.json \u2014 see scripts/latency_report.py and the README's load numbers section. mode=processes: N separate OS processes, each with its own connection pool, nothing shared but Postgres \u2014 the same shape as N real worker processes/dynos, and the mode that actually tests ADR-003's SKIP LOCKED concurrency claim (see claim_contention).",
+  "documents": 200,
+  "worker_count": 2,
+  "wall_seconds": 10.936890166000012,
+  "extractions_completed": 182,
+  "documents_per_hour": 59907.34020872303,
+  "extraction_latency_seconds": {
+    "n": 200,
+    "min": 0.0006330169999273494,
+    "max": 0.046840581999958886,
+    "mean": 0.013469371875008846,
+    "p50": 0.014147685000011734,
+    "p95": 0.016778664649973508
+  },
+  "jobs_by_kind_status": {
+    "ingest:succeeded": 200,
+    "extract:succeeded": 200
+  },
+  "claim_contention": {
+    "claim_attempts_empty_while_queued": 1,
+    "total_successful_claims": 400,
+    "jobs_claimed_more_than_once": [],
+    "skip_locked_holds": true
+  }
+}

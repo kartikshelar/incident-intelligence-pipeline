@@ -91,3 +91,20 @@ def test_percentile_p95_is_between_max_and_second_highest_for_small_n() -> None:
     values = [1.0, 2.0, 3.0, 4.0]
     p95 = load_test._percentile(values, 0.95)
     assert 3.0 <= p95 <= 4.0
+
+
+def test_find_duplicate_claims_is_empty_when_every_id_is_unique() -> None:
+    assert load_test._find_duplicate_claims(["a", "b", "c"]) == []
+
+
+def test_find_duplicate_claims_finds_a_single_repeat() -> None:
+    assert load_test._find_duplicate_claims(["a", "b", "a"]) == ["a"]
+
+
+def test_find_duplicate_claims_finds_every_repeated_id_sorted() -> None:
+    # "b" appears three times but is still reported once.
+    assert load_test._find_duplicate_claims(["c", "a", "b", "a", "b", "b"]) == ["a", "b"]
+
+
+def test_find_duplicate_claims_handles_empty_input() -> None:
+    assert load_test._find_duplicate_claims([]) == []
