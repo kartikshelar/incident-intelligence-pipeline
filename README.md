@@ -21,12 +21,14 @@ numbers, public deployment, review-UI auth) are both built — see
 [Observability](#observability), [Load numbers](#load-numbers), and
 [Deployment](#deployment) below.
 
-**Deployed:** not yet public — both `render.yaml` and `heroku.yml` (see
-[Deployment](#deployment)) are ready, but creating the actual services on
-either platform requires clicking through that platform's dashboard (or
-`heroku apps:create` + `git push heroku`) with an account this repo's
-automation has no access to. Once deployed, put the URL — and which
-platform it's on — here.
+**Deployed:** [`incident-intel-kartik-b115ad1b5098.herokuapp.com`](https://incident-intel-kartik-b115ad1b5098.herokuapp.com)
+(Heroku — see [Deployment](#deployment); `render.yaml` is also in this
+repo and works the same way, just not the one currently live). Seeded
+with the 30-document corpus, extraction replayed from the frozen
+`spike/extraction_run_12.json` report at deploy time — no live API calls
+made to seed it. `/health` and `/metrics` are open; `/ui/review` requires
+a login (ask for the demo credentials, not published here since this
+README is public).
 
 ---
 
@@ -505,7 +507,7 @@ actually deployed.
 | Postgres | managed database resource, `fromDatabase` | Heroku Postgres add-on, `DATABASE_URL` config var |
 | migrate + seed | `preDeployCommand` on the `api` service | `release` phase, runs before new dynos start |
 | how connection string reaches the app | `APP_DATABASE_URL`, already the right scheme | bare `DATABASE_URL`, `postgres://` scheme — normalized to `postgresql+psycopg://` by `app/settings.py` (see below) |
-| launch | Render dashboard → New → Blueprint | `heroku apps:create` + `git push heroku main`, or Container Registry |
+| launch | Render dashboard → New → Blueprint | `heroku apps:create` + `git push heroku master` (this repo's default branch), or Container Registry |
 
 **The `DATABASE_URL` scheme fix**: Heroku Postgres only ever sets a bare
 `DATABASE_URL` (never `APP_-prefixed`), with a `postgres://` scheme that
@@ -533,6 +535,15 @@ it enqueues **no queue jobs**, specifically because a queued `extract` job
 would eventually be claimed by the live worker and would call the real
 API, spending money on data this script already wrote for free (see the
 script's own docstring for how that was found and fixed).
+
+**The live Heroku instance runs the `web` dyno only** — the `worker` dyno
+is defined in `heroku.yml` but deliberately left scaled to 0
+(`heroku ps:scale worker=0`, Heroku's default for any process type until
+you scale it up). The seeded 30 documents don't need it, since they never
+go through the queue; a worker is only needed if you register a genuinely
+new source (`POST /sources`) and want it actually processed. Scale it on
+with `heroku ps:scale worker=1 -a <app>` — it's a paid dyno, so check
+Heroku's billing page first if that matters to you.
 
 **Auth** ([`app/api/auth.py`](app/api/auth.py)): every `/review/*` and
 `/ui/review/*` endpoint — read and write alike — requires HTTP Basic Auth
@@ -571,23 +582,34 @@ Render:
 5. Put the resulting `https://<service>.onrender.com` URL in the Status
    section above and note it's on Render.
 
-Heroku:
+Heroku (steps actually run to bring up the live instance above):
 
-1. `heroku apps:create incident-intel` (or your own app name), from a
-   checkout of this repo with the Heroku CLI installed and `heroku
-   stack:set container -a incident-intel` set so `heroku.yml` is honored.
-2. `heroku addons:create heroku-postgresql:essential-0 -a incident-intel`
-   (or the current cheapest plan — Heroku Postgres has no permanent free
-   tier either) sets `DATABASE_URL` automatically; nothing to configure
-   by hand for the database.
-3. `heroku config:set -a incident-intel APP_REVIEW_BASIC_AUTH_USER=...
-   APP_REVIEW_BASIC_AUTH_PASS=... ANTHROPIC_API_KEY=...` (the API key
-   only needed for the worker to extract *new* registrations for real;
-   optionally the four `PRICE_*_USD_PER_MTOK` vars too).
-4. `git push heroku main`. The build uses `heroku.yml`; the `release`
-   phase migrates and seeds automatically — watch `heroku logs --tail -a
-   incident-intel` for `done: 30 document(s) ingested, ...`. Scale the
-   worker dyno on if it isn't already: `heroku ps:scale worker=1 -a
-   incident-intel`.
-5. Put the resulting `https://incident-intel-<hash>.herokuapp.com` URL in
-   the Status section above and note it's on Heroku.
+1. `heroku apps:create <name>` (app names are globally unique across all
+   Heroku users, so pick your own), then `heroku stack:set container -a
+   <name>` so `heroku.yml` is honored instead of buildpack auto-detection.
+2. `heroku addons:create heroku-postgresql:essential-0 -a <name>` (the
+   cheapest current plan, ~$5/month — Heroku Postgres has had no
+   permanent free tier since Nov 2022) sets `DATABASE_URL` automatically;
+   nothing to configure by hand for the database.
+3. `heroku config:set -a <name> APP_REVIEW_BASIC_AUTH_USER=...
+   APP_REVIEW_BASIC_AUTH_PASS=...` (pick your own demo credentials).
+   `ANTHROPIC_API_KEY` only if you want the worker to extract *new*
+   registrations for real — the seeded 30 documents never call it, so
+   it's fine to skip or leave a placeholder for now.
+4. `git push heroku master` — push whatever your local default branch is
+   named (this repo's is `master`, not `main`; Heroku only deploys the
+   branch you actually push, so match it to your own checkout). The build
+   uses `heroku.yml`; the `release` phase migrates and seeds
+   automatically — watch `heroku logs -a <name> --source app --dyno
+   release` for `done: 30 document(s) ingested, ...`.
+5. The `web` dyno starts automatically; `worker` stays at 0 instances
+   until you explicitly `heroku ps:scale worker=1 -a <name>` (a real,
+   ongoing paid cost — the live instance above deliberately leaves it at
+   0, since the seeded demo doesn't need it).
+
+One gotcha hit deploying this for real: `heroku.yml`'s `release.command`
+and `run.worker.command` must be YAML lists (`command:` then a `-` line),
+not bare strings — Heroku's manifest parser rejects the plain-string form
+outright, at push time, with a message naming exactly which two fields
+are wrong. Fixed in this repo's `heroku.yml`; worth knowing before you
+edit it further.
